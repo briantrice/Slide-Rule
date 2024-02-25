@@ -847,10 +847,8 @@ def transcribe(x0,y0,dx,dy,xT,yT):
         #(dx,dy) Width and Length of SOURCE chunk to transcribe
         #(xT,yT) Target corner of DESTINATION; where to in-plop (into stickerprint)
 
-        for x in range(0,dx):
-            for y in range(0,dy):
-                r, g, b = img.getpixel((x0+x,y0+y))
-                img2.putpixel((xT+x,yT+y),(r,g,b))
+        img_box = img.crop((x0, y0, x0 + dx, y0 + dy))
+        img2.paste(img_box, (xT, yT))
         '''
         Note to self: this is such a bad way to do this, instead of
         transcribing over literally thousands of pixels I should have
