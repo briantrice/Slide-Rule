@@ -31,20 +31,27 @@ DIR_DOWN = 'down'
 
 # ----------------------1. Setup----------------------------
 
-BACKGROUND_COLOR = 'white'
-CUT_COLOR = (0, 0, 255)  # color which indicates CUT (0,0,255 = blue)
+WHITE = 'white'
 BLACK = 'black'
+RGB_BLACK = (0, 0, 0)
+RGB_BLUE = (0, 0, 255)  # (0,0,255 = blue)
 RED = 'red'
+BG = WHITE
+"""background color white"""
+FG = BLACK
+"""foreground color black"""
+CUT_COLOR = RGB_BLUE  # color which indicates CUT
 
 oX = 100  # x margins
 oY = 100  # y margins
 total_width = 8000 + 2 * oX
 sliderule_height = 1600 * 2 + 3 * oY
 
-sliderule_img = Image.new('RGB', (total_width, sliderule_height), BACKGROUND_COLOR)
+sliderule_img = Image.new('RGB', (total_width, sliderule_height), BG)
 renderer = ImageDraw.Draw(sliderule_img)
 
-SH = 160  # scale height
+SH = 160
+"""scale height"""
 
 UPPER = 'upper'  # Lower alignment
 LOWER = 'lower'  # Upper Alignment
@@ -55,7 +62,7 @@ li = round(total_width / 2 - SL / 2)  # left index offset from left edge
 STH = 70  # standard tick height
 STT = 4  # standard tick thickness
 
-# tick height scalars
+# tick height size factors
 XS = 0.5
 SM = 0.85
 MED = 1
@@ -64,84 +71,87 @@ XL = 1.3
 
 FRONT_SIDE = 'front'
 REAR_SIDE = 'rear'
-current_side = None
-current_y0 = 0  # upper level starting point for various objects (ignore me)
 # y_off = 100  # No longer global
 
 
-BLACK_COLOR_RGB = (0, 0, 0)
-
 # ----------------------2. Fundamental Functions----------------------------
+
 
 def draw_tick(y_off, x, height, thickness, al):
     """
     Places an individual tick
     :param y_off: y pos
     :param x: offset of left edge from *left index*
-    :param height: height of tickmark (measured from baseline or upperline)
+    :param height: height of tickmark (measured from baseline or upper line)
     :param thickness: thickness of tickmark (measured from left edge)
-    :param al: alignment
+    :param str al: alignment (UPPER or LOWER)
     """
 
-    global current_y0, sliderule_img
-    for T in range(0, thickness):
-        for H in range(0, height + 1):
-            if al == UPPER:
-                current_y0 = H
-            if al == LOWER:
-                current_y0 = SH - 1 - H
-            sliderule_img.putpixel((x + li + T - 2, current_y0 + y_off), BLACK_COLOR_RGB)
-    if False:  # Replacement WIP
-        global renderer
-        renderer.rectangle(((x + li - 2, current_y0 - y_off), (x + li + thickness - 2, current_y0 + y_off)), fill=BLACK)
+    global renderer
+    x0 = x + li - 2
+    y0 = y1 = y_off
+    if al == UPPER:
+        y0 = y_off
+        y1 = y_off + height
+    if al == LOWER:
+        y0 = y_off + SH - height
+        y1 = y_off + SH
+    renderer.rectangle((x0, y0, x0 + thickness, y1), fill=FG)
 
 
-def pat(y_off, sc, S, iI, iF, a, b, e, a0, b0, shf, al):
+X_INDEX_SCALE = 100
+X_LEFT_INDEX = X_INDEX_SCALE
+X_RIGHT_INDEX = X_INDEX_SCALE * 10 + 1
+
+
+def pat(y_off, sc, tick_height_scaler, iI, iF, a, b, is_exclusion, a0, b0, al, shift_adj=0):
     """
     Place ticks in a pattern
     a+bN (N ∈ Z) defines the patterning (which ticks to place)
     a0+b0N (N ∈ Z) defines the exclusion patterning (which ticks not to place)
 
     :param y_off: y pos
-    :param str sc: scale key
-    :param S: height modifier (input height scalar like xs, sm, med, lg)
-    :param iI: starting index point (100 = left index)
-    :param iF: ending index point (1001 = right index)
+    :param Scale sc:
+    :param float tick_height_scaler: height modifier (input height scalar like xs, sm, med, lg)
+    :param iI: starting index point (100 = left index as X_LEFT_INDEX)
+    :param iF: ending index point (1001 = right index as X_RIGHT_INDEX)
     :param a: offset from iI
     :param b: multiple value
-    :param e: exclusion pattern? 1 = yes, 0 = no
+    :param is_exclusion: exclusion pattern? 1 = yes, 0 = no
     :param a0: offset from iI
     :param b0: multiple value; put placeholders like 1 & 1 in here if e == 0
-    :param shf: scale shift amount
-    :param al: alignment
+    :param str al: alignment (UPPER or LOWER)
+    :param float shift_adj: how much to adjust the shift from the scale
     """
 
+    h = round(tick_height_scaler * STH)
     for x in range(iI, iF):
-        if e == 1:
+        x_scaled = sc.scale_to(x / X_INDEX_SCALE, shift_adj=shift_adj)
+        if is_exclusion == 1:
             if x % b - a == 0 and x % b0 - a0 != 0:
-                draw_tick(y_off, shf + scaling_fn(sc, x / 100), round(S * STH), STT, al)
-        elif e == 0:
+                draw_tick(y_off, x_scaled, h, STT, al)
+        elif is_exclusion == 0:
             if x % b - a == 0:
-                draw_tick(y_off, shf + scaling_fn(sc, x / 100), round(S * STH), STT, al)
+                draw_tick(y_off, x_scaled, h, STT, al)
 
 
 def font_for_family(font_style, font_size):
     """
-    :param int font_style: font style (normal == 0 , italic == 1)
+    :param int font_style: font style (REG or ITALIC)
     :param int font_size: font size
     :return: FreeTypeFont
     """
-    font_name = "cmunit.ttf" if font_style == 1 else "cmuntt.ttf"
+    font_name = "cmunit.ttf" if font_style == ITALIC else "cmuntt.ttf"
     # font_name = "cmunrm.ttf" # mythical latex edition
     return ImageFont.truetype(font_name, font_size)
 
 
-def get_size(symbol, font_size, font_style=0):
+def get_size(symbol, font_size, font_style=REG):
     """
     Gets the size dimensions (width, height) of the input text
     :param str symbol: the text
     :param int font_size: font size
-    :param int font_style: font style (normal == 0 , italic == 1)
+    :param int font_style: font style (REG or ITALIC)
     :return: Tuple[int, int]
     """
     font = font_for_family(font_style, font_size)
@@ -158,7 +168,7 @@ def get_width(s, font_size, font_style):
     Gets the width of the input s
     :param s: symbol (string)
     :param int font_size: font size
-    :param int font_style: font style (normal == 0 , italic == 1)
+    :param int font_style: font style (REG or ITALIC)
     :return: int
     """
     w, h = get_size(s, font_size, font_style)
@@ -169,44 +179,45 @@ def get_height(s, font_size, font_style):
     """
     :param str s: symbol
     :param int font_size: font size
-    :param int font_style: font style (normal == 0 , italic == 1)
+    :param int font_style: font style (REG or ITALIC)
     :return: int
     """
     w, h = get_size(s, font_size, font_style)
     return h
 
 
-def draw_symbol(color, y_off, s, x, y, font_size, font_style, al):
+def draw_symbol(color, y_off, symbol, x, y, font_size, font_style, al):
     """
     :param str color: color name that PIL recognizes
     :param y_off: y pos
-    :param str|int s: symbol
+    :param str|int symbol: content (text or number)
     :param x: offset of centerline from left index (li)
-    :param y: offset of base from baseline (LOWER) or top from upperline (UPPER)
+    :param y: offset of base from baseline (LOWER) or top from upper line (UPPER)
     :param int font_size: font size
-    :param int font_style: font style
-    :param str al: alignment
+    :param int font_style: font style (REG or ITALIC)
+    :param str al: alignment (UPPER or LOWER)
     """
 
     if color == 'green':  # Override PIL for green for slide rule symbol conventions
         color = '#228B1E'
 
     font = font_for_family(font_style, font_size)
-    w, h = get_size(s, font_size, font_style)
+    w, h = get_size(symbol, font_size, font_style)
 
-    global current_y0, renderer
+    global renderer
+    y0 = y_off
     if al == UPPER:
-        current_y0 = y
+        y0 += y
     if al == LOWER:
-        current_y0 = SH - 1 - y - h * 1.2
-        # current_y0 = SH - 29 - y - h * 1.2  # FIXME hack to lower-align text better
-    renderer.text((x + li - round(w / 2) + round(STT / 2), current_y0 + y_off), str(s), font=font, fill=color)
+        y0 += SH - 1 - y - h * 1.2
+        y0 -= 16  # FIXME hack to lower-align text better
+    renderer.text((x + li - round(w / 2) + round(STT / 2), y0), str(symbol), font=font, fill=color)
 
 
 def extend(image, y, direction, A):
     """
     Used to create bleed for sticker cutouts
-    :param image: e.g. img, img2, etc.
+    :param Image.Image image: e.g. img, img2, etc.
     :param int y: y pixel row to duplicate
     :param str direction: direction ('up','down')
     :param int A: Amplitude (# of pixels to extend)
@@ -214,435 +225,537 @@ def extend(image, y, direction, A):
 
     for x in range(0, total_width):
         r, g, b = image.getpixel((x, y))
+        bleed_color = (r, g, b)
 
         if direction == DIR_UP:
             for yi in range(y - A, y):
-                image.putpixel((x, yi), (r, g, b))
+                image.putpixel((x, yi), bleed_color)
 
-        if direction == DIR_DOWN:
+        elif direction == DIR_DOWN:
             for yi in range(y, y + A):
-                image.putpixel((x, yi), (r, g, b))
+                image.putpixel((x, yi), bleed_color)
 
 
 # ----------------------3. Scale Generating Function----------------------------
 
+
+DIGITS = 10
+
+
+def scale_linear(x):
+    return math.log10(x)
+
+
+def scale_square(x):
+    return math.log10(x) / 2
+
+
+def scale_sqrt(x):
+    return math.log10(x / DIGITS) * 2
+
+
+def scale_sqrt_ten(x):
+    return math.log10(x) * 2  # TODO
+
+
+def scale_cube(x):
+    return math.log10(x) / 3
+
+
+def scale_inverse_linear(x):
+    return 1 - math.log10(x)
+
+
+def scale_inverse_linear_pi_folded(x):
+    return 1 - math.log10(math.pi) - math.log10(x)
+
+
+def scale_log(x):
+    return x / DIGITS
+
+
+def scale_sin(x):
+    return math.log10(DIGITS * math.sin(math.radians(x)))
+
+
+def scale_tan(x):
+    return math.log10(DIGITS * math.tan(math.radians(x)))
+
+
+def scale_tan1(x):
+    return None  # TODO
+
+
+def scale_tan2(x):
+    return None  # TODO
+
+
+def scale_sin_tan(x):
+    return math.log10(DIGITS * DIGITS * (math.sin(math.radians(x)) + math.tan(math.radians(x))) / 2)
+
+
+def scale_pythagorean(x):
+    return math.log10(math.sqrt(1 - x ** 2))
+
+
+def scale_log_log1(x):
+    return None  # TODO
+
+
+def scale_log_log2(x):
+    return None  # TODO
+
+
+def scale_log_log3(x):
+    return None  # TODO
+
+
+def angle_opp(x):
+    """The opposite angle in degrees across a right triangle."""
+    return 90 - x
+
+
+class Scale:
+
+    def __init__(self, left_sym: str, right_sym: str, gen_fn: callable, shift: float = 0, col=FG, key=None):
+        self.left_sym = left_sym
+        """left scale symbol"""
+        self.right_sym = right_sym
+        """right scale symbol"""
+        self.gen_fn = gen_fn
+        """generating function (producing a fraction of output width)"""
+        self.shift = shift
+        """scale shift from left index (as a fraction of output width)"""
+        self.col = col
+        """symbol color"""
+        self.key = key or left_sym
+
+    def scale_fraction(self, x, shift_adj=0):
+        """
+        Generating Function for the Scales
+        :param Number x:
+        :param Number shift_adj:
+        :return: int
+        """
+        return self.shift + shift_adj + self.gen_fn(x)
+
+    def scale_to(self, x, shift_adj=0, scale_width=SL):
+        """
+        Generating Function for the Scales
+        :param Number x:
+        :param Number shift_adj:
+        :param int scale_width:
+        :return: int
+        """
+        return round(scale_width * self.scale_fraction(x, shift_adj=shift_adj))
+
+
+SCALE_CONFIGS: dict[str, Scale] = {
+    'A': Scale('A', 'x²', scale_square),
+    'B': Scale('B', 'x²', scale_square),
+    'C': Scale('C', 'x', scale_linear),
+    'D': Scale('D', 'x', scale_linear),
+    'K': Scale('K', 'x³', scale_cube),
+    'R1': Scale('R', '√x', scale_sqrt, key='R1'),
+    'R2': Scale('R', '√x', scale_sqrt, shift=-1, key='R2'),
+    'CI': Scale('CI', '1/x', scale_inverse_linear, col=RED),
+    'DI': Scale('DI', '1/x', scale_inverse_linear, col=RED),
+    'CF': Scale('CF', 'πx', scale_linear, shift=1 - math.log10(math.pi)),
+    'DF': Scale('DF', 'πx', scale_linear, shift=1 - math.log10(math.pi)),
+    'CIF': Scale('CIF', '1/πx', scale_inverse_linear_pi_folded, col=RED),
+    'L': Scale('L', 'log x', scale_log),
+    'S': Scale('S', 'sin x', scale_sin),
+    'T': Scale('T', 'tan x', scale_tan),
+    'T1': Scale('T₁', 'tan θ > 45°', scale_tan1, key='T1'),
+    'T2': Scale('T₂', 'tan θ < 45°', scale_tan2, key='T2'),
+    'ST': Scale('ST', 'θ<5.7°', scale_sin_tan),
+    'P': Scale('P', '√1-x²', scale_pythagorean),
+    'LL1': Scale('LL₁', '√10x', scale_log_log1),
+    'LL2': Scale('LL₂', '√10x', scale_log_log1),
+    'W1': Scale('W₁', '√10x', scale_sqrt_ten),
+    'W2': Scale('W₂', '√10x', scale_sqrt_ten),
+}
+
+
+class GaugeMark:
+    def __init__(self, sym, value, comment=None):
+        self.sym = sym
+        self.value = value
+        self.comment = comment
+
+
+GAUGE_MARKS: dict[str, GaugeMark] = {
+    'e': GaugeMark('e', math.e, comment='base of natural logarithms'),
+    'pi': GaugeMark('π', math.pi, comment='ratio of circle circumference to diameter'),
+    'R': GaugeMark('R', 180/math.pi, comment='degrees per radian'),
+    'rho': GaugeMark('ρ', math.pi/180, comment='radians per degree'),
+    'rho_prime': GaugeMark('ρ′', 60 * math.pi/180, comment='radians per minute'),
+    'rho_double_prime': GaugeMark('ρ″', 60 * 60 * math.pi/180, comment='radians per second'),
+    'M': GaugeMark('M', 1/math.pi, comment='reciprocal of π'),
+    'N': GaugeMark('N', 1.341022, comment='mechanical horsepower per kW'),
+    'L': GaugeMark('L', 1/math.log10(math.e), comment='ratio of natural log to log base 10'),
+    'c': GaugeMark('c', math.pow(10, 1/3), comment='cube root of 10'),
+}
+
+
+def draw_gauge_mark(y_off, gm_key, sc, font_size, al):
+    """
+    :param int y_off: y pos
+    :param Scale sc:
+    :param int font_size: font size
+    :param str al: alignment (UPPER or LOWER)
+    """
+    gm = GAUGE_MARKS[gm_key]
+    x = sc.scale_to(gm.value)
+    h = round(STH)
+    draw_tick(y_off, x, h, STT, al)
+    draw_symbol(FG, y_off, gm.sym, x, h, font_size, REG, al)
+
+
 def gen_scale(y_off, sc, al):
     """
     :param int y_off: y pos
-    :param str sc: scale; one of `SCALE_NAMES`
-    :param str al: alignment; one of `UPPER` or `LOWER`
+    :param Scale sc:
+    :param str al: alignment (UPPER or LOWER)
     """
-    # Scale Symbol Labels
-    shift = 0  # scale shift from left index
-    left_sym = ""  # left scale symbol
-    right_sym = ""  # right scale symbol
-    col = BLACK  # symbol color
-
-    if sc == 'A':
-        shift = 0
-        left_sym = 'A'
-        right_sym = 'x²'
-        col = BLACK
-    if sc == 'B':
-        shift = 0
-        left_sym = 'B'
-        right_sym = 'x²'
-        col = BLACK
-    if sc == 'C':
-        shift = 0
-        left_sym = 'C'
-        right_sym = 'x'
-        col = BLACK
-    if sc == 'D':
-        shift = 0
-        left_sym = 'D'
-        right_sym = 'x'
-        col = BLACK
-    if sc == 'K':
-        shift = 0
-        left_sym = 'K'
-        right_sym = 'x³'
-        col = BLACK
-    if sc == 'R1':
-        shift = 0
-        left_sym = 'R'
-        right_sym = '√x'
-        col = BLACK
-    if sc == 'R2':
-        shift = -SL
-        left_sym = 'R'
-        right_sym = '√x'
-        col = BLACK
-    if sc == 'CI':
-        shift = 0
-        left_sym = 'CI'
-        right_sym = '1/x'
-        col = RED
-    if sc == 'DI':
-        shift = 0
-        left_sym = 'DI'
-        right_sym = '1/x'
-        col = RED
-    if sc == 'CF':
-        shift = round(SL * (1 - math.log10(math.pi)))
-        left_sym = 'CF'
-        right_sym = 'πx'
-        col = BLACK
-    if sc == 'DF':
-        shift = round(SL * (1 - math.log10(math.pi)))
-        left_sym = 'DF'
-        right_sym = 'πx'
-        col = BLACK
-    if sc == 'CIF':
-        shift = 0
-        left_sym = 'CIF'
-        right_sym = '1/πx'
-        col = RED
-    if sc == 'L':
-        shift = 0
-        left_sym = 'L'
-        right_sym = 'log x'
-        col = BLACK
-    if sc == 'S':
-        shift = 0
-        left_sym = 'S'
-        right_sym = 'sin x'
-        col = BLACK
-    if sc == 'T':
-        shift = 0
-        left_sym = 'T'
-        right_sym = 'tan x'
-        col = BLACK
-    if sc == 'ST':
-        shift = 0
-        left_sym = 'ST'
-        right_sym = 'θ<5.7°'
-        col = BLACK
 
     # Place Index Symbols (Left and Right)
     font_size = 90
-    (w2, h2) = get_size(right_sym, font_size, REG)
-    draw_symbol(col, y_off, right_sym, 102 / 100 * SL + 0.5 * w2, (SH - h2) / 2, font_size, REG, al)
-    (w1, h1) = get_size(left_sym, font_size, REG)
-    draw_symbol(col, y_off, left_sym, -2 / 100 * SL - 0.5 * w1, (SH - h1) / 2, font_size, REG, al)
+    (w2, h2) = get_size(sc.right_sym, font_size, REG)
+    draw_symbol(sc.col, y_off, sc.right_sym, 102 / 100 * SL + 0.5 * w2, (SH - h2) / 2, font_size, REG, al)
+    (w1, h1) = get_size(sc.left_sym, font_size, REG)
+    draw_symbol(sc.col, y_off, sc.left_sym, -2 / 100 * SL - 0.5 * w1, (SH - h1) / 2, font_size, REG, al)
 
+    sc_key = sc.key
     # Exceptions / Special Symbols for R1, R2, S, and T
-    if sc == 'R1':
+    if sc_key == 'R1':
         if al == LOWER:
-            draw_symbol(BLACK, y_off, 1, -2 / 100 * SL + 0.5 * w1,
+            draw_symbol(FG, y_off, 1, -2 / 100 * SL + 0.5 * w1,
                         SH - 1.3 * ((SH - h1) / 2 + 0.75 * h1), 60, 0, al)
         if al == UPPER:
-            draw_symbol(BLACK, y_off, 1, -2 / 100 * SL + 0.5 * w1,
-                        (SH - get_height(left_sym, font_size, REG)) / 2 + 0.75 * h1, 60, 0, al)
-    if sc == 'R2':
+            draw_symbol(FG, y_off, 1, -2 / 100 * SL + 0.5 * w1,
+                        (SH - get_height(sc.left_sym, font_size, REG)) / 2 + 0.75 * h1, 60, 0, al)
+    if sc_key == 'R2':
         if al == LOWER:
-            draw_symbol(BLACK, y_off, 2, -2 / 100 * SL + 0.5 * w1,
+            draw_symbol(FG, y_off, 2, -2 / 100 * SL + 0.5 * w1,
                         SH - 1.3 * ((SH - h1) / 2 + 0.75 * h1), 60, 0, al)
         if al == UPPER:
-            draw_symbol(BLACK, y_off, 2, -2 / 100 * SL + 0.5 * w1,
+            draw_symbol(FG, y_off, 2, -2 / 100 * SL + 0.5 * w1,
                         (SH - h1) / 2 + 0.75 * h1, 60, 0, al)
-    if sc == 'S':
+    if sc_key == 'S':
         draw_symbol(RED, y_off, 'C', -2 / 100 * SL - 0.5 * w1 - get_width('_S', font_size, REG),
                     (SH - h2) / 2, font_size, REG, al)
-    if sc == 'T':
+    if sc_key == 'T':
         draw_symbol(RED, y_off, 'T', -2 / 100 * SL - 0.5 * w1 - get_width('_T', font_size, REG),
                     (SH - h2) / 2, font_size, REG, al)
 
     # Tick Placement (the bulk!)
-    if sc == "C" or sc == "D" or sc == "CI" or sc == "DI":
+    if sc_key == 'C' or sc_key == 'D' or sc_key == 'CI' or sc_key == 'DI':
 
         # Ticks
-        pat(y_off, sc, MED, 100, 1001, 0, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, XL, 100, 1001, 50, 100, 1, 150, 1000, 0, al)
-        pat(y_off, sc, SM, 100, 1001, 0, 10, 1, 150, 100, 0, al)
-        pat(y_off, sc, SM, 100, 200, 5, 10, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 100, 200, 0, 1, 1, 0, 5, 0, al)
-        pat(y_off, sc, XS, 200, 400, 0, 2, 1, 0, 10, 0, al)
-        pat(y_off, sc, XS, 400, 1001, 0, 5, 1, 0, 10, 0, al)
+        pat(y_off, sc, MED, 100, 1001, 0, 100, 0, 1, 1, al)
+        pat(y_off, sc, XL, 100, 1001, 50, 100, 1, 150, 1000, al)
+        pat(y_off, sc, SM, 100, 1001, 0, 10, 1, 150, 100, al)
+        pat(y_off, sc, SM, 100, 200, 5, 10, 0, 1, 1, al)
+        pat(y_off, sc, XS, 100, 200, 0, 1, 1, 0, 5, al)
+        pat(y_off, sc, XS, 200, 400, 0, 2, 1, 0, 10, al)
+        pat(y_off, sc, XS, 400, 1001, 0, 5, 1, 0, 10, al)
 
         # 1-10 Labels
         for x in range(1, 11):
             if x == 10:
-                draw_symbol(col, y_off, 1, scaling_fn(sc, x), STH, font_size, REG, al)
+                draw_symbol(sc.col, y_off, 1, sc.scale_to(x), STH, font_size, REG, al)
             else:
-                draw_symbol(col, y_off, x, scaling_fn(sc, x), STH, font_size, REG, al)
+                draw_symbol(sc.col, y_off, x, sc.scale_to(x), STH, font_size, REG, al)
 
         # 0.1-0.9 Labels
         for x in range(11, 20):
-            draw_symbol(col, y_off, x - 10, scaling_fn(sc, x / 10), round(STH * 0.85), 60, REG, al)
+            draw_symbol(sc.col, y_off, x - 10, sc.scale_to(x / 10), round(STH * 0.85), 60, REG, al)
 
         # Gauge Points
-        draw_tick(y_off, scaling_fn(sc, math.pi), round(STH), STT, al)
-        draw_symbol(col, y_off, 'π', scaling_fn(sc, math.pi), round(STH), font_size, REG, al)
+        draw_tick(y_off, sc.scale_to(math.pi), round(STH), STT, al)
+        draw_symbol(sc.col, y_off, 'π', sc.scale_to(math.pi), round(STH), font_size, REG, al)
 
-    if sc == "C" or sc == "D":
+    if sc_key == "C" or sc_key == "D":
         if y_off < 1600 + oY:
             # r Gauge Point
-            draw_tick(y_off, scaling_fn(sc, 18 / math.pi), round(STH), STT, al)
-            draw_symbol(BLACK, y_off, 'r', scaling_fn(sc, 18 / math.pi), round(STH), font_size, REG, al)
+            draw_tick(y_off, sc.scale_to(18 / math.pi), round(STH), STT, al)
+            draw_symbol(FG, y_off, 'r', sc.scale_to(18 / math.pi), round(STH), font_size, REG, al)
 
-    if sc == "A" or sc == "B":
+    if sc_key == "A" or sc_key == "B":
 
         # Ticks
-        pat(y_off, sc, MED, 100, 1001, 0, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, MED, 1000, 10001, 0, 1000, 0, 1, 1, 0, al)
-        pat(y_off, sc, SM, 100, 501, 0, 10, 1, 50, 100, 0, al)
-        pat(y_off, sc, SM, 1000, 5001, 0, 100, 1, 500, 1000, 0, al)
-        pat(y_off, sc, XL, 100, 1001, 50, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, XL, 1000, 10001, 500, 1000, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 100, 200, 0, 2, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 1000, 2000, 0, 20, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 200, 500, 5, 10, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 2000, 5000, 50, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 500, 1001, 0, 10, 1, 0, 50, 0, al)
-        pat(y_off, sc, XS, 5000, 10001, 0, 100, 1, 0, 500, 0, al)
+        pat(y_off, sc, MED, 100, 1001, 0, 100, 0, 1, 1, al)
+        pat(y_off, sc, MED, 1000, 10001, 0, 1000, 0, 1, 1, al)
+        pat(y_off, sc, SM, 100, 501, 0, 10, 1, 50, 100, al)
+        pat(y_off, sc, SM, 1000, 5001, 0, 100, 1, 500, 1000, al)
+        pat(y_off, sc, XL, 100, 1001, 50, 100, 0, 1, 1, al)
+        pat(y_off, sc, XL, 1000, 10001, 500, 1000, 0, 1, 1, al)
+        pat(y_off, sc, XS, 100, 200, 0, 2, 0, 1, 1, al)
+        pat(y_off, sc, XS, 1000, 2000, 0, 20, 0, 1, 1, al)
+        pat(y_off, sc, XS, 200, 500, 5, 10, 0, 1, 1, al)
+        pat(y_off, sc, XS, 2000, 5000, 50, 100, 0, 1, 1, al)
+        pat(y_off, sc, XS, 500, 1001, 0, 10, 1, 0, 50, al)
+        pat(y_off, sc, XS, 5000, 10001, 0, 100, 1, 0, 500, al)
 
         # 1-10 Labels
         for x in range(1, 11):
             if x == 10:
-                draw_symbol(BLACK, y_off, 1, scaling_fn(sc, x), STH, font_size, REG, al)
-                draw_symbol(BLACK, y_off, 1, scaling_fn(sc, x * 10), STH, font_size, REG, al)
+                draw_symbol(FG, y_off, 1, sc.scale_to(x), STH, font_size, REG, al)
+                draw_symbol(FG, y_off, 1, sc.scale_to(x * 10), STH, font_size, REG, al)
             else:
-                draw_symbol(BLACK, y_off, x, scaling_fn(sc, x), STH, font_size, REG, al)
-                draw_symbol(BLACK, y_off, x, scaling_fn(sc, x * 10), STH, font_size, REG, al)
+                draw_symbol(FG, y_off, x, sc.scale_to(x), STH, font_size, REG, al)
+                draw_symbol(FG, y_off, x, sc.scale_to(x * 10), STH, font_size, REG, al)
 
         # Gauge Points
-        draw_tick(y_off, scaling_fn(sc, math.pi), round(STH), STT, al)
-        draw_symbol(BLACK, y_off, 'π', scaling_fn(sc, math.pi), round(STH), font_size, REG, al)
+        draw_gauge_mark(y_off, 'pi', sc, font_size, al)
 
-    if sc == "K":
+    if sc_key == "K":
         for b in range(0, 3):
             # Ticks
-            pat(y_off, sc, MED, 100 * (10 ** b), 1000 * (10 ** b) + 1, 0, 100 * (10 ** b), 0, 1, 1, 0, al)
-            pat(y_off, sc, XL, 100 * (10 ** b), 600 * (10 ** b) + 1, 50 * (10 ** b), 100 * (10 ** b), 0, 1, 1, 0, al)
-            pat(y_off, sc, SM, 100 * (10 ** b), 300 * (10 ** b) + 1, 0, 10 * (10 ** b), 0, 1, 1, 0, al)
-            pat(y_off, sc, XS, 100 * (10 ** b), 300 * (10 ** b) + 1, 5 * (10 ** b), 10 * (10 ** b), 0, 1, 1, 0, al)
-            pat(y_off, sc, XS, 300 * (10 ** b), 600 * (10 ** b) + 1, 0, 10 * (10 ** b), 0, 1, 1, 0, al)
-            pat(y_off, sc, XS, 600 * (10 ** b), 1000 * (10 ** b) + 1, 0, 20 * (10 ** b), 0, 1, 1, 0, al)
+            ten_to_b = (10 ** b)
+            pat(y_off, sc, MED, 100 * ten_to_b, 1000 * ten_to_b + 1, 0, 100 * ten_to_b, 0, 1, 1, al)
+            pat(y_off, sc, XL, 100 * ten_to_b, 600 * ten_to_b + 1, 50 * ten_to_b, 100 * ten_to_b, 0, 1, 1, al)
+            pat(y_off, sc, SM, 100 * ten_to_b, 300 * ten_to_b + 1, 0, 10 * ten_to_b, 0, 1, 1, al)
+            pat(y_off, sc, XS, 100 * ten_to_b, 300 * ten_to_b + 1, 5 * ten_to_b, 10 * ten_to_b, 0, 1, 1, al)
+            pat(y_off, sc, XS, 300 * ten_to_b, 600 * ten_to_b + 1, 0, 10 * ten_to_b, 0, 1, 1, al)
+            pat(y_off, sc, XS, 600 * ten_to_b, 1000 * ten_to_b + 1, 0, 20 * ten_to_b, 0, 1, 1, al)
 
         # 1-10 Labels
         f = 75
         for x in range(1, 11):
             if x == 10:
-                draw_symbol(BLACK, y_off, 1, scaling_fn(sc, x), STH, f, 0, al)
-                draw_symbol(BLACK, y_off, 1, scaling_fn(sc, x * 10), STH, f, 0, al)
-                draw_symbol(BLACK, y_off, 1, scaling_fn(sc, x * 100), STH, f, 0, al)
+                draw_symbol(FG, y_off, 1, sc.scale_to(x), STH, f, 0, al)
+                draw_symbol(FG, y_off, 1, sc.scale_to(x * 10), STH, f, 0, al)
+                draw_symbol(FG, y_off, 1, sc.scale_to(x * 100), STH, f, 0, al)
             else:
-                draw_symbol(BLACK, y_off, x, scaling_fn(sc, x), STH, f, 0, al)
-                draw_symbol(BLACK, y_off, x, scaling_fn(sc, x * 10), STH, f, 0, al)
-                draw_symbol(BLACK, y_off, x, scaling_fn(sc, x * 100), STH, f, 0, al)
+                draw_symbol(FG, y_off, x, sc.scale_to(x), STH, f, 0, al)
+                draw_symbol(FG, y_off, x, sc.scale_to(x * 10), STH, f, 0, al)
+                draw_symbol(FG, y_off, x, sc.scale_to(x * 100), STH, f, 0, al)
 
-    if sc == 'R1':
+    if sc_key == 'R1':
 
         # Ticks
-        pat(y_off, sc, MED, 1000, 3200, 0, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, XL, 1000, 2000, 0, 50, 1, 0, 100, 0, al)
-        pat(y_off, sc, SM, 2000, 3200, 0, 50, 0, 0, 1000, 0, al)
-        pat(y_off, sc, SM, 1000, 2000, 0, 10, 1, 0, 50, 0, al)
-        pat(y_off, sc, XS, 1000, 2000, 5, 10, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 2000, 3180, 0, 10, 1, 0, 50, 0, al)
+        pat(y_off, sc, MED, 1000, 3200, 0, 100, 0, 1, 1, al)
+        pat(y_off, sc, XL, 1000, 2000, 0, 50, 1, 0, 100, al)
+        pat(y_off, sc, SM, 2000, 3200, 0, 50, 0, 0, 1000, al)
+        pat(y_off, sc, SM, 1000, 2000, 0, 10, 1, 0, 50, al)
+        pat(y_off, sc, XS, 1000, 2000, 5, 10, 0, 1, 1, al)
+        pat(y_off, sc, XS, 2000, 3180, 0, 10, 1, 0, 50, al)
 
         # 1-10 Labels
         for x in range(1, 4):
-            draw_symbol(BLACK, y_off, x, scaling_fn(sc, 10 * x), STH, font_size, REG, al)
+            draw_symbol(FG, y_off, x, sc.scale_to(10 * x), STH, font_size, REG, al)
 
         # 0.1-3.1 Labels
         for x in range(11, 20):
-            draw_symbol(BLACK, y_off, x - 10, scaling_fn(sc, x), STH, 60, 0, al)
+            draw_symbol(FG, y_off, x - 10, sc.scale_to(x), STH, 60, 0, al)
         for x in range(21, 30):
-            draw_symbol(BLACK, y_off, x - 20, scaling_fn(sc, x), STH, 60, 0, al)
-        draw_symbol(BLACK, y_off, 1, scaling_fn(sc, 31), STH, 60, 0, al)
+            draw_symbol(FG, y_off, x - 20, sc.scale_to(x), STH, 60, 0, al)
+        draw_symbol(FG, y_off, 1, sc.scale_to(31), STH, 60, 0, al)
 
         # draw_tick(y_off,sl,round(sth),stt)
 
-    if sc == 'R2':
+    if sc_key == 'R2':
 
         # Ticks
-        pat(y_off, sc, MED, 4000, 10001, 0, 1000, 0, 1, 1, shift, al)
-        pat(y_off, sc, XL, 5000, 10000, 500, 1000, 0, 1, 1, shift, al)
-        pat(y_off, sc, SM, 3200, 10000, 0, 100, 1, 0, 1000, shift, al)
-        pat(y_off, sc, SM, 3200, 5000, 0, 50, 0, 1, 1, shift, al)
-        pat(y_off, sc, XS, 3160, 5000, 0, 10, 1, 0, 50, shift, al)
-        pat(y_off, sc, XS, 5000, 10000, 0, 20, 1, 0, 100, shift, al)
+        pat(y_off, sc, MED, 4000, 10001, 0, 1000, 0, 1, 1, al)
+        pat(y_off, sc, XL, 5000, 10000, 500, 1000, 0, 1, 1, al)
+        pat(y_off, sc, SM, 3200, 10000, 0, 100, 1, 0, 1000, al)
+        pat(y_off, sc, SM, 3200, 5000, 0, 50, 0, 1, 1, al)
+        pat(y_off, sc, XS, 3160, 5000, 0, 10, 1, 0, 50, al)
+        pat(y_off, sc, XS, 5000, 10000, 0, 20, 1, 0, 100, al)
 
         # 1-10 Labels
         for x in range(4, 10):
-            draw_symbol(BLACK, y_off, x, scaling_fn(sc, 10 * x) + shift, STH, font_size, REG, al)
-        draw_symbol(BLACK, y_off, 1, SL, STH, font_size, REG, al)
+            draw_symbol(FG, y_off, x, sc.scale_to(10 * x), STH, font_size, REG, al)
+        draw_symbol(FG, y_off, 1, SL, STH, font_size, REG, al)
 
         # 0.1-3.1 Labels
         for x in range(32, 40):
-            draw_symbol(BLACK, y_off, x % 10, scaling_fn(sc, x) + shift, STH, 60, REG, al)
+            draw_symbol(FG, y_off, x % 10, sc.scale_to(x), STH, 60, REG, al)
         for x in range(41, 50):
-            draw_symbol(BLACK, y_off, x % 10, scaling_fn(sc, x) + shift, STH, 60, REG, al)
+            draw_symbol(FG, y_off, x % 10, sc.scale_to(x), STH, 60, REG, al)
 
-    if sc == "CF" or sc == "DF":
+    if sc_key == 'CF' or sc_key == 'DF':
 
         # Ticks
-        pat(y_off, sc, MED, 100, 301, 0, 100, 0, 1, 1, shift, al)
-        pat(y_off, sc, MED, 400, 1001, 0, 100, 0, 1, 1, -1 * SL + shift, al)
-        pat(y_off, sc, XL, 200, 301, 50, 100, 0, 1, 1, shift, al)
-        pat(y_off, sc, SM, 100, 201, 0, 5, 0, 1, 1, shift, al)
-        pat(y_off, sc, SM, 200, 311, 0, 10, 0, 1, 1, shift, al)
-        pat(y_off, sc, XL, 320, 1001, 50, 100, 0, 150, 1000, -1 * SL + shift, al)
-        pat(y_off, sc, SM, 320, 1001, 0, 10, 1, 150, 100, -1 * SL + shift, al)
-        pat(y_off, sc, XS, 100, 201, 0, 1, 1, 0, 5, shift, al)
-        pat(y_off, sc, XS, 200, 314, 0, 2, 1, 0, 10, shift, al)
-        pat(y_off, sc, XS, 316, 401, 0, 2, 1, 0, 10, -1 * SL + shift, al)
-        pat(y_off, sc, XS, 400, 1001, 0, 5, 1, 0, 10, -1 * SL + shift, al)
+        pat(y_off, sc, MED, 100, 301, 0, 100, 0, 1, 1, al)
+        pat(y_off, sc, MED, 400, 1001, 0, 100, 0, 1, 1, al, shift_adj=-1)
+        pat(y_off, sc, XL, 200, 301, 50, 100, 0, 1, 1, al)
+        pat(y_off, sc, SM, 100, 201, 0, 5, 0, 1, 1, al)
+        pat(y_off, sc, SM, 200, 311, 0, 10, 0, 1, 1, al)
+        pat(y_off, sc, XL, 320, 1001, 50, 100, 0, 150, 1000, al, shift_adj=-1)
+        pat(y_off, sc, SM, 320, 1001, 0, 10, 1, 150, 100, al, shift_adj=-1)
+        pat(y_off, sc, XS, 100, 201, 0, 1, 1, 0, 5, al)
+        pat(y_off, sc, XS, 200, 314, 0, 2, 1, 0, 10, al)
+        pat(y_off, sc, XS, 316, 401, 0, 2, 1, 0, 10, al, shift_adj=-1)
+        pat(y_off, sc, XS, 400, 1001, 0, 5, 1, 0, 10, al, shift_adj=-1)
 
         # 1-10 Labels
         for x in range(1, 4):
-            draw_symbol(BLACK, y_off, x, scaling_fn(sc, x) + shift, STH, font_size, REG, al)
+            draw_symbol(FG, y_off, x, sc.scale_to(x), STH, font_size, REG, al)
         for x in range(4, 10):
-            draw_symbol(BLACK, y_off, x, scaling_fn(sc, x) - SL + shift, STH, font_size, REG, al)
+            draw_symbol(FG, y_off, x, sc.scale_to(x) - SL, STH, font_size, REG, al)
 
         # 0.1-0.9 Labels
         for x in range(11, 20):
-            draw_symbol(BLACK, y_off, x - 10, scaling_fn(sc, x / 10) + shift, round(STH * 0.85), 60, REG, al)
+            draw_symbol(FG, y_off, x - 10, sc.scale_to(x / 10), round(STH * 0.85), 60, REG, al)
 
-            # Gauge Points
-        draw_tick(y_off, scaling_fn(sc, math.pi) + shift, round(STH), STT, al)
-        draw_symbol(BLACK, y_off, 'π', scaling_fn(sc, math.pi) + shift, round(STH), font_size, REG, al)
-        draw_tick(y_off, scaling_fn(sc, math.pi) - SL + shift, round(STH), STT, al)
-        draw_symbol(BLACK, y_off, 'π', scaling_fn(sc, math.pi) - SL + shift, round(STH), font_size, REG, al)
+        # Gauge Points
+        draw_tick(y_off, sc.scale_to(math.pi), round(STH), STT, al)
+        draw_symbol(FG, y_off, 'π', sc.scale_to(math.pi), round(STH), font_size, REG, al)
+        draw_tick(y_off, sc.scale_to(math.pi) - SL, round(STH), STT, al)
+        draw_symbol(FG, y_off, 'π', sc.scale_to(math.pi) - SL, round(STH), font_size, REG, al)
 
-    if sc == 'CIF':
+    if sc_key == 'CIF':
 
         # Ticks
-        pat(y_off, sc, MED, 100, 301, 0, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, MED, 400, 1001, 0, 100, 0, 1, 1, SL, al)
+        pat(y_off, sc, MED, 100, 301, 0, 100, 0, 1, 1, al)
+        pat(y_off, sc, MED, 400, 1001, 0, 100, 0, 1, 1, al, shift_adj=1)
 
-        pat(y_off, sc, XL, 200, 301, 50, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, SM, 100, 201, 0, 5, 0, 1, 1, 0, al)
-        pat(y_off, sc, SM, 200, 321, 0, 10, 0, 1, 1, 0, al)
-        pat(y_off, sc, XL, 320, 1001, 50, 100, 0, 150, 1000, SL, al)
-        pat(y_off, sc, SM, 310, 1001, 0, 10, 1, 150, 100, SL, al)
-        pat(y_off, sc, XS, 100, 201, 0, 1, 1, 0, 5, 0, al)
-        pat(y_off, sc, XS, 200, 321, 0, 2, 1, 0, 10, 0, al)
-        pat(y_off, sc, XS, 310, 401, 0, 2, 1, 0, 10, SL, al)
-        pat(y_off, sc, XS, 400, 1001, 0, 5, 1, 0, 10, SL, al)
+        pat(y_off, sc, XL, 200, 301, 50, 100, 0, 1, 1, al)
+        pat(y_off, sc, SM, 100, 201, 0, 5, 0, 1, 1, al)
+        pat(y_off, sc, SM, 200, 321, 0, 10, 0, 1, 1, al)
+        pat(y_off, sc, XL, 320, 1001, 50, 100, 0, 150, 1000, al, shift_adj=1)
+        pat(y_off, sc, SM, 310, 1001, 0, 10, 1, 150, 100, al, shift_adj=1)
+        pat(y_off, sc, XS, 100, 201, 0, 1, 1, 0, 5, al)
+        pat(y_off, sc, XS, 200, 321, 0, 2, 1, 0, 10, al)
+        pat(y_off, sc, XS, 310, 401, 0, 2, 1, 0, 10, al, shift_adj=1)
+        pat(y_off, sc, XS, 400, 1001, 0, 5, 1, 0, 10, al, shift_adj=1)
 
         # 1-10 Labels
         for x in range(4, 10):
-            draw_symbol(RED, y_off, x, scaling_fn(sc, x) + SL, STH, font_size, REG, al)
+            draw_symbol(RED, y_off, x, sc.scale_to(x) + SL, STH, font_size, REG, al)
         for x in range(1, 4):
-            draw_symbol(RED, y_off, x, scaling_fn(sc, x), STH, font_size, REG, al)
+            draw_symbol(RED, y_off, x, sc.scale_to(x), STH, font_size, REG, al)
 
         # 0.1-0.9 Labels
         for x in range(11, 20):
-            draw_symbol(RED, y_off, x - 10, scaling_fn(sc, x / 10), round(STH * 0.85), 60, REG, al)
+            draw_symbol(RED, y_off, x - 10, sc.scale_to(x / 10), round(STH * 0.85), 60, REG, al)
 
-    if sc == 'L':
+    if sc_key == 'L':
 
         # Ticks
-        pat(y_off, sc, MED, 0, 1001, 0, 10, 1, 50, 50, 0, al)
-        pat(y_off, sc, XL, 1, 1001, 50, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, MXL, 0, 1001, 0, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 1, 1001, 0, 2, 1, 0, 50, 0, al)
+        pat(y_off, sc, MED, 0, 1001, 0, 10, 1, 50, 50, al)
+        pat(y_off, sc, XL, 1, 1001, 50, 100, 0, 1, 1, al)
+        pat(y_off, sc, MXL, 0, 1001, 0, 100, 0, 1, 1, al)
+        pat(y_off, sc, XS, 1, 1001, 0, 2, 1, 0, 50, al)
 
         # Labels
         for x in range(0, 11):
             if x == 0:
-                draw_symbol(BLACK, y_off, 0, scaling_fn(sc, x), STH, font_size, REG, al)
+                draw_symbol(FG, y_off, 0, sc.scale_to(x), STH, font_size, REG, al)
             if x == 10:
-                draw_symbol(BLACK, y_off, 1, scaling_fn(sc, x), STH, font_size, REG, al)
+                draw_symbol(FG, y_off, 1, sc.scale_to(x), STH, font_size, REG, al)
             elif x in range(1, 10):
-                draw_symbol(BLACK, y_off, '.' + str(x), scaling_fn(sc, x), STH, font_size, REG, al)
+                draw_symbol(FG, y_off, '.' + str(x), sc.scale_to(x), STH, font_size, REG, al)
 
-    if sc == 'S':
+    if sc_key == 'S':
 
         # Ticks
-        pat(y_off, sc, XL, 1000, 7001, 0, 1000, 0, 1, 1, 0, al)
-        pat(y_off, sc, MED, 7000, 10001, 0, 1000, 0, 1, 1, 0, al)
-        pat(y_off, sc, XL, 600, 2001, 0, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, SM, 600, 2000, 50, 100, 1, 0, 100, 0, al)
-        pat(y_off, sc, XL, 2000, 6000, 500, 1000, 1, 0, 1000, 0, al)
-        pat(y_off, sc, SM, 2000, 6000, 0, 100, 1, 0, 500, 0, al)
-        pat(y_off, sc, XS, 570, 2000, 0, 10, 1, 0, 50, 0, al)
-        pat(y_off, sc, XS, 2000, 3000, 0, 20, 1, 0, 100, 0, al)
-        pat(y_off, sc, XS, 3000, 6000, 0, 50, 1, 0, 100, 0, al)
-        pat(y_off, sc, SM, 6000, 8501, 500, 1000, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 6000, 8000, 0, 100, 0, 1, 1, 0, al)
+        pat(y_off, sc, XL, 1000, 7001, 0, 1000, 0, 1, 1, al)
+        pat(y_off, sc, MED, 7000, 10001, 0, 1000, 0, 1, 1, al)
+        pat(y_off, sc, XL, 600, 2001, 0, 100, 0, 1, 1, al)
+        pat(y_off, sc, SM, 600, 2000, 50, 100, 1, 0, 100, al)
+        pat(y_off, sc, XL, 2000, 6000, 500, 1000, 1, 0, 1000, al)
+        pat(y_off, sc, SM, 2000, 6000, 0, 100, 1, 0, 500, al)
+        pat(y_off, sc, XS, 570, 2000, 0, 10, 1, 0, 50, al)
+        pat(y_off, sc, XS, 2000, 3000, 0, 20, 1, 0, 100, al)
+        pat(y_off, sc, XS, 3000, 6000, 0, 50, 1, 0, 100, al)
+        pat(y_off, sc, SM, 6000, 8501, 500, 1000, 0, 1, 1, al)
+        pat(y_off, sc, XS, 6000, 8000, 0, 100, 0, 1, 1, al)
 
         # Degree Labels
 
         for x in range(6, 16):
-            width50italic = get_width(x, 50, ITALIC)
-            draw_symbol(BLACK, y_off, str(x), scaling_fn(sc, x) + 1.2 / 2 * width50italic, STH, 50, REG, al)
-            draw_symbol(RED, y_off, str(font_size - x), scaling_fn(sc, x) - 1.4 / 2 * get_width(90 - x, 50, ITALIC), STH, 50, ITALIC, al)
+            xi = angle_opp(x)
+            draw_symbol(FG, y_off, str(x), sc.scale_to(x) + 1.2 / 2 * get_width(x, 50, ITALIC), STH, 50, REG, al)
+            draw_symbol(RED, y_off, str(xi), sc.scale_to(x) - 1.4 / 2 * get_width(xi, 50, ITALIC),
+                        STH, 50, ITALIC, al)
 
         for x in range(16, 20):
-            draw_symbol(BLACK, y_off, str(x), scaling_fn(sc, x) + 1.2 / 2 * get_width(x, 55, ITALIC), STH, 55, REG, al)
+            draw_symbol(FG, y_off, str(x), sc.scale_to(x) + 1.2 / 2 * get_width(x, 55, ITALIC), STH, 55, REG, al)
 
         for x in range(20, 71, 5):
             if (x % 5 == 0 and x < 40) or x % 10 == 0:
-                draw_symbol(BLACK, y_off, str(x), scaling_fn(sc, x) + 1.2 / 2 * get_width(x, 55, ITALIC), STH, 55, REG, al)
+                draw_symbol(FG, y_off, str(x), sc.scale_to(x) + 1.2 / 2 * get_width(x, 55, ITALIC), STH, 55, REG,
+                            al)
                 if x != 20:
-                    if font_size - x != 40:
-                        draw_symbol(RED, y_off, str(font_size - x), scaling_fn(sc, x) - 1.4 / 2 * get_width(90 - x, 55, ITALIC), STH, 55, ITALIC, al)
-                    if font_size - x == 40:
-                        draw_symbol(RED, y_off + 11, str(40), scaling_fn(sc, x) - 1.4 / 2 * get_width(90 - x, 55, ITALIC), STH, 55, ITALIC, al)
+                    xi = angle_opp(x)
+                    if xi != 40:
+                        draw_symbol(RED, y_off, str(xi),
+                                    sc.scale_to(x) - 1.4 / 2 * get_width(xi, 55, ITALIC), STH, 55, ITALIC, al)
+                    if xi == 40:
+                        draw_symbol(RED, y_off + 11, str(40),
+                                    sc.scale_to(x) - 1.4 / 2 * get_width(xi, 55, ITALIC), STH, 55, ITALIC, al)
 
-        draw_symbol(BLACK, y_off, font_size, SL, STH, 60, 0, al)
+        draw_symbol(FG, y_off, font_size, SL, STH, 60, 0, al)
 
-    if sc == 'T':
+    if sc_key == 'T':
 
         # Ticks
-        pat(y_off, sc, XL, 600, 2501, 0, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, XL, 600, 1001, 50, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, XL, 2500, 4501, 0, 500, 0, 1, 1, 0, al)
-        pat(y_off, sc, MED, 2500, 4501, 0, 100, 0, 1, 1, 0, al)
+        pat(y_off, sc, XL, 600, 2501, 0, 100, 0, 1, 1, al)
+        pat(y_off, sc, XL, 600, 1001, 50, 100, 0, 1, 1, al)
+        pat(y_off, sc, XL, 2500, 4501, 0, 500, 0, 1, 1, al)
+        pat(y_off, sc, MED, 2500, 4501, 0, 100, 0, 1, 1, al)
         draw_tick(y_off, SL, round(STH), STT, al)
-        pat(y_off, sc, MED, 600, 951, 50, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, SM, 570, 1001, 0, 10, 1, 0, 50, 0, al)
-        pat(y_off, sc, SM, 1000, 2500, 50, 100, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 570, 1001, 5, 10, 1, 0, 10, 0, al)
-        pat(y_off, sc, XS, 1000, 2500, 0, 10, 1, 0, 50, 0, al)
-        pat(y_off, sc, XS, 2500, 4501, 0, 20, 1, 0, 100, 0, al)
+        pat(y_off, sc, MED, 600, 951, 50, 100, 0, 1, 1, al)
+        pat(y_off, sc, SM, 570, 1001, 0, 10, 1, 0, 50, al)
+        pat(y_off, sc, SM, 1000, 2500, 50, 100, 0, 1, 1, al)
+        pat(y_off, sc, XS, 570, 1001, 5, 10, 1, 0, 10, al)
+        pat(y_off, sc, XS, 1000, 2500, 0, 10, 1, 0, 50, al)
+        pat(y_off, sc, XS, 2500, 4501, 0, 20, 1, 0, 100, al)
 
         # Degree Labels
-        f = 1.1
+        f = 1.1 * STH
         for x in range(6, 16):
-            draw_symbol(BLACK, y_off, str(x), scaling_fn(sc, x) + 1.2 / 2 * get_width(x, 50, ITALIC), f * STH, 50, REG, al)
-            draw_symbol(RED, y_off, str(font_size - x), scaling_fn(sc, x) - 1.4 / 2 * get_width(90 - x, 50, ITALIC), f * STH, 50, ITALIC, al)
+            draw_symbol(FG, y_off, str(x), sc.scale_to(x) + 1.2 / 2 * get_width(x, 50, ITALIC), f, 50, REG,
+                        al)
+            xi = angle_opp(x)
+            draw_symbol(RED, y_off, str(xi), sc.scale_to(x) - 1.4 / 2 * get_width(xi, 50, ITALIC),
+                        f, 50, ITALIC, al)
 
         for x in range(16, 21):
-            draw_symbol(BLACK, y_off, str(x), scaling_fn(sc, x) + 1.2 / 2 * get_width(x, 55, ITALIC), f * STH, 55, REG, al)
+            draw_symbol(FG, y_off, str(x), sc.scale_to(x) + 1.2 / 2 * get_width(x, 55, ITALIC), f, 55, REG,
+                        al)
 
         for x in range(25, 41, 5):
             if x % 5 == 0:
-                draw_symbol(BLACK, y_off, str(x), scaling_fn(sc, x) + 1.2 / 2 * get_width(x, 55, ITALIC), f * STH, 55, REG, al)
-                draw_symbol(RED, y_off, str(font_size - x), scaling_fn(sc, x) - 1.4 / 2 * get_width(90 - x, 55, ITALIC), f * STH, 55, ITALIC, al)
+                draw_symbol(FG, y_off, str(x), sc.scale_to(x) + 1.2 / 2 * get_width(x, 55, ITALIC), f, 55,
+                            REG, al)
+                xi = angle_opp(x)
+                draw_symbol(RED, y_off, str(xi), sc.scale_to(x) - 1.4 / 2 * get_width(xi, 55, ITALIC),
+                            f, 55, ITALIC, al)
 
-        draw_symbol(BLACK, y_off, 45, SL, f * STH, 60, REG, al)
+        draw_symbol(FG, y_off, 45, SL, f * STH, 60, REG, al)
 
-    if sc == 'ST':
+    if sc_key == 'ST':
 
         # Ticks
-        pat(y_off, sc, MED, 100, 551, 0, 50, 0, 1, 1, 0, al)
-        pat(y_off, sc, 1.2, 60, 100, 0, 10, 0, 1, 1, 0, al)
-        pat(y_off, sc, XL, 60, 100, 5, 10, 0, 1, 1, 0, al)
-        pat(y_off, sc, MED, 100, 200, 0, 10, 1, 0, 50, 0, al)
-        pat(y_off, sc, SM, 200, 590, 0, 10, 0, 1, 1, 0, al)
-        pat(y_off, sc, SM, 57, 100, 0, 1, 0, 1, 1, 0, al)
-        pat(y_off, sc, SM, 100, 200, 0, 5, 0, 1, 1, 0, al)
-        pat(y_off, sc, XS, 100, 200, 0, 1, 1, 0, 5, 0, al)
-        pat(y_off, sc, XS, 200, 400, 0, 2, 1, 0, 10, 0, al)
-        pat(y_off, sc, XS, 400, 585, 5, 10, 0, 1, 1, 0, al)
+        pat(y_off, sc, MED, 100, 551, 0, 50, 0, 1, 1, al)
+        pat(y_off, sc, 1.2, 60, 100, 0, 10, 0, 1, 1, al)
+        pat(y_off, sc, XL, 60, 100, 5, 10, 0, 1, 1, al)
+        pat(y_off, sc, MED, 100, 200, 0, 10, 1, 0, 50, al)
+        pat(y_off, sc, SM, 200, 590, 0, 10, 0, 1, 1, al)
+        pat(y_off, sc, SM, 57, 100, 0, 1, 0, 1, 1, al)
+        pat(y_off, sc, SM, 100, 200, 0, 5, 0, 1, 1, al)
+        pat(y_off, sc, XS, 100, 200, 0, 1, 1, 0, 5, al)
+        pat(y_off, sc, XS, 200, 400, 0, 2, 1, 0, 10, al)
+        pat(y_off, sc, XS, 400, 585, 5, 10, 0, 1, 1, al)
 
         for x in range(570, 1000):
             if x % 5 == 0 and x % 10 - 0 != 0:
-                draw_tick(y_off, scaling_fn(sc, x / 1000), round(XS * STH), STT, al)
+                draw_tick(y_off, sc.scale_to(x / 1000), round(XS * STH), STT, al)
 
         # Degree Labels
-        draw_symbol(BLACK, y_off, '1°', scaling_fn(sc, 1), STH, font_size, REG, al)
+        draw_symbol(FG, y_off, '1°', sc.scale_to(1), STH, font_size, REG, al)
         for x in range(6, 10):
-            draw_symbol(BLACK, y_off, "." + str(x), scaling_fn(sc, x / 10), STH, font_size, REG, al)
+            draw_symbol(FG, y_off, "." + str(x), sc.scale_to(x / 10), STH, font_size, REG, al)
         for x in range(1, 4):
-            draw_symbol(BLACK, y_off, str(x + 0.5), scaling_fn(sc, x + 0.5), STH, font_size, REG, al)
+            draw_symbol(FG, y_off, str(x + 0.5), sc.scale_to(x + 0.5), STH, font_size, REG, al)
         for x in range(2, 6):
-            draw_symbol(BLACK, y_off, str(x), scaling_fn(sc, x), STH, font_size, REG, al)
+            draw_symbol(FG, y_off, str(x), sc.scale_to(x), STH, font_size, REG, al)
 
 
 # ----------------------4. Line Drawing Functions----------------------------
@@ -650,43 +763,40 @@ def gen_scale(y_off, sc, al):
 # These functions are unfortunately difficult to modify,
 # since I built them with specific numbers rather than variables
 
-def draw_borders(y0):  # Place initial borders around scales y0 = vertical offset
+def draw_borders(y0, side):  # Place initial borders around scales y0 = vertical offset
 
     # Main Frame
     horizontals = [y0, 479 + y0, 1119 + y0, 1598 + y0]
 
-    for i in range(0, 4):
-        start = horizontals[i]
+    for start in horizontals:
         for x in range(oX, total_width - oX):
             for y in range(start, start + 2):
-                sliderule_img.putpixel((x, y), BLACK_COLOR_RGB)
+                sliderule_img.putpixel((x, y), RGB_BLACK)
     verticals = [oX, total_width - oX]
-    for i in range(0, 2):
-        start = verticals[i]
+    for start in verticals:
         for x in range(start, start + 2):
             for y in range(y0, 1600 + y0):
-                sliderule_img.putpixel((x, y), BLACK_COLOR_RGB)
+                sliderule_img.putpixel((x, y), RGB_BLACK)
 
     # Top Stator Cut-outs
     verticals = [240 + oX, (total_width - 240) - oX]
 
-    global current_side
-    # if current_side == FRONT_SIDE:
+    # if side == FRONT_SIDE:
     y_start = y0
-    if current_side == REAR_SIDE:
+    if side == REAR_SIDE:
         y_start = y_start + 1120
     y_end = 480 + y_start
-    for i in range(0, 2):
-        start = verticals[i]
+    for start in verticals:
         for x in range(start, start + 2):
             for y in range(y_start, y_end):
-                sliderule_img.putpixel((x, y), BLACK_COLOR_RGB)
+                sliderule_img.putpixel((x, y), RGB_BLACK)
 
 
-def draw_metal_cutoffs(y0):
+def draw_metal_cutoffs(y0, side):
     """
     Use to temporarily view the metal bracket locations
-    :param y0: vertical offset
+    :param int y0: vertical offset
+    :param str side: one of (FRONT,REAR)
     """
     b = 30  # offset of metal from boundary
 
@@ -733,7 +843,7 @@ def draw_metal_cutoffs(y0):
     # Transfer coords to points for printing (yeah I know it's dumb)
     points = coords
     # If backside, first apply a vertical reflection
-    if current_side == REAR_SIDE:
+    if side == REAR_SIDE:
         points = []
         for i in range(0, 12):
             (x1, x2, y1, y2) = coords[i]
@@ -749,7 +859,10 @@ def draw_metal_cutoffs(y0):
 
 # User Prompt Section
 
-VALID_MODES = ['render', 'diagnostic', 'stickerprint']
+RENDER_MODE = 'render'
+DIAGNOSTIC_MODE = 'diagnostic'
+STICKERPRINT_MODE = 'stickerprint'
+VALID_MODES = [RENDER_MODE, DIAGNOSTIC_MODE, STICKERPRINT_MODE]
 
 
 def prompt_for_mode():
@@ -773,87 +886,47 @@ SCALE_NAMES = ['A', 'B', 'C', 'D',
                'S', 'T', 'ST']
 
 
-def scaling_fn(sc, x):
-    """
-    Generating Function for the Scales
-    :param Number x:
-    :param str sc: one of `SCALE_NAMES`
-    :return: int
-    """
-    assert sc in SCALE_NAMES
-    if sc == 'C' or sc == 'D' or sc == 'CF' or sc == 'DF':
-        return round(SL * math.log10(x))
-    if sc == 'A' or sc == 'B':
-        return round(1 / 2 * SL * math.log10(x))
-    if sc == 'R1' or sc == 'R2':
-        return round(2 * SL * math.log10(x / 10))
-    if sc == 'K':
-        return round(1 / 3 * SL * math.log10(x))
-    if sc == 'CI' or sc == 'DI':
-        return round(SL * (1 - math.log10(x)))
-    if sc == 'CIF':
-        return round(SL * (1 - math.log10(math.pi) - math.log10(x)))
-    if sc == 'L':
-        return round(SL * x / 10)
-    if sc == 'S':
-        return round(SL * math.log10(10 * math.sin(math.radians(x))))
-    if sc == 'T':
-        return round(SL * math.log10(10 * math.tan(math.radians(x))))
-    if sc == 'ST':
-        return round(SL * math.log10(100 * (math.sin(math.radians(x)) + math.tan(math.radians(x))) / 2))
-
-
 # ---------------------- 6. Stickers -----------------------------
 
 
 should_delineate: bool = True
 
 
-def draw_box(image, x0, y0, dx, dy):
+def draw_box(img_renderer, x0, y0, dx, dy):
     """
-    :param image:
-    :param x0: First corner of box
-    :param y0: First corner of box
-    :param dx: width
-    :param dy: height
+    :param ImageDraw.ImageDraw img_renderer:
+    :param int x0: First corner of box
+    :param int y0: First corner of box
+    :param int dx: width extension of box in positive direction
+    :param int dy: height extension of box in positive direction
     :return:
     """
-    if should_delineate:
-        # (x0,y0) First corner of box
-        # dx, dy extension of box in positive direction
-
-        for x in range(x0, x0 + dx):
-            image.putpixel((x, y0), CUT_COLOR)
-            image.putpixel((x, y0 + dy), CUT_COLOR)
-
-        for y in range(y0, y0 + dy):
-            image.putpixel((x0, y), CUT_COLOR)
-            image.putpixel((x0 + dx, y), CUT_COLOR)
+    img_renderer.rectangle((x0, y0, x0 + dx, y0 + dy), fill=None, outline=CUT_COLOR)
 
 
-wE = 20  # width of extension cross arms
+def draw_corners(img_renderer, x1, y1, x2, y2, arm_width=20):
+    """
+    :type img_renderer: ImageDraw.ImageDraw
+    :param int x1: First corner of box
+    :param int y1: First corner of box
+    :param int x2: Second corner of box
+    :param int y2: Second corner of box
+    :param int arm_width: width of extension cross arms
+    """
+
+    # horizontal cross arms at 4 corners:
+    img_renderer.line((x1 - arm_width, y1, x1 + arm_width, y1), CUT_COLOR)
+    img_renderer.line((x1 - arm_width, y2, x1 + arm_width, y2), CUT_COLOR)
+    img_renderer.line((x2 - arm_width, y1, x2 + arm_width, y1), CUT_COLOR)
+    img_renderer.line((x2 - arm_width, y2, x2 + arm_width, y2), CUT_COLOR)
+    # vertical cross arms at 4 corners:
+    img_renderer.line((x1, y1 - arm_width, x1, y1 + arm_width), CUT_COLOR)
+    img_renderer.line((x1, y2 - arm_width, x1, y2 + arm_width), CUT_COLOR)
+    img_renderer.line((x2, y1 - arm_width, x2, y1 + arm_width), CUT_COLOR)
+    img_renderer.line((x2, y2 - arm_width, x2, y2 + arm_width), CUT_COLOR)
 
 
-def draw_corners(image, x1, y1, x2, y2):
-    if should_delineate:
-        # (x1,y1) First corner of box
-        # (x2,y2) Second corner of box
-
-        for x in range(x1 - wE, x1 + wE):
-            image.putpixel((x, y1), CUT_COLOR)
-            image.putpixel((x, y2), CUT_COLOR)
-        for x in range(x2 - wE, x2 + wE):
-            image.putpixel((x, y1), CUT_COLOR)
-            image.putpixel((x, y2), CUT_COLOR)
-        for y in range(y1 - wE, y1 + wE):
-            image.putpixel((x1, y), CUT_COLOR)
-            image.putpixel((x2, y), CUT_COLOR)
-        for y in range(y2 - wE, y2 + wE):
-            image.putpixel((x1, y), CUT_COLOR)
-            image.putpixel((x2, y), CUT_COLOR)
-
-
-def transcribe(src_img, dest_img, x0, y0, dx, dy, xT, yT):
+def transcribe(src_img, dest_img, src_x, src_y, size_x, size_y, target_x, target_y):
     """
     (x0,y0) First corner of SOURCE (rendering)
     (dx,dy) Width and Length of SOURCE chunk to transcribe
@@ -865,23 +938,21 @@ def transcribe(src_img, dest_img, x0, y0, dx, dy, xT, yT):
 
     :param src_img: SOURCE of pixels
     :param dest_img: DESTINATION of pixels
-    :param x0: First corner of SOURCE (rendering)
-    :param y0: First corner of SOURCE (rendering)
-    :param dx: Width of SOURCE chunk to transcribe
-    :param dy: Length of SOURCE chunk to transcribe
-    :param xT: Target corner of DESTINATION; where to in-plop (into stickerprint)
-    :param yT: Target corner of DESTINATION; where to in-plop (into stickerprint)
+    :param src_x: First corner of SOURCE (rendering)
+    :param src_y: First corner of SOURCE (rendering)
+    :param size_x: Width of SOURCE chunk to transcribe
+    :param size_y: Length of SOURCE chunk to transcribe
+    :param target_x: Target corner of DESTINATION; where to in-plop (into stickerprint)
+    :param target_y: Target corner of DESTINATION; where to in-plop (into stickerprint)
     :return:
     """
 
-    for x in range(0, dx):
-        for y in range(0, dy):
-            r, g, b = src_img.getpixel((x0 + x, y0 + y))
-            dest_img.putpixel((xT + x, yT + y), (r, g, b))
+    src_box = src_img.crop((src_x, src_y, src_x + size_x, src_y + size_y))
+    dest_img.paste(src_box, (target_x, target_y))
 
 
 def save_png(img_to_save, basename, output_suffix=None):
-    output_filename = f"{basename}{'.'+output_suffix if output_suffix else ''}.png"
+    output_filename = f"{basename}{'.' + output_suffix if output_suffix else ''}.png"
     img_to_save.save(output_filename, 'PNG')
     print(f"The result has been saved to {output_filename}")
 
@@ -895,85 +966,89 @@ def main():
                              help='What to render')
     args_parser.add_argument('--suffix',
                              help='Output filename suffix for variations')
+    args_parser.add_argument('--test',
+                             action='store_true',
+                             help='Output filename for test comparisons')
     args_parser.add_argument('--cutoffs',
                              action='store_true',
                              help='Render the metal cutoffs')
     cli_args = args_parser.parse_args()
     render_mode = cli_args.mode or prompt_for_mode()
-    output_suffix = cli_args.suffix
+    output_suffix = cli_args.suffix or ('test' if cli_args.test else None)
     render_cutoffs = cli_args.cutoffs
 
     start_time = time.time()
 
-    if render_mode == "render" or render_mode == "stickerprint":
-        global current_side
+    scale_width = 6500
 
-        if render_mode == 'render':
-            current_side = FRONT_SIDE
-            draw_borders(oY)
+    if render_mode == RENDER_MODE or render_mode == STICKERPRINT_MODE:
+        y_front_end = 1600 + 2 * oY
+        if render_mode == RENDER_MODE:
+            draw_borders(oY, FRONT_SIDE)
             if render_cutoffs:
-                draw_metal_cutoffs(oY)
-            current_side = REAR_SIDE
-            draw_borders(1600 + 2 * oY)
+                draw_metal_cutoffs(oY, FRONT_SIDE)
+            draw_borders(y_front_end, REAR_SIDE)
             if render_cutoffs:
-                draw_metal_cutoffs(1600 + 2 * oY)
+                draw_metal_cutoffs(y_front_end, REAR_SIDE)
 
         # Front Scale
-        gen_scale(110 + oY, 'L', LOWER)
-        gen_scale(320 + oY, 'DF', LOWER)
-        gen_scale(800 + oY, 'CI', LOWER)
-        gen_scale(960 + oY, 'C', LOWER)
+        gen_scale(110 + oY, SCALE_CONFIGS['L'], LOWER)
+        gen_scale(320 + oY, SCALE_CONFIGS['DF'], LOWER)
+        gen_scale(800 + oY, SCALE_CONFIGS['CI'], LOWER)
+        gen_scale(960 + oY, SCALE_CONFIGS['C'], LOWER)
 
-        gen_scale(480 + oY, 'CF', UPPER)
-        gen_scale(640 + oY, 'CIF', UPPER)
-        gen_scale(1120 + oY, 'D', UPPER)
-        gen_scale(1280 + oY, 'R1', UPPER)
-        gen_scale(1435 + oY, 'R2', UPPER)
+        gen_scale(480 + oY, SCALE_CONFIGS['CF'], UPPER)
+        gen_scale(640 + oY, SCALE_CONFIGS['CIF'], UPPER)
+        gen_scale(1120 + oY, SCALE_CONFIGS['D'], UPPER)
+        gen_scale(1280 + oY, SCALE_CONFIGS['R1'], UPPER)
+        gen_scale(1435 + oY, SCALE_CONFIGS['R2'], UPPER)
 
         # These are my weirdo alternative universe "brand names", "model name", etc.
         # Feel free to comment them out
         global total_width, li
         draw_symbol(RED, 25 + oY, 'BOGELEX 1000', (total_width - 2 * oX) * 1 / 4 - li, 0, 90, REG, UPPER)
-        draw_symbol(RED, 25 + oY, 'LEFT HANDED LIMAÇON 2020', (total_width - 2 * oX) * 2 / 4 - li + oX, 0, 90, REG, UPPER)
+        draw_symbol(RED, 25 + oY, 'LEFT HANDED LIMAÇON 2020', (total_width - 2 * oX) * 2 / 4 - li + oX, 0, 90, REG,
+                    UPPER)
         draw_symbol(RED, 25 + oY, 'KWENA & TOOR CO.', (total_width - 2 * oX) * 3 / 4 - li, 0, 90, REG, UPPER)
 
         # Back Scale
-        gen_scale(110 + 1600 + 2 * oY, 'K', LOWER)
-        gen_scale(320 + 1600 + 2 * oY, 'A', LOWER)
-        gen_scale(640 + 1600 + 2 * oY, 'T', LOWER)
-        gen_scale(800 + 1600 + 2 * oY, 'ST', LOWER)
-        gen_scale(960 + 1600 + 2 * oY, 'S', LOWER)
+        gen_scale(110 + y_front_end, SCALE_CONFIGS['K'], LOWER)
+        gen_scale(320 + y_front_end, SCALE_CONFIGS['A'], LOWER)
+        gen_scale(640 + y_front_end, SCALE_CONFIGS['T'], LOWER)
+        gen_scale(800 + y_front_end, SCALE_CONFIGS['ST'], LOWER)
+        gen_scale(960 + y_front_end, SCALE_CONFIGS['S'], LOWER)
 
-        gen_scale(480 + 1600 + 2 * oY, 'B', UPPER)
-        gen_scale(1120 + 1600 + 2 * oY, 'D', UPPER)
-        gen_scale(1360 + 1600 + 2 * oY, 'DI', UPPER)
+        gen_scale(480 + y_front_end, SCALE_CONFIGS['B'], UPPER)
+        gen_scale(1120 + y_front_end, SCALE_CONFIGS['D'], UPPER)
+        gen_scale(1360 + y_front_end, SCALE_CONFIGS['DI'], UPPER)
 
-    if render_mode == 'render':
+    if render_mode == RENDER_MODE:
         save_png(sliderule_img, 'SlideRuleScales', output_suffix)
 
-    if render_mode == "diagnostic":
+    if render_mode == DIAGNOSTIC_MODE:
         global renderer
         # If you're reading this, you're a real one
         # +5 brownie points to you
 
         oX = 0  # x dir margins
         oY = 0  # y dir margins
-        total_width = 7000
+        total_width = scale_width + 250 * 2
         total_height = 160 * 24
         li = round(total_width / 2 - SL / 2)  # update left index
-        diagnostic_img = Image.new('RGB', (total_width, total_height), BACKGROUND_COLOR)
+        diagnostic_img = Image.new('RGB', (total_width, total_height), BG)
         renderer = ImageDraw.Draw(diagnostic_img)
 
-        draw_symbol(BLACK, 50 + oY, 'Diagnostic Test Print of Available Scales', total_width / 2 - li, 0, 140, REG, UPPER)
-        draw_symbol(BLACK, 200 + oY, ' '.join(SCALE_NAMES), total_width / 2 - li, 0, 120, REG, UPPER)
+        x_offset_cl = total_width / 2 - li
+        draw_symbol(FG, 50, 'Diagnostic Test Print of Available Scales', x_offset_cl, 0, 140, REG, UPPER)
+        draw_symbol(FG, 200, ' '.join(SCALE_NAMES), x_offset_cl, 0, 120, REG, UPPER)
         k = 120 + SH
 
         for n, sc in enumerate(SCALE_NAMES):
-            gen_scale(k + n * 200, sc, LOWER)
+            gen_scale(k + (n + 1) * 200, SCALE_CONFIGS[sc], LOWER)
 
         save_png(diagnostic_img, 'Diagnostic', output_suffix)
 
-    if render_mode == 'stickerprint':
+    if render_mode == STICKERPRINT_MODE:
         # Disclaimer, this section also suffers from lack of generality
         # since I built them with specific numbers rather than variables
 
@@ -988,51 +1063,57 @@ def main():
         oY2 = 50  # y dir margins
         oA = 50  # overhang amount
         ext = 20  # extension amount
-        total_width = 6500 + 2 * oX2
+        total_width = scale_width + 2 * oX2
         total_height = 5075
 
-        stickerprint_img = Image.new('RGB', (total_width, total_height), BACKGROUND_COLOR)
+        stickerprint_img = Image.new('RGB', (total_width, total_height), BG)
         renderer = ImageDraw.Draw(stickerprint_img)
 
         # fsUM,MM,LM:
         l = 0
 
-        l = oY2 + oA
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY, 6500, 480, oX2, l)
+        l += oY2 + oA
+        transcribe(sliderule_img, stickerprint_img, oX + 750, oY, scale_width, 480, oX2, l)
         extend(stickerprint_img, l + 480 - 1, DIR_DOWN, ext)
-        draw_corners(stickerprint_img, oX2, l - oA, oX2 + 6500, l + 480)
+        if should_delineate:
+            draw_corners(renderer, oX2, l - oA, oX2 + scale_width, l + 480)
 
-        l = l + 480 + oA
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 481, 6500, 640, oX2, l)
+        l += 480 + oA
+        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 481, scale_width, 640, oX2, l)
         extend(stickerprint_img, l + 1, DIR_UP, ext)
         extend(stickerprint_img, l + 640 - 1, DIR_DOWN, ext)
-        draw_corners(stickerprint_img, oX2, l, oX2 + 6500, l + 640)
+        if should_delineate:
+            draw_corners(renderer, oX2, l, oX2 + scale_width, l + 640)
 
-        l = l + 640 + oA
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1120, 6500, 480, oX2, l)
+        l += 640 + oA
+        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1120, scale_width, 480, oX2, l)
         extend(stickerprint_img, l + 1, DIR_UP, ext)
         extend(stickerprint_img, l + 480 - 1, DIR_DOWN, ext)
-        draw_corners(stickerprint_img, oX2, l, oX2 + 6500, l + 480 + oA)
+        if should_delineate:
+            draw_corners(renderer, oX2, l, oX2 + scale_width, l + 480 + oA)
 
         # bsUM,MM,LM:
 
-        l = l + 480 + oA + oA + oA
+        l += 480 + oA + oA + oA
 
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1600 + oY, 6500, 480, oX2, l)
+        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1600 + oY, scale_width, 480, oX2, l)
         extend(stickerprint_img, l + 480 - 1, DIR_DOWN, ext)
-        draw_corners(stickerprint_img, oX2, l - oA, oX2 + 6500, l + 480)
+        if should_delineate:
+            draw_corners(renderer, oX2, l - oA, oX2 + scale_width, l + 480)
 
-        l = l + 480 + oA
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1600 + oY + 481 - 3, 6500, 640, oX2, l)
+        l += 480 + oA
+        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1600 + oY + 481 - 3, scale_width, 640, oX2, l)
         extend(stickerprint_img, l + 1, DIR_UP, ext)
         extend(stickerprint_img, l + 640 - 1, DIR_DOWN, ext)
-        draw_corners(stickerprint_img, oX2, l, oX2 + 6500, l + 640)
+        if should_delineate:
+            draw_corners(renderer, oX2, l, oX2 + scale_width, l + 640)
 
-        l = l + 640 + oA
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1600 + oY + 1120, 6500, 480, oX2, l)
+        l += 640 + oA
+        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1600 + oY + 1120, scale_width, 480, oX2, l)
         extend(stickerprint_img, l + 1, DIR_UP, ext)
         extend(stickerprint_img, l + 480 - 1, DIR_DOWN, ext)
-        draw_corners(stickerprint_img, oX2, l, oX2 + 6500, l + 480 + oA)
+        if should_delineate:
+            draw_corners(renderer, oX2, l, oX2 + scale_width, l + 480 + oA)
 
         yB = 3720
 
@@ -1046,13 +1127,15 @@ def main():
         ]
 
         for i, box_i in enumerate(box):
-            draw_box(stickerprint_img, box_i[0], box_i[1], box_i[2], box_i[3])
-            draw_box(stickerprint_img, box_i[0], box_i[1] + 640 + oA, box_i[2], box_i[3])
+            if should_delineate:
+                draw_box(renderer, box_i[0], box_i[1], box_i[2], box_i[3])
+                draw_box(renderer, box_i[0], box_i[1] + 640 + oA, box_i[2], box_i[3])
 
             box_i[0] = round(2 * (6.5 * oA + 510 + 2 * 750) - box_i[0] - box_i[2])
 
-            draw_box(stickerprint_img, box_i[0], box_i[1], box_i[2], box_i[3])
-            draw_box(stickerprint_img, box_i[0], box_i[1] + 640 + oA, box_i[2], box_i[3])
+            if should_delineate:
+                draw_box(renderer, box_i[0], box_i[1], box_i[2], box_i[3])
+                draw_box(renderer, box_i[0], box_i[1] + 640 + oA, box_i[2], box_i[3])
 
         points = [
             [2 * oA + 120, yB + oA + 160],
@@ -1070,19 +1153,20 @@ def main():
             (p_x, p_y) = points[i]
             renderer.ellipse((p_x - r, p_y - r,
                               p_x + r, p_y + r),
-                             fill=BACKGROUND_COLOR,
+                             fill=BG,
                              outline=CUT_COLOR)
 
             p_x = round(2 * (6.5 * oA + 510 + 2 * 750) - p_x)
 
             renderer.ellipse((p_x - r, p_y - r,
                               p_x + r, p_y + r),
-                             fill=BACKGROUND_COLOR,
+                             fill=BG,
                              outline=CUT_COLOR)
 
         save_png(stickerprint_img, 'StickerCut', output_suffix)
 
     print("The program took", round(time.time() - start_time, 2), "seconds to run")
+
 
 # --------------------------7. Extras----------------------------
 
