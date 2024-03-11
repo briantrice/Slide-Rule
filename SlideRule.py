@@ -19,9 +19,11 @@ Table of Contents
 """
 
 import math
+import re
 import time
 from enum import Enum
 from functools import cache
+from unicodedata import digit, category
 
 from PIL import Image, ImageFont, ImageDraw
 
@@ -267,7 +269,7 @@ def extend(image, y, direction, amplitude):
 DIGITS = 10
 
 
-def scale_linear(x):
+def scale_base(x):
     return math.log10(x)
 
 
@@ -281,7 +283,7 @@ def scale_sqrt(x):
 
 
 def scale_sqrt_ten(x):
-    return math.log10(x * 10) * 2
+    return math.log10(x * DIGITS) * 2
 
 
 def scale_cube(x):
@@ -328,16 +330,32 @@ def scale_pythagorean(x):
     return math.log10(math.sqrt(1 - (x ** 2))) + 1
 
 
+def scale_log_log(x):
+    return math.log10(math.log(x))
+
+
 def scale_log_log1(x):
-    return None  # TODO
+    return scale_log_log(x) + 2
 
 
 def scale_log_log2(x):
-    return None  # TODO
+    return scale_log_log(x) + 1
 
 
 def scale_log_log3(x):
-    return None  # TODO
+    return scale_log_log(x)
+
+
+def scale_log_log01(x):
+    return scale_log_log(-x) + 2
+
+
+def scale_log_log02(x):
+    return scale_log_log(-x) + 1
+
+
+def scale_log_log03(x):
+    return scale_log_log(-x)
 
 
 def angle_opp(x):
@@ -383,29 +401,34 @@ class Scale:
         return round(scale_width * self.frac_pos_of(x, shift_adj=shift_adj))
 
 
-Scale.A = Scale('A', 'x²', scale_square)
-Scale.B = Scale('B', 'x²', scale_square)
-Scale.C = Scale('C', 'x', scale_linear)
-Scale.CF = Scale('CF', 'πx', scale_linear, key='CF', shift=pi_fold_shift)
-Scale.CI = Scale('CI', '1/x', scale_inverse, col=RED)
-Scale.CIF = Scale('CIF', '1/πx', scale_inverse_pi_folded, col=RED)
-Scale.D = Scale('D', 'x', scale_linear)
-Scale.DF = Scale('DF', 'πx', scale_linear, key='DF', shift=pi_fold_shift)
-Scale.DI = Scale('DI', '1/x', scale_inverse, col=RED)
-Scale.K = Scale('K', 'x³', scale_cube)
-Scale.L = Scale('L', 'log x', scale_log)
-Scale.LL1 = Scale('LL₁', '√10x', scale_log_log1)
-Scale.LL2 = Scale('LL₂', '√10x', scale_log_log2)
-Scale.P = Scale('P', '√1-x²', scale_pythagorean, key='P', shift=1)
-Scale.R1 = Scale('R', '√x', scale_sqrt, key='R1')
-Scale.R2 = Scale('R', '√x', scale_sqrt, key='R2', shift=-1)
-Scale.S = Scale('S', 'sin x', scale_sin)
-Scale.ST = Scale('ST', 'θ<5.7°', scale_sin_tan)
-Scale.T = Scale('T', 'tan x', scale_tan)
-Scale.T1 = Scale('T₁', 'tan θ > 45°', scale_tan, key='T1', shift=-0.5)
-Scale.T2 = Scale('T₂', 'tan θ < 45°', scale_tan, key='T2', shift=0.5)
-Scale.W1 = Scale('W₁', '√10x', scale_sqrt_ten)
-Scale.W2 = Scale('W₂', '√10x', scale_sqrt_ten)
+class Scales:
+    A = Scale('A', 'x²', scale_square)
+    B = Scale('B', 'x²', scale_square)
+    C = Scale('C', 'x', scale_base)
+    CF = Scale('CF', 'πx', scale_base, key='CF', shift=pi_fold_shift)
+    CI = Scale('CI', '1/x', scale_inverse, col=RED)
+    CIF = Scale('CIF', '1/πx', scale_inverse_pi_folded, col=RED)
+    D = Scale('D', 'x', scale_base)
+    DF = Scale('DF', 'πx', scale_base, key='DF', shift=pi_fold_shift)
+    DI = Scale('DI', '1/x', scale_inverse, col=RED)
+    K = Scale('K', 'x³', scale_cube)
+    L = Scale('L', 'log x', scale_log)
+    LL1 = Scale('LL₁', 'e^0.01x', scale_log_log1)
+    LL2 = Scale('LL₂', 'e^0.1x', scale_log_log2)
+    LL3 = Scale('LL₃', 'e^x', scale_log_log3)
+    LL01 = Scale('LL₀₁', 'e^-0.01x', scale_log_log01)
+    LL02 = Scale('LL₀₂', 'e^-0.1x', scale_log_log02)
+    LL03 = Scale('LL₀₃', 'e^-x', scale_log_log03)
+    P = Scale('P', '√1-x²', scale_pythagorean, key='P', shift=1)
+    R1 = Scale('R₁', '√x', scale_sqrt, key='R1')
+    R2 = Scale('R₂', '√x', scale_sqrt, key='R2', shift=-1)
+    S = Scale('S', 'sin x', scale_sin)
+    ST = Scale('ST', 'θ<5.7°', scale_sin_tan)
+    T = Scale('T', 'tan x', scale_tan)
+    T1 = Scale('T₁', 'tan θ > 45°', scale_tan, key='T1', shift=-0.5)
+    T2 = Scale('T₂', 'tan θ < 45°', scale_tan, key='T2', shift=0.5)
+    W1 = Scale('W₁', '√10x', scale_sqrt_ten)
+    W2 = Scale('W₂', '√10x', scale_sqrt_ten)
 
 
 class GaugeMark:
@@ -414,11 +437,26 @@ class GaugeMark:
         self.value = value
         self.comment = comment
 
+    def draw(self, r, y_off, sc, font_size, al, col=FG, shift_adj=0):
+        """
+        :param ImageDraw.Draw r:
+        :param int y_off: y pos
+        :param Scale sc:
+        :param int font_size: font size
+        :param Align al: alignment
+        :param str col: color
+        :param int shift_adj:
+        """
+        x = sc.scale_to(self.value, shift_adj=shift_adj, scale_width=SL)
+        h = round(STH)
+        draw_tick(r, y_off, x, h, STT, al)
+        draw_symbol(col, y_off, self.sym, x, h * 1.4, font_size, FontStyle.REG, al)
+
 
 GAUGE_MARKS: dict[str, GaugeMark] = {
     'e': GaugeMark('e', math.e, comment='base of natural logarithms'),
     'pi': GaugeMark('π', math.pi, comment='ratio of circle circumference to diameter'),
-    'R': GaugeMark('r', 180/math.pi/10, comment='degrees per radian'),
+    'R': GaugeMark('r', 180/math.pi/DIGITS, comment='degrees per radian'),
     'rho': GaugeMark('ρ', math.pi/180, comment='radians per degree'),
     'rho_prime': GaugeMark('ρ′', 60 * math.pi/180, comment='radians per minute'),
     'rho_double_prime': GaugeMark('ρ″', 60 * 60 * math.pi/180, comment='radians per second'),
@@ -427,24 +465,6 @@ GAUGE_MARKS: dict[str, GaugeMark] = {
     'L': GaugeMark('L', 1/math.log10(math.e), comment='ratio of natural log to log base 10'),
     'c': GaugeMark('c', math.pow(10, 1/3), comment='cube root of 10'),
 }
-
-
-def draw_gauge_mark(r, y_off, gm_key, sc, font_size, al, col=FG, shift_adj=0):
-    """
-    :param ImageDraw.Draw r:
-    :param int y_off: y pos
-    :param str gm_key:
-    :param Scale sc:
-    :param int font_size: font size
-    :param Align al: alignment
-    :param str col: color
-    :param int shift_adj:
-    """
-    gm = GAUGE_MARKS[gm_key]
-    x = sc.scale_to(gm.value, shift_adj=shift_adj, scale_width=SL)
-    h = round(STH)
-    draw_tick(r, y_off, x, h, STT, al)
-    draw_symbol(col, y_off, gm.sym, x, h * 1.4, font_size, FontStyle.REG, al)
 
 
 def gen_scale(r, y_off, sc, al):
@@ -457,36 +477,53 @@ def gen_scale(r, y_off, sc, al):
 
     # Place Index Symbols (Left and Right)
     font_size = 90
+    sub_font_size = 60
     reg = FontStyle.REG
-    (w2, h2) = get_size(sc.right_sym, font_size, reg)
-    draw_symbol(sc.col, y_off, sc.right_sym, 102 / 100 * SL + 0.5 * w2, (SH - h2) / 2, font_size, reg, al)
-    (w1, h1) = get_size(sc.left_sym, font_size, reg)
-    draw_symbol(sc.col, y_off, sc.left_sym, -2 / 100 * SL - 0.5 * w1, (SH - h1) / 2, font_size, reg, al)
-
     sc_key = sc.key
-    # Exceptions / Special Symbols for R1, R2, S, and T
-    if sc_key == 'R1':
-        sym = str(1)
+
+    # Right
+    right_sym = sc.right_sym
+    exponent_match = re.match(r'^(.+)([¹²³])$', right_sym) or re.match(r'^(.+)\^([-0-9.a-z]+)$', right_sym)
+    if exponent_match:
+        right_sym = exponent_match.group(1)
+    (w2, h2) = get_size(right_sym, font_size, reg)
+    y2 = (SH - h2) / 2
+    x_right = 102 / 100 * SL + 0.5 * w2
+    draw_symbol(sc.col, y_off, right_sym, x_right, y2, font_size, reg, al)
+    if exponent_match:
+        exponent = exponent_match.group(2)
+        if len(exponent) == 1 and category(exponent) == 'No':
+            exponent = str(digit(exponent))
+        (w_e, h_e) = get_size(exponent, sub_font_size, reg)
+        y_expon = y2
         if al == Align.LOWER:
-            draw_symbol(FG, y_off, sym, -2 / 100 * SL + 0.5 * w1,
-                        SH - 1.3 * ((SH - h1) / 2 + 0.75 * h1), 60, reg, al)
-        if al == Align.UPPER:
-            draw_symbol(FG, y_off, sym, -2 / 100 * SL + 0.5 * w1,
-                        (SH - get_height(sc.left_sym, font_size, reg)) / 2 + 0.75 * h1, 60, reg, al)
-    elif sc_key == 'R2':
-        sym = str(2)
+            y_expon = SH - 1.3 * y_expon
+        draw_symbol(FG, y_off, exponent, x_right + (w2 + w_e) / 2,
+                    y_expon, sub_font_size, reg, al)
+
+    # Left
+    subscript_match = re.match(r'^([A-Z]+)([0-9₀₁₂₃]+)$', sc_key)
+    left_sym = subscript_match.group(1) if subscript_match else sc.left_sym
+    (w1, h1) = get_size(left_sym, font_size, reg)
+    y1 = (SH - h1) / 2
+    x_left = -2 / 100 * SL - 0.5 * w1
+    draw_symbol(sc.col, y_off, left_sym, x_left, y1, font_size, reg, al)
+    if subscript_match:
+        subscript = ''.join(map(str, map(digit, subscript_match.group(2))))
+        (w_s, h_s) = get_size(subscript, sub_font_size, reg)
+        y_sub = y1 + 0.75 * h1
         if al == Align.LOWER:
-            draw_symbol(FG, y_off, sym, -2 / 100 * SL + 0.5 * w1,
-                        SH - 1.3 * ((SH - h1) / 2 + 0.75 * h1), 60, reg, al)
-        if al == Align.UPPER:
-            draw_symbol(FG, y_off, sym, -2 / 100 * SL + 0.5 * w1,
-                        (SH - h1) / 2 + 0.75 * h1, 60, reg, al)
-    elif sc_key == 'S':
-        draw_symbol(RED, y_off, 'C', -2 / 100 * SL - 0.5 * w1 - get_width('_S', font_size, reg),
-                    (SH - h2) / 2, font_size, reg, al)
+            y_sub = SH - 1.3 * y_sub
+        draw_symbol(FG, y_off, subscript, x_left + (w1 + w_s) / 2,
+                    y_sub, sub_font_size, reg, al)
+
+    # Special Symbols for  S, and T
+    if sc_key == 'S':
+        draw_symbol(RED, y_off, 'C', x_left - get_width('_S', font_size, reg),
+                    y2, font_size, reg, al)
     elif sc_key == 'T':
-        draw_symbol(RED, y_off, 'T', -2 / 100 * SL - 0.5 * w1 - get_width('_T', font_size, reg),
-                    (SH - h2) / 2, font_size, reg, al)
+        draw_symbol(RED, y_off, 'T', x_left - get_width('_T', font_size, reg),
+                    y2, font_size, reg, al)
 
     full_range = i_range_tenths(1, 10)
 
@@ -514,13 +551,13 @@ def gen_scale(r, y_off, sc, al):
             draw_symbol(sc.col, y_off, sym, sc.pos_of(x / 10, SL), round(STH * 0.85), 60, reg, al)
 
         # Gauge Points
-        draw_gauge_mark(r, y_off, 'pi', sc, font_size, al, col=RED if sc_key == 'CI' or sc_key == 'DI' else FG)
+        GAUGE_MARKS['pi'].draw(r, y_off, sc, font_size, al, col=RED if sc_key == 'CI' or sc_key == 'DI' else FG)
 
     italic = FontStyle.ITALIC
     if sc_key == 'C' or sc_key == 'D':
         if y_off < 1600 + oY:
             # r Gauge Point
-            draw_gauge_mark(r, y_off, 'R', sc, font_size, al)
+            GAUGE_MARKS['R'].draw(r, y_off, sc, font_size, al)
 
     elif sc_key == 'A' or sc_key == 'B':
 
@@ -545,7 +582,7 @@ def gen_scale(r, y_off, sc, al):
             draw_symbol(FG, y_off, sym, sc.pos_of(x * 10, SL), STH, font_size, reg, al)
 
         # Gauge Points
-        draw_gauge_mark(r, y_off, 'pi', sc, font_size, al)
+        GAUGE_MARKS['pi'].draw(r, y_off, sc, font_size, al)
 
     elif sc_key == 'K':
         # Ticks per power of 10
@@ -635,8 +672,8 @@ def gen_scale(r, y_off, sc, al):
             draw_symbol(FG, y_off, str(x - 10), sc.pos_of(x / 10, SL), round(STH * 0.85), 60, reg, al)
 
         # Gauge Points
-        draw_gauge_mark(r, y_off, 'pi', sc, font_size, al)
-        draw_gauge_mark(r, y_off, 'pi', sc, font_size, al, shift_adj=-1)
+        GAUGE_MARKS['pi'].draw(r, y_off, sc, font_size, al)
+        GAUGE_MARKS['pi'].draw(r, y_off, sc, font_size, al, shift_adj=-1)
 
     elif sc_key == 'CIF':
 
@@ -803,6 +840,16 @@ def gen_scale(r, y_off, sc, al):
             x_value = x / 10
             draw_symbol(FG, y_off, str(x_value), sc.pos_of(x_value, SL), label_h, font_s, reg, al)
 
+    elif sc_key == 'LL1':
+        # Ticks
+        # Labels
+        label_h = STH * 0.5
+        font_s = 45
+        for x in [1.01, 1.011, 1.015, 1.02, 1.025, 1.03, 1.035, 1.04, 1.045]:
+            draw_symbol(FG, y_off, str(x), sc.pos_of(x, SL), label_h, font_s, reg, al)
+        for x in [1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.11]:
+            draw_symbol(FG, y_off, str(x), sc.pos_of(x, SL), label_h, font_s, reg, al)
+
 
 def leading_digit_of(x: int) -> str:
     return '1' if x == 10 else str(x)
@@ -910,10 +957,13 @@ def draw_metal_cutoffs(y0, side):
 
 # User Prompt Section
 
-RENDER_MODE = 'render'
-DIAGNOSTIC_MODE = 'diagnostic'
-STICKERPRINT_MODE = 'stickerprint'
-VALID_MODES = [RENDER_MODE, DIAGNOSTIC_MODE, STICKERPRINT_MODE]
+class Mode(Enum):
+    RENDER = 'render'
+    DIAGNOSTIC = 'diagnostic'
+    STICKERPRINT = 'stickerprint'
+
+
+VALID_MODES = [Mode.RENDER, Mode.DIAGNOSTIC, Mode.STICKERPRINT]
 
 
 def prompt_for_mode():
@@ -929,12 +979,6 @@ def prompt_for_mode():
         else:
             print("Check your spelling, and try again")
     return mode
-
-
-SCALE_NAMES = ['A', 'B', 'C', 'D',
-               'K', 'R1', 'R2', 'CI',
-               'DI', 'CF', 'DF', 'CIF', 'L',
-               'S', 'T', 'ST']
 
 
 # ---------------------- 6. Stickers -----------------------------
@@ -1013,7 +1057,7 @@ def main():
     global oX, oY
     args_parser = argparse.ArgumentParser()
     args_parser.add_argument('--mode',
-                             choices=VALID_MODES,
+                             choices=[m.value for m in VALID_MODES],
                              help='What to render')
     args_parser.add_argument('--suffix',
                              help='Output filename suffix for variations')
@@ -1024,7 +1068,7 @@ def main():
                              action='store_true',
                              help='Render the metal cutoffs')
     cli_args = args_parser.parse_args()
-    render_mode = cli_args.mode or prompt_for_mode()
+    render_mode = next(mode for mode in Mode if mode.value == (cli_args.mode or prompt_for_mode()))
     output_suffix = cli_args.suffix or ('test' if cli_args.test else None)
     render_cutoffs = cli_args.cutoffs
 
@@ -1037,9 +1081,9 @@ def main():
     lower = Align.LOWER
     global r_global
     r = r_global
-    if render_mode == RENDER_MODE or render_mode == STICKERPRINT_MODE:
+    if render_mode == Mode.RENDER or render_mode == Mode.STICKERPRINT:
         y_front_end = 1600 + 2 * oY
-        if render_mode == RENDER_MODE:
+        if render_mode == Mode.RENDER:
             draw_borders(oY, Side.FRONT)
             if render_cutoffs:
                 draw_metal_cutoffs(oY, Side.FRONT)
@@ -1048,16 +1092,16 @@ def main():
                 draw_metal_cutoffs(y_front_end, Side.REAR)
 
         # Front Scale
-        gen_scale(r, 110 + oY, Scale.L, lower)
-        gen_scale(r, 320 + oY, Scale.DF, lower)
-        gen_scale(r, 800 + oY, Scale.CI, lower)
-        gen_scale(r, 960 + oY, Scale.C, lower)
+        gen_scale(r, 110 + oY, Scales.L, lower)
+        gen_scale(r, 320 + oY, Scales.DF, lower)
+        gen_scale(r, 800 + oY, Scales.CI, lower)
+        gen_scale(r, 960 + oY, Scales.C, lower)
 
-        gen_scale(r, 480 + oY, Scale.CF, upper)
-        gen_scale(r, 640 + oY, Scale.CIF, upper)
-        gen_scale(r, 1120 + oY, Scale.D, upper)
-        gen_scale(r, 1280 + oY, Scale.R1, upper)
-        gen_scale(r, 1435 + oY, Scale.R2, upper)
+        gen_scale(r, 480 + oY, Scales.CF, upper)
+        gen_scale(r, 640 + oY, Scales.CIF, upper)
+        gen_scale(r, 1120 + oY, Scales.D, upper)
+        gen_scale(r, 1280 + oY, Scales.R1, upper)
+        gen_scale(r, 1435 + oY, Scales.R2, upper)
 
         # These are my weirdo alternative universe "brand names", "model name", etc.
         # Feel free to comment them out
@@ -1068,42 +1112,50 @@ def main():
         draw_symbol(RED, 25 + oY, 'KWENA & TOOR CO.', (total_width - 2 * oX) * 3 / 4 - li, 0, 90, reg, upper)
 
         # Back Scale
-        gen_scale(r, 110 + y_front_end, Scale.K, lower)
-        gen_scale(r, 320 + y_front_end, Scale.A, lower)
-        gen_scale(r, 640 + y_front_end, Scale.T, lower)
-        gen_scale(r, 800 + y_front_end, Scale.ST, lower)
-        gen_scale(r, 960 + y_front_end, Scale.S, lower)
+        gen_scale(r, 110 + y_front_end, Scales.K, lower)
+        gen_scale(r, 320 + y_front_end, Scales.A, lower)
+        gen_scale(r, 640 + y_front_end, Scales.T, lower)
+        gen_scale(r, 800 + y_front_end, Scales.ST, lower)
+        gen_scale(r, 960 + y_front_end, Scales.S, lower)
 
-        gen_scale(r, 480 + y_front_end, Scale.B, upper)
-        gen_scale(r, 1120 + y_front_end, Scale.D, upper)
-        gen_scale(r, 1360 + y_front_end, Scale.DI, upper)
+        gen_scale(r, 480 + y_front_end, Scales.B, upper)
+        gen_scale(r, 1120 + y_front_end, Scales.D, upper)
+        gen_scale(r, 1360 + y_front_end, Scales.DI, upper)
 
-    if render_mode == RENDER_MODE:
+    if render_mode == Mode.RENDER:
         save_png(sliderule_img, 'SlideRuleScales', output_suffix)
 
-    if render_mode == DIAGNOSTIC_MODE:
+    if render_mode == Mode.DIAGNOSTIC:
         # If you're reading this, you're a real one
         # +5 brownie points to you
 
         oX = 0  # x dir margins
         oY = 0  # y dir margins
         total_width = scale_width + 250 * 2
-        total_height = 160 * 24
+
+        scale_names = ['A', 'B', 'C', 'D',
+                       'K', 'R1', 'R2', 'CI',
+                       'DI', 'CF', 'DF', 'CIF', 'L',
+                       'S', 'T', 'ST', 'P',
+                       'LL1', 'LL2', 'LL3',
+                       'LL01', 'LL02', 'LL03']
+
+        total_height = SH * 9 + len(scale_names) * SH
         li = round(total_width / 2 - SL / 2)  # update left index
         diagnostic_img = Image.new('RGB', (total_width, total_height), BG)
         r_global = ImageDraw.Draw(diagnostic_img)
 
         x_offset_cl = total_width / 2 - li
         draw_symbol(FG, 50, 'Diagnostic Test Print of Available Scales', x_offset_cl, 0, 140, reg, upper)
-        draw_symbol(FG, 200, ' '.join(SCALE_NAMES), x_offset_cl, 0, 120, reg, upper)
+        draw_symbol(FG, 200, 'A B C D K R1 R2 CI DI CF DF CIF L S T ST', x_offset_cl, 0, 120, reg, upper)
         k = 120 + SH
 
-        for n, sc in enumerate(SCALE_NAMES):
-            gen_scale(r_global, k + (n + 1) * 200, getattr(Scale, sc), lower)
+        for n, sc in enumerate(scale_names):
+            gen_scale(r_global, k + (n + 1) * 200, getattr(Scales, sc), lower)
 
         save_png(diagnostic_img, 'Diagnostic', output_suffix)
 
-    if render_mode == STICKERPRINT_MODE:
+    if render_mode == Mode.STICKERPRINT:
         # Disclaimer, this section also suffers from lack of generality
         # since I built them with specific numbers rather than variables
 
