@@ -2,7 +2,8 @@ import math
 import unittest
 
 from SlideRule import scale_base, scale_pythagorean, scale_square, scale_cube, scale_sqrt, scale_log, \
-    scale_log_log2, Scales, scale_log_log1, scale_log_log3
+    scale_log_log2, Scales, scale_log_log1, scale_log_log3, scale_log_log03, scale_log_log02, scale_log_log01, \
+    symbol_with_expon
 
 
 class ScaleBaseTestCase(unittest.TestCase):
@@ -25,7 +26,7 @@ class ScaleLogTestCase(unittest.TestCase):
         self.assertEqual(scale_log(7), 0.7)
         self.assertEqual(scale_log(8), 0.8)
         self.assertEqual(scale_log(9), 0.9)
-        self.assertEqual(scale_log(10), 1)
+        self.assertEqual(scale_log(10), 1.0)
 
 
 class ScaleBasePiFoldedTestCase(unittest.TestCase):
@@ -66,10 +67,12 @@ class ScaleLogLogTestCase(unittest.TestCase):
         self.assertAlmostEqual(scale_log_log2(math.e), 1)
         self.assertAlmostEqual(scale_log_log1(1.0100501), 0, 5)
         self.assertAlmostEqual(scale_log_log1(1.105171), 1, 5)
-
-    def xtest_foo1(self):
-        values = {x: scale_log_log1(x) for x in [1.01, 1.011, 1.015, 1.02, 1.025, 1.03, 1.035, 1.04, 1.045]}
-        self.assertEqual(values, {})
+        self.assertAlmostEqual(scale_log_log03(1/math.e), 0)
+        self.assertAlmostEqual(scale_log_log03(0.0000454), 1, 5)
+        self.assertAlmostEqual(scale_log_log02(0.904837), 0, 5)
+        self.assertAlmostEqual(scale_log_log02(1/math.e), 1)
+        self.assertAlmostEqual(scale_log_log01(0.9900498), 0, 5)
+        self.assertAlmostEqual(scale_log_log01(0.904837), 1, 5)
 
 
 class ScaleSqrtTenTestCase(unittest.TestCase):
@@ -117,6 +120,20 @@ class ScalePythagoreanTestCase(unittest.TestCase):
         bottom = 0.99498743710662
         self.assertAlmostEqual(bottom, math.sqrt(1 - 0.1**2))
         self.assertAlmostEqual(scale_pythagorean(bottom), 0)
+
+
+class UtilsTestCase(unittest.TestCase):
+    def test_symbol_with_expon_caret(self):
+        self.assertEqual(('x', 'y'), symbol_with_expon('x^y'))
+        self.assertEqual(('10', '4'), symbol_with_expon('10^4'))
+        self.assertEqual(('10', '-3'), symbol_with_expon('10^-3'))
+        self.assertEqual(('10', '-3.4'), symbol_with_expon('10^-3.4'))
+        self.assertEqual(('10', '0'), symbol_with_expon('10^0'))
+
+    def test_symbol_with_expon_unicode(self):
+        self.assertEqual(('10', '4'), symbol_with_expon('10⁴'))
+        self.assertEqual(('10', '-4'), symbol_with_expon('10⁻⁴'))
+        self.assertEqual(('10', '04'), symbol_with_expon('10⁰⁴'))
 
 
 if __name__ == '__main__':
