@@ -46,6 +46,8 @@ WHITE = 'white'
 BLACK = 'black'
 RGB_BLACK = (0, 0, 0)
 RGB_BLUE = (0, 0, 255)  # (0,0,255 = blue)
+RGB_CUTOFF = (230, 230, 230)
+RGB_CUTOFF2 = (234, 36, 98)
 RED = 'red'
 BG = WHITE
 """background color white"""
@@ -53,10 +55,16 @@ FG = BLACK
 """foreground color black"""
 CUT_COLOR = RGB_BLUE  # color which indicates CUT
 
+
+class SlideRuleDimensions:
+    pass
+
+
 oX = 100  # x margins
 oY = 100  # y margins
 total_width = 8000 + 2 * oX
-sliderule_height = 1600 * 2 + 3 * oY
+side_height = 1600
+sliderule_height = side_height * 2 + 3 * oY
 
 sliderule_img = Image.new('RGB', (total_width, sliderule_height), BG)
 r_global = ImageDraw.Draw(sliderule_img)
@@ -83,8 +91,8 @@ XL = 1.3
 
 class Align(Enum):
     """Scale Alignment (ticks and labels against upper or lower bounds)"""
-    UPPER = 'upper'  # Lower alignment
-    LOWER = 'lower'  # Upper Alignment
+    UPPER = 'upper'  # Upper alignment
+    LOWER = 'lower'  # Lower Alignment
 
 
 class Side(Enum):
@@ -141,7 +149,7 @@ def i_range_tenths(first: int, last: int, include_last=True) -> range:
     return i_range(first * INDEX_PER_TENTH, last * INDEX_PER_TENTH, include_last)
 
 
-def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, scale_factor=100, shift_adj=0, scale_width=SL):
+def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_adj=0, scale_width=SL):
     """
     Place ticks in a pattern
     a+bN (N ∈ Z) defines the patterning (which ticks to place)
@@ -155,8 +163,9 @@ def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, scale_factor=1
     :param (int, int) base_pat: the base pattern; a=offset from i_i, b=tick iteration offset
     :param (int, int)|None excl_pat: an exclusion pattern; a0=offset from i_i, b0=tick iteration offset
     :param Align al: alignment
-    :param int|None scale_factor: how much to divide the inputs by before scaling (to generate fine decimals)
+    :param int|None sf: scale factor - how much to divide the inputs by before scaling (to generate fine decimals)
     :param float shift_adj: how much to adjust the shift from the scale
+    :param int scale_width: number of pixels of scale width
     """
 
     h = round(h_mod * STH)
@@ -164,7 +173,7 @@ def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, scale_factor=1
     (a0, b0) = excl_pat or (None, None)
     for x in index_range:
         if x % b - a == 0:
-            x_scaled = sc.scale_to(x / scale_factor if scale_factor else x, shift_adj=shift_adj, scale_width=scale_width)
+            x_scaled = sc.scale_to(x / sf if sf else x, shift_adj=shift_adj, scale_width=scale_width)
             if excl_pat:
                 if x % b0 - a0 != 0:
                     draw_tick(r, y_off, x_scaled, h, STT, al)
@@ -260,8 +269,10 @@ def draw_symbol(color, y_off, symbol, x, y, font_size, font_style, al):
         r_global.text((x0 + (w + w_e) / 2, y0 - h / 2), exponent, font=expon_font, fill=color)
 
 
-RE_EXPON_CARET = r'^(.+)\^([-0-9.a-z]+)$'
-RE_EXPON_UNICODE = r'^([^⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)$'
+RE_EXPON_CARET = re.compile(r'^(.+)\^([-0-9.a-z]+)$')
+RE_EXPON_UNICODE = re.compile(r'^([^⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)$')
+RE_SUB_UNICODE = re.compile(r'^([A-Z]+)([0-9₀₁₂₃]+)$')
+RE_SUB_UNDERSCORE = re.compile(r'^(.+)_([-0-9.a-z]+)$')
 
 
 def num_char_convert(char):
@@ -274,19 +285,27 @@ def unicode_sub_convert(symbol: str):
     return ''.join(map(str, map(num_char_convert, symbol)))
 
 
-def symbol_with_expon(symbol: str):
+def split_symbol_by(symbol: str, text_re: re.Pattern, unicode_re: re.Pattern):
     base_sym = symbol
-    expon_sym = None
-    matches = re.match(RE_EXPON_CARET, symbol)
+    subpart_sym = None
+    matches = re.match(text_re, symbol)
     if matches:
         base_sym = matches.group(1)
-        expon_sym = matches.group(2)
+        subpart_sym = matches.group(2)
     else:
-        matches = re.match(RE_EXPON_UNICODE, symbol)
+        matches = re.match(unicode_re, symbol)
         if matches:
             base_sym = matches.group(1)
-            expon_sym = unicode_sub_convert(matches.group(2))
-    return base_sym, expon_sym
+            subpart_sym = unicode_sub_convert(matches.group(2))
+    return base_sym, subpart_sym
+
+
+def symbol_with_expon(symbol: str):
+    return split_symbol_by(symbol, RE_EXPON_CARET, RE_EXPON_UNICODE)
+
+
+def symbol_with_subscript(symbol: str):
+    return split_symbol_by(symbol, RE_SUB_UNDERSCORE, RE_SUB_UNICODE)
 
 
 def draw_symbol_expon(color, y_off, exponent, x_base, y_base, sub_font_size, reg, al):
@@ -296,15 +315,15 @@ def draw_symbol_expon(color, y_off, exponent, x_base, y_base, sub_font_size, reg
     y_expon = y_base
     if al == Align.LOWER:
         y_expon = SH - 1.3 * y_expon
-    draw_symbol(color, y_off, exponent, x_base + w_e / 2,
-                y_expon, sub_font_size, reg, al)
+    draw_symbol(color, y_off, exponent, x_base + w_e / 2, y_expon, sub_font_size, reg, al)
 
 
-def symbol_with_subscript(symbol: str):
-    matches = re.match(r'^([A-Z]+)([0-9₀₁₂₃]+)$', symbol)
-    if matches:
-        return matches.group(1), ''.join(map(str, map(digit, matches.group(2))))
-    return symbol, None
+def draw_symbol_subscript(color, y_off, subscript, h1, x_left, y1, sub_font_size, reg, al):
+    (w_s, h_s) = get_size(subscript, sub_font_size, reg)
+    y_sub = y1 + 0.75 * h1
+    if al == Align.LOWER:
+        y_sub = SH - 1.3 * y_sub
+    draw_symbol(color, y_off, subscript, x_left + w_s / 2, y_sub, sub_font_size, reg, al)
 
 
 def extend(image, y, direction, amplitude):
@@ -344,11 +363,11 @@ def scale_square(x):
 
 def scale_sqrt(x):
     x_frac = x / DIGITS
-    return math.log10(x_frac) * 2
+    return math.log10(math.sqrt(x_frac)) * 4
 
 
 def scale_sqrt_ten(x):
-    return math.log10(x * DIGITS) * 2
+    return math.log10(math.sqrt(x)) * 2
 
 
 def scale_cube(x):
@@ -399,6 +418,10 @@ def scale_log_log(x):
     return math.log10(math.log(x))
 
 
+def scale_log_log0(x):
+    return scale_log_log(x) + 3
+
+
 def scale_log_log1(x):
     return scale_log_log(x) + 2
 
@@ -409,6 +432,10 @@ def scale_log_log2(x):
 
 def scale_log_log3(x):
     return scale_log_log(x)
+
+
+def scale_log_log00(x):
+    return math.log10(-math.log(x)) + 3
 
 
 def scale_log_log01(x):
@@ -468,32 +495,34 @@ class Scale:
 
 class Scales:
     A = Scale('A', 'x²', scale_square)
-    B = Scale('B', 'x²', scale_square)
-    C = Scale('C', 'x', scale_base)
-    CF = Scale('CF', 'πx', scale_base, key='CF', shift=pi_fold_shift)
-    CI = Scale('CI', '1/x', scale_inverse, col=RED)
-    CIF = Scale('CIF', '1/πx', scale_inverse_pi_folded, col=RED)
+    B = Scale('B', 'x²_y', scale_square)
+    C = Scale('C', 'x_y', scale_base)
+    CF = Scale('CF', 'πx_y', scale_base, key='CF', shift=pi_fold_shift)
+    CI = Scale('CI', '1/x_y', scale_inverse, col=RED)
+    CIF = Scale('CIF', '1/πx_y', scale_inverse_pi_folded, col=RED)
     D = Scale('D', 'x', scale_base)
     DF = Scale('DF', 'πx', scale_base, key='DF', shift=pi_fold_shift)
     DI = Scale('DI', '1/x', scale_inverse, col=RED)
     K = Scale('K', 'x³', scale_cube)
     L = Scale('L', 'log x', scale_log)
+    LL0 = Scale('LL₀', 'e^0.001x', scale_log_log0)
     LL1 = Scale('LL₁', 'e^0.01x', scale_log_log1)
     LL2 = Scale('LL₂', 'e^0.1x', scale_log_log2)
     LL3 = Scale('LL₃', 'e^x', scale_log_log3)
+    LL00 = Scale('LL₀₀', 'e^-0.001x', scale_log_log00)
     LL01 = Scale('LL₀₁', 'e^-0.01x', scale_log_log01)
     LL02 = Scale('LL₀₂', 'e^-0.1x', scale_log_log02)
     LL03 = Scale('LL₀₃', 'e^-x', scale_log_log03)
     P = Scale('P', '√1-x²', scale_pythagorean, key='P')
     R1 = Scale('R₁', '√x', scale_sqrt, key='R1')
-    R2 = Scale('R₂', '√x', scale_sqrt, key='R2', shift=-1)
+    R2 = Scale('R₂', '√10x', scale_sqrt, key='R2', shift=-1)
     S = Scale('S', 'sin x', scale_sin)
     ST = Scale('ST', 'θ<5.7°', scale_sin_tan)
     T = Scale('T', 'tan x', scale_tan)
     T1 = Scale('T₁', 'tan θ > 45°', scale_tan, key='T1', shift=-0.5)
     T2 = Scale('T₂', 'tan θ < 45°', scale_tan, key='T2', shift=0.5)
     W1 = Scale('W₁', '√x', scale_sqrt)
-    W2 = Scale('W₂', '√10x', scale_sqrt_ten)
+    W2 = Scale('W₂', '√10x', scale_sqrt, shift=-1)
 
 
 class GaugeMark:
@@ -535,12 +564,13 @@ GaugeMark.cube_root_ten = GaugeMark('c', math.pow(10, 1 / 3), comment='cube root
 GaugeMark.hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
 
 
-def gen_scale(r, y_off, sc, al):
+def gen_scale(r, y_off, sc, al, overhang=0.02):
     """
     :param ImageDraw.Draw r:
     :param int y_off: y pos
     :param Scale sc:
     :param Align al: alignment
+    :param float overhang: fraction of total width to overhang each side to label
     """
 
     # Place Index Symbols (Left and Right)
@@ -549,19 +579,22 @@ def gen_scale(r, y_off, sc, al):
     reg = FontStyle.REG
 
     # Right
-    (right_sym, exponent) = symbol_with_expon(sc.right_sym)
+    (right_sym, subscript) = symbol_with_subscript(sc.right_sym)
+    (right_sym, exponent) = symbol_with_expon(right_sym)
     (w2, h2) = get_size(right_sym, font_size, reg)
     y2 = (SH - h2) / 2
-    x_right = 102 / 100 * SL + 0.5 * w2
+    x_right = (1 + overhang) * SL + 0.5 * w2
     draw_symbol(sc.col, y_off, right_sym, x_right, y2, font_size, reg, al)
     if exponent:
         draw_symbol_expon(sc.col, y_off, exponent, x_right + w2 / 2, y2, sub_font_size, reg, al)
+    if subscript:
+        draw_symbol_subscript(sc.col, y_off, subscript, h2, x_right + w2 / 2, y2, sub_font_size, reg, al)
 
     # Left
     (left_sym, subscript) = symbol_with_subscript(sc.key)
     (w1, h1) = get_size(left_sym, font_size, reg)
     y1 = (SH - h1) / 2
-    x_left = -2 / 100 * SL - 0.5 * w1
+    x_left = -overhang * SL - 0.5 * w1
     draw_symbol(sc.col, y_off, left_sym, x_left, y1, font_size, reg, al)
     if subscript:
         draw_symbol_subscript(sc.col, y_off, subscript, h1, x_left + w1 / 2, y1, sub_font_size, reg, al)
@@ -608,7 +641,7 @@ def gen_scale(r, y_off, sc, al):
     italic = FontStyle.ITALIC
 
     if is_cd:
-        if y_off < 1600 + oY:
+        if y_off < side_height + oY:
             # r Gauge Point
             GaugeMark.deg_per_rad.draw(r, y_off, sc, font_size, al)
 
@@ -655,7 +688,7 @@ def gen_scale(r, y_off, sc, al):
             draw_symbol(FG, y_off, sym, sc.pos_of(x * 10, SL), STH, f, reg, al)
             draw_symbol(FG, y_off, sym, sc.pos_of(x * 100, SL), STH, f, reg, al)
 
-    elif sc == Scales.R1 or sc == Scales.W1:
+    elif sc == Scales.R1:
 
         # Ticks
         pat(r, y_off, sc, MED, i_range(1000, 3200, True), (0, 100), None, al)
@@ -676,7 +709,28 @@ def gen_scale(r, y_off, sc, al):
             draw_symbol(FG, y_off, str(x - 20), sc.pos_of(x, SL), STH, 60, reg, al)
         draw_symbol(FG, y_off, '1', sc.pos_of(31, SL), STH, 60, reg, al)
 
-        # draw_tick(y_off,sl,round(sth),stt)
+    elif sc == Scales.W1:
+        # Ticks
+        fp1 = 950
+        fp2 = 2000
+        fpe = 3333
+        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al)
+        pat(r, y_off, sc, XL, i_range(fp1, fp2, True), (0, 50), (0, 100), al)
+        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 50), None, al)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (5, 10), None, al)
+        pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 10), (0, 50), al)
+
+        # 1-10 Labels
+        for x in range(1, 4):
+            draw_symbol(FG, y_off, str(x), sc.pos_of(10 * x, SL), STH, font_size, reg, al)
+
+        # 0.1-3.1 Labels
+        for x in range(11, 20):
+            draw_symbol(FG, y_off, str(x / 10), sc.pos_of(x, SL), STH, 60, reg, al)
+        for x in range(21, 30):
+            draw_symbol(FG, y_off, str(x / 10), sc.pos_of(x, SL), STH, 60, reg, al)
+        draw_symbol(FG, y_off, '1', sc.pos_of(31, SL), STH, 60, reg, al)
 
     elif sc == Scales.R2:
 
@@ -701,19 +755,22 @@ def gen_scale(r, y_off, sc, al):
 
     elif sc == Scales.W2:
         # Ticks
-        pat(r, y_off, sc, MED, i_range(4000, 10000, True), (0, 1000), None, al)
-        pat(r, y_off, sc, XL, i_range(5000, 10000, False), (500, 1000), None, al)
-        pat(r, y_off, sc, SM, i_range(3200, 10000, False), (0, 100), (0, 1000), al)
-        pat(r, y_off, sc, SM, i_range(3200, 5000, False), (0, 50), None, al)
-        pat(r, y_off, sc, XS, i_range(3160, 5000, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, XS, i_range(5000, 10000, False), (0, 20), (0, 100), al)
+        fp1 = 3000
+        fp2 = 5000
+        fpe = 10600
+        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 1000), None, al)
+        pat(r, y_off, sc, XL, i_range(fp1, fpe, False), (500, 1000), None, al)
+        pat(r, y_off, sc, SM, i_range(fp1, fpe, False), (0, 100), (0, 500), al)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, False), (0, 50), None, al)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, False), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, DOT, i_range(fp2, fpe, False), (0, 20), (0, 100), al)
 
         # 3-10 Labels
         for x in range(3, 11):
-            draw_symbol(FG, y_off, str(x), sc.pos_of(x, SL), STH, font_size, reg, al)
+            draw_symbol(FG, y_off, str(x), sc.pos_of(x * 10, SL), MED * STH, font_size, reg, al)
 
         for x in [3.5, 4.5]:
-            draw_symbol(FG, y_off, str(x), sc.pos_of(x, SL), STH, 60, reg, al)
+            draw_symbol(FG, y_off, str(x), sc.pos_of(x * 10, SL), XL * STH, 60, reg, al)
 
     elif sc.gen_fn == scale_base and sc.shift == pi_fold_shift:  # CF/DF
 
@@ -902,37 +959,62 @@ def gen_scale(r, y_off, sc, al):
         fp3 = 90000
         fp4 = 98000
         fpe = 99500
-        pat(r, y_off, sc, MED, i_range(fp1, fp3, True), (0, 10000), None, al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp3, True), (0, 2000), (0, 10000), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 400), (0, 2000), al, scale_factor=sf)
-        pat(r, y_off, sc, MED, i_range(fp3, fpe, True), (0, 1000), None, al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp3, fp4, True), (0, 200), (0, 1000), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp3, fp4, True), (0, 100), (0, 200), al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp4, fpe, True), (0, 100), (0, 1000), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp4, fpe, True), (0, 20), (0, 1000), al, scale_factor=sf)
+        pat(r, y_off, sc, MED, i_range(fp1, fp3, True), (0, 10000), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 5000), (0, 10000), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1*3, fp2, True), (0, 1000), (0, 5000), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp2, fp3, True), (0, 2000), (0, 10000), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 400), (0, 2000), al, sf=sf)
+        pat(r, y_off, sc, MED, i_range(fp3, fpe, True), (0, 1000), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp3, fp4, True), (0, 200), (0, 1000), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp3, fp4, True), (0, 100), (0, 200), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp4, fpe, True), (0, 100), (0, 1000), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp4, fpe, True), (0, 20), (0, 1000), al, sf=sf)
         # Labels
         label_h = MED * STH
         font_s = 45
-        marks = [v / 100 for v in range(91, 100)] + [v / 10 for v in range(2, 10)] + [0.995]
+        marks = [v / 100 for v in range(91, 100)] + [v / 10 for v in range(1, 10)] + [0.995]
         for x in marks:
+            draw_symbol(FG, y_off, str(x)[1:], sc.pos_of(x, SL), label_h, font_s, reg, al)
+
+    elif sc == Scales.LL0:
+        # Ticks
+        sf = 100000
+        fp1 = 100095
+        fp2 = 100200
+        fp3 = 100500
+        fpe = 101000
+        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al, sf=sf)
+        pat(r, y_off, sc, XL, i_range(fp1, fpe, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(fp1, fp2, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 2), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (1, 2), (0, 2), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 2), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp3, fpe, True), (0, 5), (0, 10), al, sf=sf)
+        # Labels
+        label_h = MED * STH
+        font_s = 45
+        for x in [1.001, 1.002, 1.003, 1.004, 1.005, 1.006, 1.007, 1.008, 1.009, 1.010]:
             draw_symbol(FG, y_off, str(x), sc.pos_of(x, SL), label_h, font_s, reg, al)
+        # for x in [1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.11]:
+        #     draw_symbol(FG, y_off, str(x), sc.pos_of(x, SL), label_h, font_s, reg, al)
 
     elif sc == Scales.LL1:
         # Ticks
         sf = 10000
-        fp1 = 10100
+        fp1 = 10095
         fp2 = 10200
         fp3 = 10500
         fpe = 11100
-        pat(r, y_off, sc, MED, i_range(fp1, fp2, True), (0, 10), None, al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 5), (0, 10), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 1), (0, 5), al, scale_factor=sf)
-        pat(r, y_off, sc, MED, i_range(fp2, fp3, True), (0, 100), None, al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp2, fp3, True), (0, 10), (0, 100), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 2), (0, 10), al, scale_factor=sf)
-        pat(r, y_off, sc, MED, i_range(fp3, fpe, True), (0, 50), None, al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp3, fpe, True), (0, 10), (0, 50), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp3, fpe, True), (0, 50), (0, 10), al, scale_factor=sf)
+        pat(r, y_off, sc, MED, i_range(fp1, fp2, True), (0, 10), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 5), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 1), (0, 5), al, sf=sf)
+        pat(r, y_off, sc, MED, i_range(fp2, fp3, True), (0, 100), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp2, fp3, True), (0, 10), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 2), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, MED, i_range(fp3, fpe, True), (0, 50), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp3, fpe, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp3, fpe, True), (0, 50), (0, 10), al, sf=sf)
         # Labels
         label_h = MED * STH
         font_s = 45
@@ -943,14 +1025,21 @@ def gen_scale(r, y_off, sc, al):
 
     elif sc == Scales.LL2:
         # Ticks
-        sf = 100
-        fp1 = 110
-        fp2 = 250
-        fpe = 270
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 10), None, al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 5), (0, 10), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 1), (0, 5), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 2), (0, 10), al, scale_factor=sf)
+        sf = 1000
+        fp1 = 1100
+        fp2 = 1200
+        fp3 = 2000
+        fpe = 2700
+        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(fp1, fp2, True), (0, 20), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 10), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 2), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(fp2, fp3, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp2, fp3, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 5), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp3, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp3, fpe, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp3, fpe, True), (0, 10), (0, 50), al, sf=sf)
         # Labels
         label_h = MED * STH
         font_s = 45
@@ -963,21 +1052,21 @@ def gen_scale(r, y_off, sc, al):
     elif sc == Scales.LL3:
         # Ticks
         d1 = i_range(25, 100, False)
-        pat(r, y_off, sc, XS, d1, (0, 5), None, al, scale_factor=10)
-        pat(r, y_off, sc, DOT, d1, (0, 1), (0, 10), al, scale_factor=10)
+        pat(r, y_off, sc, XS, d1, (0, 5), None, al, sf=10)
+        pat(r, y_off, sc, DOT, d1, (0, 1), (0, 10), al, sf=10)
         d2 = i_range(10, 100, True)
-        pat(r, y_off, sc, MED, d2, (0, 10), None, al, scale_factor=None)
-        pat(r, y_off, sc, SM, i_range(d2.start, 50, True), (5, 10), None, al, scale_factor=None)
-        pat(r, y_off, sc, DOT, i_range(d2.start, 50, True), (0, 1), (0, 5), al, scale_factor=None)
-        pat(r, y_off, sc, DOT, i_range(50, d2.stop, True), (0, 2), (0, 10), al, scale_factor=None)
-        pat(r, y_off, sc, MED, i_range(100, 1000, True), (0, 100), None, al, scale_factor=None)
-        pat(r, y_off, sc, DOT, i_range(100, 500, True), (0, 20), (0, 100), al, scale_factor=None)
-        pat(r, y_off, sc, DOT, i_range(500, 1000, True), (0, 50), (0, 100), al, scale_factor=None)
-        pat(r, y_off, sc, MED, i_range(1000, 10000, True), (0, 1000), None, al, scale_factor=None)
-        pat(r, y_off, sc, DOT, i_range(1000, 5000, True), (0, 200), (0, 1000), al, scale_factor=None)
-        pat(r, y_off, sc, DOT, i_range(5000, 10000, True), (0, 500), (0, 1000), al, scale_factor=None)
-        pat(r, y_off, sc, MED, i_range(10000, 30000, True), (0, 10000), None, al, scale_factor=None)
-        pat(r, y_off, sc, DOT, i_range(10000, 30000, True), (0, 2000), (0, 10000), al, scale_factor=None)
+        pat(r, y_off, sc, MED, d2, (0, 10), None, al, sf=None)
+        pat(r, y_off, sc, SM, i_range(d2.start, 50, True), (5, 10), None, al, sf=None)
+        pat(r, y_off, sc, DOT, i_range(d2.start, 50, True), (0, 1), (0, 5), al, sf=None)
+        pat(r, y_off, sc, DOT, i_range(50, d2.stop, True), (0, 2), (0, 10), al, sf=None)
+        pat(r, y_off, sc, MED, i_range(100, 1000, True), (0, 100), None, al, sf=None)
+        pat(r, y_off, sc, DOT, i_range(100, 500, True), (0, 20), (0, 100), al, sf=None)
+        pat(r, y_off, sc, DOT, i_range(500, 1000, True), (0, 50), (0, 100), al, sf=None)
+        pat(r, y_off, sc, MED, i_range(1000, 10000, True), (0, 1000), None, al, sf=None)
+        pat(r, y_off, sc, DOT, i_range(1000, 5000, True), (0, 200), (0, 1000), al, sf=None)
+        pat(r, y_off, sc, DOT, i_range(5000, 10000, True), (0, 500), (0, 1000), al, sf=None)
+        pat(r, y_off, sc, MED, i_range(10000, 30000, True), (0, 10000), None, al, sf=None)
+        pat(r, y_off, sc, DOT, i_range(10000, 30000, True), (0, 2000), (0, 10000), al, sf=None)
         # Labels
         label_h = MED * STH
         font_s = 45
@@ -987,8 +1076,8 @@ def gen_scale(r, y_off, sc, al):
             draw_symbol(FG, y_off, str(x), sc.pos_of(x, SL), label_h, font_s, reg, al)
         for x in [10, 15, 20, 25, 30, 40, 50, 100]:
             draw_symbol(FG, y_off, str(x), sc.pos_of(x, SL), label_h, font_s, reg, al)
-        for x in range(200, 1000, 100):
-            draw_symbol(FG, y_off, str(x)[:-2], sc.pos_of(x, SL), label_h, font_s, reg, al)
+        for x in range(2, 10):
+            draw_symbol(FG, y_off, str(x), sc.pos_of(x * 100, SL), label_h, font_s, reg, al)
         draw_symbol(FG, y_off, '10³', sc.pos_of(1000, SL), label_h, font_s, reg, al)
         for x in range(2, 6):
             draw_symbol(FG, y_off, str(x), sc.pos_of(x * 1000, SL), label_h, font_s, reg, al)
@@ -1004,17 +1093,19 @@ def gen_scale(r, y_off, sc, al):
         fp2 = 1000
         fp3 = 10000
         fpe = 39000
-        pat(r, y_off, sc, SM, i_range(2, fp1, False), (0, 10), None, al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(2, 10, False), (0, 1), None, al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(10, fp1, False), (0, 5), None, al, scale_factor=sf)
-        pat(r, y_off, sc, MED, i_range(fp1, fp2, False), (0, 100), None, al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, False), (0, 20), (0, 100), al, scale_factor=sf)
-        pat(r, y_off, sc, MED, i_range(fp2, fp3, False), (0, 1000), None, al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp2, fp3, False), (0, 200), (0, 1000), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fp3, False), (0, 100), (0, 200), al, scale_factor=sf)
-        pat(r, y_off, sc, MED, i_range(fp3, fpe, False), (0, 5000), None, al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp3, fpe, False), (0, 1000), (0, 5000), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp3, fpe, False), (0, 200), (0, 1000), al, scale_factor=sf)
+        pat(r, y_off, sc, MED, i_range(fp1, fp2, False), (0, 100), None, al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(2, fp1, False), (0, 10), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(5, 10, False), (0, 5), None, al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(1, 10, False), (0, 1), None, al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(10, fp1, False), (0, 5), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, False), (0, 50), None, al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp1 * 5, False), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, MED, i_range(fp2, fp3, False), (0, 1000), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp2, fp3, False), (0, 200), (0, 1000), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fp3, False), (0, 100), (0, 200), al, sf=sf)
+        pat(r, y_off, sc, MED, i_range(fp3, fpe, False), (0, 5000), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp3, fpe, False), (0, 1000), (0, 5000), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp3, fpe, False), (0, 200), (0, 1000), al, sf=sf)
         # Labels
         label_h = STH * MED
         font_s = 45
@@ -1032,10 +1123,10 @@ def gen_scale(r, y_off, sc, al):
         fp1 = 3500
         fp2 = 7500
         fpe = 9100
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, False), (0, 100), None, al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, False), (0, 20), (0, 100), al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp2, fpe, False), (0, 50), (0, 100), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fpe, False), (0, 10), (0, 50), al, scale_factor=sf)
+        pat(r, y_off, sc, MED, i_range(fp1, fpe, False), (0, 100), None, al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, False), (0, 20), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp2, fpe, False), (0, 50), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fpe, False), (0, 10), (0, 50), al, sf=sf)
         # Labels
         label_h = STH * MED
         font_s = 45
@@ -1048,26 +1139,36 @@ def gen_scale(r, y_off, sc, al):
         sf = 10000
         fp1 = 9000
         fp2 = 9300
-        fpe = 9900
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 20), (0, 100), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 5), (0, 20), al, scale_factor=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 20), (0, 100), al, scale_factor=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 10), (0, 20), al, scale_factor=sf)
+        fp3 = 9800
+        fpe = 9906
+        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 50), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 2), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp3, fpe, True), (0, 1), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 20), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 10), (0, 20), al, sf=sf)
         # Labels
         label_h = STH * MED
         font_s = 45
         for x in [0.99, 0.985, 0.98, 0.97, 0.96, 0.95, 0.94, 0.93, 0.92, 0.91, 0.90]:
             draw_symbol(FG, y_off, str(x), sc.pos_of(x, SL), label_h, font_s, reg, al)
 
-
-def draw_symbol_subscript(col, y_off, subscript, h1, x_left, y1, sub_font_size, reg, al):
-    (w_s, h_s) = get_size(subscript, sub_font_size, reg)
-    y_sub = y1 + 0.75 * h1
-    if al == Align.LOWER:
-        y_sub = SH - 1.3 * y_sub
-    draw_symbol(col, y_off, subscript, x_left + w_s / 2,
-                y_sub, sub_font_size, reg, al)
+    elif sc == Scales.LL00:
+        # Ticks
+        sf = 100000
+        fp1 = 98900
+        fp2 = 99800
+        fpe = 99910
+        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 50), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 1), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 10), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 5), (0, 10), al, sf=sf)
+        # Labels
+        label_h = STH * MED
+        font_s = 45
+        for x in [0.999, 0.9985, 0.998, 0.997, 0.996, 0.996, 0.995, 0.994, 0.993, 0.992, 0.991, 0.99, 0.989]:
+            draw_symbol(FG, y_off, str(x), sc.pos_of(x, SL), label_h, font_s, reg, al)
 
 
 def leading_digit_of(x: int) -> str:
@@ -1080,38 +1181,37 @@ def leading_digit_of(x: int) -> str:
 # since I built them with specific numbers rather than variables
 
 
-def draw_borders(y0, side):  # Place initial borders around scales y0 = vertical offset
+def draw_borders(r, y0, side, color=RGB_BLACK):
+    """
+    Place initial borders around scales
+    :param ImageDraw.Draw r:
+    :param y0: vertical offset
+    :param Side side:
+    :param string|tuple color:
+    """
 
     # Main Frame
-    horizontals = [y0, 479 + y0, 1119 + y0, 1598 + y0]
+    y_offsets = [0, 479, 1119, 1598]
 
-    for start in horizontals:
-        for x in range(oX, total_width - oX):
-            for y in range(start, start + 2):
-                sliderule_img.putpixel((x, y), RGB_BLACK)
-    verticals = [oX, total_width - oX]
-    for start in verticals:
-        for x in range(start, start + 2):
-            for y in range(y0, 1600 + y0):
-                sliderule_img.putpixel((x, y), RGB_BLACK)
+    for horizontal_y in [y0 + y_off for y_off in y_offsets]:
+        r.rectangle((oX, horizontal_y, total_width - oX, horizontal_y + 2), fill=color)
+    for vertical_x in [oX, total_width - oX]:
+        r.rectangle((vertical_x, y0, vertical_x + 2, y0 + side_height), fill=color)
 
     # Top Stator Cut-outs
-    verticals = [240 + oX, (total_width - 240) - oX]
-
     # if side == SlideSide.FRONT:
     y_start = y0
     if side == Side.REAR:
         y_start = y_start + 1120
     y_end = 480 + y_start
-    for start in verticals:
-        for x in range(start, start + 2):
-            for y in range(y_start, y_end):
-                sliderule_img.putpixel((x, y), RGB_BLACK)
+    for horizontal_x in [240 + oX, (total_width - 240) - oX]:
+        r.rectangle((horizontal_x, y_start, horizontal_x + 2, y_end), color)
 
 
-def draw_metal_cutoffs(y0, side):
+def draw_metal_cutoffs(r, y0, side):
     """
     Use to temporarily view the metal bracket locations
+    :param ImageDraw.Draw r:
     :param int y0: vertical offset
     :param Side side:
     """
@@ -1119,11 +1219,8 @@ def draw_metal_cutoffs(y0, side):
 
     # Initial Boundary verticals
     verticals = [480 + oX, total_width - 480 - oX]
-    for i in range(0, 2):
-        start = verticals[i]
-        for x in range(start - 1, start + 1):
-            for y in range(y0, 1600 + y0):
-                sliderule_img.putpixel((x, y), (230, 230, 230))
+    for i, start in enumerate(verticals):
+        r.rectangle((start - 1, y0, start + 1, y0 + i), RGB_CUTOFF)
 
         # ~Cute~little~visualization~
         #
@@ -1144,16 +1241,16 @@ def draw_metal_cutoffs(y0, side):
         #       3           -1600
         #   |     |     |
 
-    # Create the left piece using coords format: (x1,x2,y1,y2)
+    # Create the left piece using format: (x1,x2,y1,y2)
     coords = [[240 + b + oX, 480 - b + oX, b + y0, b + y0],  # 1
               [b + oX, 240 + b + oX, 1120 + b + y0, 1120 + b + y0],  # 2
-              [b + oX, 480 - b + oX, 1600 - b + y0, 1600 - b + y0],  # 3
+              [b + oX, 480 - b + oX, side_height - b + y0, side_height - b + y0],  # 3
               [240 + b + oX, 240 + b + oX, b + y0, 1120 + b + y0],  # 4
-              [b + oX, b + oX, 1120 + b + y0, 1600 - b + y0],  # 5
-              [480 - b + oX, 480 - b + oX, b + y0, 1600 - b + y0]]  # 6
+              [b + oX, b + oX, 1120 + b + y0, side_height - b + y0],  # 5
+              [480 - b + oX, 480 - b + oX, b + y0, side_height - b + y0]]  # 6
 
     # Symmetrically create the right piece
-    for i in range(0, 6):
+    for i in range(0, len(coords)):
         (x1, x2, y1, y2) = coords[i]
         coords.append([total_width - x2, total_width - x1, y1, y2])
 
@@ -1161,17 +1258,13 @@ def draw_metal_cutoffs(y0, side):
     points = coords
     # If backside, first apply a vertical reflection
     if side == Side.REAR:
-        points = []
-        for i in range(0, 12):
+        for i in range(0, len(coords)):
             (x1, x2, y1, y2) = coords[i]
-            points.append([x1, x2,
-                           2 * y0 + 1600 - y2,
-                           2 * y0 + 1600 - y1])
+            mid_y = 2 * y0 + side_height
+            points.append([x1, x2, mid_y - y2, mid_y - y1])
     for i in range(0, 12):
         (x1, x2, y1, y2) = points[i]
-        for x in range(x1 - 1, x2 + 1):
-            for y in range(y1 - 1, y2 + 1):
-                sliderule_img.putpixel((x, y), (234, 36, 98))
+        r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=RGB_CUTOFF2)
 
 
 # User Prompt Section
@@ -1240,7 +1333,7 @@ def draw_corners(img_renderer, x1, y1, x2, y2, arm_width=20):
     img_renderer.line((x2, y2 - arm_width, x2, y2 + arm_width), CUT_COLOR)
 
 
-def transcribe(src_img, dest_img, src_x, src_y, size_x, size_y, target_x, target_y):
+def transcribe(src_img, dst_img, src_x, src_y, size_x, size_y, target_x, target_y):
     """
     (x0,y0) First corner of SOURCE (rendering)
     (dx,dy) Width and Length of SOURCE chunk to transcribe
@@ -1251,18 +1344,17 @@ def transcribe(src_img, dest_img, src_x, src_y, size_x, size_y, target_x, target
     just generated the scales in the place where they are needed
 
     :param src_img: SOURCE of pixels
-    :param dest_img: DESTINATION of pixels
+    :param dst_img: DESTINATION of pixels
     :param src_x: First corner of SOURCE (rendering)
     :param src_y: First corner of SOURCE (rendering)
     :param size_x: Width of SOURCE chunk to transcribe
     :param size_y: Length of SOURCE chunk to transcribe
     :param target_x: Target corner of DESTINATION; where to in-plop (into stickerprint)
     :param target_y: Target corner of DESTINATION; where to in-plop (into stickerprint)
-    :return:
     """
 
     src_box = src_img.crop((src_x, src_y, src_x + size_x, src_y + size_y))
-    dest_img.paste(src_box, (target_x, target_y))
+    dst_img.paste(src_box, (target_x, target_y))
 
 
 def save_png(img_to_save, basename, output_suffix=None):
@@ -1301,14 +1393,14 @@ def main():
     global r_global
     r = r_global
     if render_mode == Mode.RENDER or render_mode == Mode.STICKERPRINT:
-        y_front_end = 1600 + 2 * oY
+        y_front_end = side_height + 2 * oY
         if render_mode == Mode.RENDER:
-            draw_borders(oY, Side.FRONT)
+            draw_borders(r, oY, Side.FRONT)
             if render_cutoffs:
-                draw_metal_cutoffs(oY, Side.FRONT)
-            draw_borders(y_front_end, Side.REAR)
+                draw_metal_cutoffs(r, oY, Side.FRONT)
+            draw_borders(r, y_front_end, Side.REAR)
             if render_cutoffs:
-                draw_metal_cutoffs(y_front_end, Side.REAR)
+                draw_metal_cutoffs(r, y_front_end, Side.REAR)
 
         # Front Scale
         gen_scale(r, 110 + oY, Scales.L, lower)
@@ -1356,8 +1448,8 @@ def main():
                        'K', 'R1', 'R2', 'CI',
                        'DI', 'CF', 'DF', 'CIF', 'L',
                        'S', 'T', 'ST', 'P',
-                       'LL1', 'LL2', 'LL3',
-                       'LL01', 'LL02', 'LL03',
+                       'LL0', 'LL1', 'LL2', 'LL3',
+                       'LL00', 'LL01', 'LL02', 'LL03',
                        'W1', 'W2']
 
         total_height = SH * 10 + len(scale_names) * SH
@@ -1371,7 +1463,8 @@ def main():
         k = 120 + SH
 
         for n, sc in enumerate(scale_names):
-            gen_scale(r_global, k + (n + 1) * 200, getattr(Scales, sc), lower)
+            overhang = 0.06 if n > 16 else 0.02
+            gen_scale(r_global, k + (n + 1) * 200, getattr(Scales, sc), lower, overhang=overhang)
 
         save_png(diagnostic_img, 'Diagnostic', output_suffix)
 
@@ -1400,20 +1493,21 @@ def main():
         l = 0
 
         l += o_y2 + o_a
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY, scale_width, 480, o_x2, l)
+        x_left = oX + 750
+        transcribe(sliderule_img, stickerprint_img, x_left, oY, scale_width, 480, o_x2, l)
         extend(stickerprint_img, l + 480 - 1, Dir.DOWN, ext)
         if should_delineate:
             draw_corners(r_global, o_x2, l - o_a, o_x2 + scale_width, l + 480)
 
         l += 480 + o_a
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 481, scale_width, 640, o_x2, l)
+        transcribe(sliderule_img, stickerprint_img, x_left, oY + 481, scale_width, 640, o_x2, l)
         extend(stickerprint_img, l + 1, Dir.UP, ext)
         extend(stickerprint_img, l + 640 - 1, Dir.DOWN, ext)
         if should_delineate:
             draw_corners(r_global, o_x2, l, o_x2 + scale_width, l + 640)
 
         l += 640 + o_a
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1120, scale_width, 480, o_x2, l)
+        transcribe(sliderule_img, stickerprint_img, x_left, oY + 1120, scale_width, 480, o_x2, l)
         extend(stickerprint_img, l + 1, Dir.UP, ext)
         extend(stickerprint_img, l + 480 - 1, Dir.DOWN, ext)
         if should_delineate:
@@ -1423,20 +1517,21 @@ def main():
 
         l += 480 + o_a + o_a + o_a
 
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1600 + oY, scale_width, 480, o_x2, l)
+        y_start = oY + side_height + oY
+        transcribe(sliderule_img, stickerprint_img, x_left, y_start, scale_width, 480, o_x2, l)
         extend(stickerprint_img, l + 480 - 1, Dir.DOWN, ext)
         if should_delineate:
             draw_corners(r_global, o_x2, l - o_a, o_x2 + scale_width, l + 480)
 
         l += 480 + o_a
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1600 + oY + 481 - 3, scale_width, 640, o_x2, l)
+        transcribe(sliderule_img, stickerprint_img, x_left, y_start + 481 - 3, scale_width, 640, o_x2, l)
         extend(stickerprint_img, l + 1, Dir.UP, ext)
         extend(stickerprint_img, l + 640 - 1, Dir.DOWN, ext)
         if should_delineate:
             draw_corners(r_global, o_x2, l, o_x2 + scale_width, l + 640)
 
         l += 640 + o_a
-        transcribe(sliderule_img, stickerprint_img, oX + 750, oY + 1600 + oY + 1120, scale_width, 480, o_x2, l)
+        transcribe(sliderule_img, stickerprint_img, x_left, y_start + 1120, scale_width, 480, o_x2, l)
         extend(stickerprint_img, l + 1, Dir.UP, ext)
         extend(stickerprint_img, l + 480 - 1, Dir.DOWN, ext)
         if should_delineate:
