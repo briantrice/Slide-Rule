@@ -23,7 +23,7 @@ import re
 import time
 from enum import Enum
 from functools import cache
-from unicodedata import digit, category
+import unicodedata
 
 from PIL import Image, ImageFont, ImageDraw
 
@@ -195,14 +195,20 @@ font_families = {
         'cmuntt.ttf',  # CMUTypewriter-Regular
         'cmunit.ttf',  # CMUTypewriter-Italic
         'cmuntb.ttf',  # CMUTypewriter-Bold
-        'cmuntx.ttf'  # CMUTypewriter-BoldItalic
+        'cmuntx.ttf',  # CMUTypewriter-BoldItalic
     ],
     'CMUSansSerif': [
         'cmunss.ttf',  # CMUSansSerif
         'cmunsi.ttf',  # CMUSansSerif-Oblique
         'cmunsx.ttf',  # CMUSansSerif-Bold
-        'cmunso.ttf'  # CMUSansSerif-BoldOblique
+        'cmunso.ttf',  # CMUSansSerif-BoldOblique
     ],
+    'CMUConcrete': [
+        'cmunorm.ttf',  # CMUConcrete-Roman
+        'cmunoti.ttf',  # CMUConcrete-Italic
+        'cmunobx.ttf',  # CMUConcrete-Bold
+        'cmunobi.ttf',  # CMUConcrete-BoldItalic
+    ]
 }
 
 
@@ -327,7 +333,7 @@ RE_SUB_UNICODE = re.compile(r'^([^₀₁₂₃]+)([₀₁₂₃]+)$')
 def num_char_convert(char):
     if char == '⁻':
         return '-'
-    return digit(char)
+    return unicodedata.digit(char)
 
 
 def unicode_sub_convert(symbol: str):
@@ -364,8 +370,8 @@ def symbol_parts(symbol: str):
 
 
 def draw_symbol_sup(r, sup_sym, color, h_base, x_left, y_base, font):
-    if len(sup_sym) == 1 and category(sup_sym) == 'No':
-        sup_sym = str(digit(sup_sym))
+    if len(sup_sym) == 1 and unicodedata.category(sup_sym) == 'No':
+        sup_sym = str(unicodedata.digit(sup_sym))
     draw_symbol_inner(r, sup_sym, color, x_left, y_base - h_base / 2, font)
 
 
@@ -484,11 +490,9 @@ def scale_pythagorean(x):
 
 
 def scale_hyperbolic(x):
-    return math.log10(math.sqrt(1 + (x ** 2)))
-
-
-def scale_hyperbolic_tenth(x):
-    return math.log10(math.sqrt(1 + ((x / TEN) ** 2)))
+    assert x > 1
+    # y = math.sqrt(1+x**2)
+    return math.log10(math.sqrt((x ** 2) - 1))
 
 
 def scale_log_log(x):
@@ -622,7 +626,7 @@ class Scales:
     W1 = Scale('W₁', '√x', scale_sqrt, key='W1')
     W2 = Scale('W₂', '√10x', scale_sqrt, key='W2', shift=-1)
 
-    H1 = Scale('H₁', '√1+0.1x²', scale_hyperbolic_tenth, key='H1')
+    H1 = Scale('H₁', '√1+0.1x²', scale_hyperbolic, key='H1', shift=1)
     H2 = Scale('H₂', '√1+x²', scale_hyperbolic, key='H2')
     Sh1 = Scale('Sh₁', 'sinh x', scale_sinh, key='Sh1')
     Sh2 = Scale('Sh₂', 'sinh x', scale_sinh, key='Sh2', shift=-1)
@@ -701,6 +705,9 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
     font_size = 90
     reg = FontStyle.REG
     font = font_for_family(reg, font_size)
+
+    if DEBUG:
+        r.rectangle((li, y_off, li + SL, y_off + SH), outline='grey')
 
     # Right
     (right_sym, _, _) = symbol_parts(sc.right_sym)
@@ -853,7 +860,8 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, 60, reg, al)
         for x in range(21, 30):
             draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, 60, reg, al)
-        draw_symbol(r, sym_col, y_off, '1', sc.pos_of(31, SL), STH, 60, reg, al)
+        for x in range(31, 34):
+            draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, 60, reg, al)
 
     elif sc == Scales.R2:
 
@@ -892,22 +900,33 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         for x in range(3, 11):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x * 10, SL), MED * STH, font_size, reg, al)
 
-        for x in [3.5, 4.5]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x * 10, SL), XL * STH, 60, reg, al)
+        for x in range(35, 115, 10):
+            draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), XL * STH, 60, reg, al)
 
     elif sc == Scales.H1:
         # Ticks
-        sf = 100
+        sf = 1000
         fp1 = 1005
-        # fp2 = 1200
+        fp2 = 1100
         fpe = 1414
         pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(fp1, fpe, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fpe, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fpe, True), (0, 5), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, XL, i_range(fp1, fpe, True), (50, 100), None, al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(fp1, fp2, True), (0, 10), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 5), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 1), (0, 5), al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(fp2, fpe, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 5), (0, 10), al, sf=sf)
         # Labels
-        for x in [1.1, 1.2, 1.3, 1.4]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), MED * STH, font_size, reg, al)
+        for x in range(1005, 1030, 5):
+            x_value = x / 1000
+            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), XL * STH, 60, reg, al)
+        for x in range(103, 108):
+            x_value = x / 100
+            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), XL * STH, 60, reg, al)
+        for x in range(11, 15):
+            x_value = x / TEN
+            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), MED * STH, font_size, reg, al)
 
     elif sc == Scales.H2:
         # Ticks
@@ -916,7 +935,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         fp2 = 4000
         fpe = 10000
         pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 1000), None, al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(fp1, fpe, True), (0, 500), (0, 1000), al, sf=sf)
+        pat(r, y_off, sc, XL, i_range(fp1, fpe, True), (0, 500), (0, 1000), al, sf=sf)
         pat(r, y_off, sc, XS, i_range(fp1, fpe, True), (0, 100), (0, 500), al, sf=sf)
         pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 20), (0, 100), al, sf=sf)
         pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 50), (0, 100), al, sf=sf)
@@ -924,6 +943,9 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         label_h = MED * STH
         for x in range(2, 11):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_size, reg, al)
+        for x in range(15, 45, 10):
+            x_value = x / 10
+            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), XL * STH, 60, reg, al)
 
     elif sc.gen_fn == scale_base and sc.shift == pi_fold_shift:  # CF/DF
 
@@ -1469,17 +1491,17 @@ VALID_MODES = [Mode.RENDER, Mode.DIAGNOSTIC, Mode.STICKERPRINT]
 
 
 def prompt_for_mode():
-    print("Type render, diagnostic, or stickerprint to set the desired mode")
-    print("Each one does something different, so play around with it!")
+    print('Type render, diagnostic, or stickerprint to set the desired mode')
+    print('Each one does something different, so play around with it!')
     mode_accepted = False
     mode = None
     while not mode_accepted:
-        mode = input("Mode selection: ")
+        mode = input('Mode selection: ')
         if mode in VALID_MODES:
             mode_accepted = True
             continue
         else:
-            print("Check your spelling, and try again")
+            print('Check your spelling, and try again')
     return mode
 
 
@@ -1550,7 +1572,7 @@ def transcribe(src_img, dst_img, src_x, src_y, size_x, size_y, target_x, target_
 def save_png(img_to_save, basename, output_suffix=None):
     output_filename = f"{basename}{'.' + output_suffix if output_suffix else ''}.png"
     img_to_save.save(output_filename, 'PNG')
-    print(f"The result has been saved to {output_filename}")
+    print(f'The result has been saved to {output_filename}')
 
 
 def main():
@@ -1770,7 +1792,7 @@ def main():
 
         save_png(stickerprint_img, 'StickerCut', output_suffix)
 
-    print("The program took", round(time.time() - start_time, 2), "seconds to run")
+    print(f'The program took {round(time.time() - start_time, 2)} seconds to run')
 
 
 # --------------------------7. Extras----------------------------
