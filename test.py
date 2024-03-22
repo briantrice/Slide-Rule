@@ -3,7 +3,7 @@ import unittest
 
 from SlideRule import scale_base, scale_pythagorean, scale_square, scale_cube, scale_sqrt, scale_log, \
     scale_log_log2, Scales, scale_log_log1, scale_log_log3, scale_log_log03, scale_log_log02, scale_log_log01, \
-    symbol_with_expon, scale_sqrt_ten
+    symbol_with_expon, scale_sqrt_ten, scale_hyperbolic, scale_hyperbolic_tenth
 
 
 class ScaleBaseTestCase(unittest.TestCase):
@@ -52,6 +52,20 @@ class ScaleSqrtTestCase(unittest.TestCase):
     def xtest_fenceposts(self):
         self.assertEqual(scale_sqrt(1), scale_base(1))
         self.assertEqual(scale_sqrt(math.sqrt(10)), scale_base(10))
+
+
+class ScaleHyperbolicTestCase(unittest.TestCase):
+    def test_fenceposts(self):
+        self.assertAlmostEqual(scale_hyperbolic(1.4), scale_base(1))
+        self.assertAlmostEqual(scale_hyperbolic(9.949875), scale_base(10))
+        self.assertAlmostEqual(scale_hyperbolic_tenth(math.sqrt(2)), scale_base(10))
+        # self.assertAlmostEqual(scale_hyperbolic(math.sqrt(2)), scale_base(10))
+
+
+class ScaleThetaTestCase(unittest.TestCase):
+    def test_fenceposts(self):
+        self.assertEqual(Scales.Theta.frac_pos_of(0), 0)
+        self.assertEqual(Scales.Theta.frac_pos_of(90), 1)
 
 
 class ScaleSqrtTenTestCase(unittest.TestCase):
