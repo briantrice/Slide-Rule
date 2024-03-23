@@ -49,9 +49,12 @@ class ScaleSquareTestCase(unittest.TestCase):
 
 
 class ScaleSqrtTestCase(unittest.TestCase):
-    def xtest_fenceposts(self):
-        self.assertEqual(scale_sqrt(1), scale_base(1))
-        self.assertEqual(scale_sqrt(math.sqrt(10)), scale_base(10))
+    def test_fenceposts(self):
+        self.assertEqual(scale_sqrt(1), -2)
+        self.assertEqual(scale_sqrt(math.sqrt(10)), -1)
+        self.assertEqual(scale_sqrt(10), 0)
+        self.assertEqual(scale_sqrt(100), 2)
+        self.assertEqual(scale_sqrt(1000), 4)
 
 
 class ScaleHyperbolicTestCase(unittest.TestCase):

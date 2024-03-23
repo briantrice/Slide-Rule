@@ -457,11 +457,6 @@ def scale_tan(x):
     return math.log10(TEN * math.tan(x_rad))
 
 
-def scale_tan_tenth(x):
-    x_rad = math.radians(x) / 10
-    return math.log10(TEN * math.tan(x_rad))
-
-
 def scale_cot(x):
     x_rad = math.radians(DEG_RIGHT_ANGLE - x)
     return math.log10(TEN * math.tan(x_rad))
@@ -473,15 +468,15 @@ def scale_sin_tan(x):
 
 
 def scale_sinh(x):
-    return math.log10(math.sinh(x))  # TODO
+    return math.log10(math.sinh(x))
 
 
 def scale_cosh(x):
-    return math.log10(math.cosh(x))  # TODO
+    return math.log10(math.cosh(x))
 
 
 def scale_tanh(x):
-    return math.log10(math.tanh(x))  # TODO
+    return math.log10(math.tanh(x))
 
 
 def scale_pythagorean(x):
@@ -622,16 +617,16 @@ class Scales:
     T = Scale('T', 'tan x°', scale_tan)
     CoT = Scale('T', 'cot x°', scale_cot, increasing=False)
     T1 = Scale('T₁', 'tan x°', scale_tan, key='T1')
-    T2 = Scale('T₂', 'tan 0.1x°', scale_tan_tenth, key='T2')
+    T2 = Scale('T₂', 'tan 0.1x°', scale_tan, key='T2', shift=-1)
     W1 = Scale('W₁', '√x', scale_sqrt, key='W1')
     W2 = Scale('W₂', '√10x', scale_sqrt, key='W2', shift=-1)
 
     H1 = Scale('H₁', '√1+0.1x²', scale_hyperbolic, key='H1', shift=1)
     H2 = Scale('H₂', '√1+x²', scale_hyperbolic, key='H2')
-    Sh1 = Scale('Sh₁', 'sinh x', scale_sinh, key='Sh1')
-    Sh2 = Scale('Sh₂', 'sinh x', scale_sinh, key='Sh2', shift=-1)
+    Sh1 = Scale('Sh₁', 'sinh x', scale_sinh, key='Sh1', shift=1)
+    Sh2 = Scale('Sh₂', 'sinh x', scale_sinh, key='Sh2')
     Ch1 = Scale('Ch', 'cosh x', scale_cosh)
-    Th = Scale('Th', 'tanh x', scale_tanh)
+    Th = Scale('Th', 'tanh x', scale_tanh, shift=1)
 
     Chi = Scale('χ', '', lambda x: x * 2 / PI, key='Chi')
     Theta = Scale('θ', '°', lambda x: x / DEG_RIGHT_ANGLE, key='Theta')
@@ -1102,7 +1097,18 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
 
     elif sc == Scales.T2:
         f = 1.1 * STH
-        draw_numeral(r, sym_col, y_off, 45, SL, f, 60, reg, al)
+        # Ticks
+        fp1 = 4500
+        fp2 = 7500
+        fpe = 8450
+        pat(r, y_off, sc, MED, range(fp1, fpe, True), (0, 100), None, al)
+        pat(r, y_off, sc, XL, range(fp1, fpe, True), (50, 100), None, al)
+        pat(r, y_off, sc, DOT, range(fp1, fp2, True), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, XS, range(fp2, fpe, True), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, DOT, range(fp2, fpe, True), (0, 5), (0, 10), al)
+        # Degree Labels
+        for x in range(45, 85):
+            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), f, 60, reg, al)
 
     elif sc == Scales.ST:
 
@@ -1156,6 +1162,67 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         marks = [v / 100 for v in range(91, 100)] + [v / 10 for v in range(1, 10)] + [0.995]
         for x in marks:
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
+
+    elif sc == Scales.Sh1:
+        # Ticks
+        sf = 10000
+        fp1 = 998
+        fp2 = 5000
+        fpe = 8810
+        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 1000), None, al, sf=sf)
+        pat(r, y_off, sc, XL, i_range(fp1, fpe, True), (500, 1000), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 100), (0, 500), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 20), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 100), (0, 500), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 50), (0, 100), al, sf=sf)
+        # Labels
+        label_h = MED * STH
+        for x in range(1, 9):
+            x_value = x / 10
+            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), label_h, 45, reg, al)
+
+    elif sc == Scales.Sh2:
+        # Ticks
+        sf = 1000
+        fp1 = 881
+        fpe = 3000
+        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(fp1, fpe, True), (50, 100), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fpe, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fpe, True), (0, 5), (0, 10), al, sf=sf)
+        # Labels
+        label_h = MED * STH
+        for x in range(9, 30):
+            x_value = x / 10
+            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), label_h, 45, reg, al)
+
+    elif sc == Scales.Th:
+        # Ticks
+        sf = 1000
+        fp1 = 100
+        fp2 = 700
+        fp3 = 1000
+        fp4 = 2000
+        fpe = 3000
+        pat(r, y_off, sc, MED, i_range(fp1, fp3, True), (0, 100), None, al, sf=sf)
+        pat(r, y_off, sc, XL, i_range(fp1, fp3, True), (50, 100), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, 200, True), (0, 1), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(200, fp2, True), (0, 5), (0, 10), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, MED, i_range(fp3, fpe, True), (0, 500), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(fp3, fp4, True), (0, 100), (0, 500), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp3, fp4, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp4, fpe, True), (0, 100), (0, 500), al, sf=sf)
+        # Labels
+        label_h = MED * STH
+        for x in range(1, 10):
+            x_value = x / 10
+            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), label_h, 45, reg, al)
+        for x in [1.5]:
+            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, 45, reg, al)
+        for x in range(1, 4):
+            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, 45, reg, al)
 
     elif sc == Scales.Chi:
         # Ticks
