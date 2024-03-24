@@ -67,8 +67,6 @@ total_width = 8000 + 2 * oX
 side_height = 1600
 sliderule_height = side_height * 2 + 3 * oY
 
-sliderule_img = Image.new('RGB', (total_width, sliderule_height), BG)
-
 SH = 160
 """scale height"""
 
@@ -1669,7 +1667,9 @@ def main():
     reg = FontStyle.REG
     upper = Align.UPPER
     lower = Align.LOWER
-    r = None
+    global total_width
+    sliderule_img = Image.new('RGB', (total_width, sliderule_height), BG)
+    r = ImageDraw.Draw(sliderule_img)
     if render_mode == Mode.RENDER or render_mode == Mode.STICKERPRINT:
         y_front_end = side_height + 2 * oY
         if render_mode == Mode.RENDER:
@@ -1694,7 +1694,7 @@ def main():
 
         # These are my weirdo alternative universe "brand names", "model name", etc.
         # Feel free to comment them out
-        global total_width, li
+        global li
         draw_symbol(r, RED, 25 + oY, 'BOGELEX 1000', (total_width - 2 * oX) * 1 / 4 - li, 0, 90, reg, upper)
         draw_symbol(r, RED, 25 + oY, 'LEFT HANDED LIMAÇON 2020', (total_width - 2 * oX) * 2 / 4 - li + oX, 0, 90, reg,
                     upper)
