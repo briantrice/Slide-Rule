@@ -172,7 +172,7 @@ def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_
     (a0, b0) = excl_pat or (None, None)
     for x in index_range:
         if x % b - a == 0:
-            x_scaled = sc.scale_to(x / sf if sf else x, shift_adj=shift_adj, scale_width=scale_width)
+            x_scaled = sc.scale_to(x / sf if sf else x, scale_width, shift_adj=shift_adj)
             if excl_pat:
                 if x % b0 - a0 != 0:
                     draw_tick(r, y_off, x_scaled, h, STT, al)
@@ -404,60 +404,20 @@ def extend(image, y, direction, amplitude):
 TEN = 10
 
 
-def scale_base(x):
-    return math.log10(x)
-
-
-def scale_square(x):
-    return math.log10(x) / 2
-
-
-def scale_sqrt(x):
-    x_frac = x / TEN
-    return math.log10(math.sqrt(x_frac)) * 4
-
-
-def scale_sqrt_ten(x):
-    return math.log10(math.sqrt(x)) * 2
-
-
-def scale_cube(x):
-    return math.log10(x) / 3
-
-
-def scale_inverse(x):
-    return 1 - math.log10(x)
+def scale_sqrt(x): return math.log10(math.sqrt(x / TEN)) * 4
+def scale_sqrt_ten(x): return math.log10(math.sqrt(x)) * 2
+def scale_inverse(x): return 1 - math.log10(x)
 
 
 pi_fold_shift = scale_inverse(PI)
 
 
-def scale_inverse_pi_folded(x):
-    return pi_fold_shift - math.log10(x)
-
-
-def scale_log(x):
-    return x / TEN
-
-
-def scale_sin(x):
-    x_rad = math.radians(x)
-    return math.log10(TEN * math.sin(x_rad))
-
-
-def scale_cos(x):
-    x_rad = math.radians(x)
-    return math.log10(TEN * math.cos(x_rad))
-
-
-def scale_tan(x):
-    x_rad = math.radians(x)
-    return math.log10(TEN * math.tan(x_rad))
-
-
-def scale_cot(x):
-    x_rad = math.radians(DEG_RIGHT_ANGLE - x)
-    return math.log10(TEN * math.tan(x_rad))
+def scale_inverse_pi_folded(x): return pi_fold_shift - math.log10(x)
+def scale_log(x): return x / TEN
+def scale_sin(x): return math.log10(TEN * math.sin(math.radians(x)))
+def scale_cos(x): return math.log10(TEN * math.cos(math.radians(x)))
+def scale_tan(x): return math.log10(TEN * math.tan(math.radians(x)))
+def scale_cot(x): return math.log10(TEN * math.tan(math.radians(DEG_RIGHT_ANGLE - x)))
 
 
 def scale_sin_tan(x):
@@ -465,20 +425,13 @@ def scale_sin_tan(x):
     return math.log10(TEN * TEN * (math.sin(x_rad) + math.tan(x_rad)) / 2)
 
 
-def scale_sinh(x):
-    return math.log10(math.sinh(x))
-
-
-def scale_cosh(x):
-    return math.log10(math.cosh(x))
-
-
-def scale_tanh(x):
-    return math.log10(math.tanh(x))
+def scale_sinh(x): return math.log10(math.sinh(x))
+def scale_cosh(x): return math.log10(math.cosh(x))
+def scale_tanh(x): return math.log10(math.tanh(x))
 
 
 def scale_pythagorean(x):
-    assert 0 <= x < 1
+    assert 0 <= x <= 1
     return math.log10(math.sqrt(1 - (x ** 2))) + 1
 
 
@@ -488,44 +441,34 @@ def scale_hyperbolic(x):
     return math.log10(math.sqrt((x ** 2) - 1))
 
 
-def scale_log_log(x):
-    return math.log10(math.log(x))
+def scale_log_log(x): return math.log10(math.log(x))
 
 
-def scale_log_log0(x):
-    return scale_log_log(x) + 3
+def scale_log_log0(x): return scale_log_log(x) + 3
 
 
-def scale_log_log1(x):
-    return scale_log_log(x) + 2
+def scale_log_log1(x): return scale_log_log(x) + 2
 
 
-def scale_log_log2(x):
-    return scale_log_log(x) + 1
+def scale_log_log2(x): return scale_log_log(x) + 1
 
 
-def scale_log_log3(x):
-    return scale_log_log(x)
+def scale_log_log3(x): return scale_log_log(x)
 
 
-def scale_neg_log_log(x):
-    return math.log10(-math.log(x))
+def scale_neg_log_log(x): return math.log10(-math.log(x))
 
 
-def scale_log_log00(x):
-    return scale_neg_log_log(x) + 3
+def scale_log_log00(x): return scale_neg_log_log(x) + 3
 
 
-def scale_log_log01(x):
-    return scale_neg_log_log(x) + 2
+def scale_log_log01(x): return scale_neg_log_log(x) + 2
 
 
-def scale_log_log02(x):
-    return scale_neg_log_log(x) + 1
+def scale_log_log02(x): return scale_neg_log_log(x) + 1
 
 
-def scale_log_log03(x):
-    return scale_neg_log_log(x)
+def scale_log_log03(x): return scale_neg_log_log(x)
 
 
 def angle_opp(x):
@@ -538,10 +481,102 @@ class RulePart(Enum):
     SLIDE = 'slide'
 
 
+class InvertibleFn:
+    def __init__(self, fn, inv_fn):
+        self.fn = fn
+        self.inverse = inv_fn
+
+    def __call__(self, x):
+        return self.fn(x)
+
+    def inverted(self):
+        return self.__class__(self.inverse, self.fn)
+
+    def compose_with(self, another):
+        """
+        :param InvertibleFn another:
+        :return: InvertibleFn
+        """
+        return self.__class__(
+            lambda x: self.fn(another.fn(x)),
+            lambda x: another.inverse(self.inverse(x))
+        )
+
+    def __add__(self, other):
+        return self.__class__(
+            lambda x: self.fn(x + other),
+            lambda x: self.inverse(x) - other
+        )
+
+    def __sub__(self, other):
+        return self.__class__(
+            lambda x: self.fn(x - other),
+            lambda x: self.inverse(x) + other
+        )
+
+    def __mul__(self, other):
+        return self.__class__(
+            lambda x: self.fn(x * other),
+            lambda x: self.inverse(x) / other
+        )
+
+
+def unit(x): return x
+
+
+class Invertibles:
+    Unit = InvertibleFn(unit, unit)
+    F_to_C = InvertibleFn(lambda f: (f - 32) * 5 / 9, lambda c: (c * 9 / 5) + 32)
+    mm_to_in = InvertibleFn(lambda x_mm: x_mm / 25.4, lambda x_in: x_in * 25.4)
+
+
+class Scaler(InvertibleFn):
+    """Encapsulates a generating function and its inverse.
+    The generating function takes X and returns the fractional position in the unit output space it should locate.
+    The inverse function takes a fraction of a unit output space, returning the value to indicate at that position.
+
+    These should be monotonic over their intended range.
+    """
+
+    def __init__(self, fn, inv_fn, increasing=True):
+        super().__init__(fn, inv_fn)
+        self.is_increasing = increasing
+
+    def position_of(self, value):
+        return self.fn(value)
+
+    def value_at(self, position):
+        return self.inverse(position)
+
+
+def gen_base(x): return math.log10(x)
+def pos_base(p): return math.pow(10, p)
+
+
+class Scalers:
+    Base = Scaler(gen_base, pos_base)
+    Square = Scaler(lambda x: math.log10(x) / 2, lambda p: math.pow(100, p))
+    Cube = Scaler(lambda x: math.log10(x) / 3, lambda p: math.pow(1000, p))
+    Inverse = Scaler(scale_inverse, lambda p: math.pow(p, -1), increasing=False)
+    SquareRoot = Scaler(scale_sqrt, lambda p: math.sqrt(p))
+    Log10 = Scaler(scale_log, lambda p: p * TEN)
+    Sin = Scaler(scale_sin, lambda p: math.asin(p))
+    CoSin = Scaler(scale_cos, lambda p: math.asin(p), increasing=False)
+    Tan = Scaler(scale_tan, lambda p: math.atan(p))
+    CoTan = Scaler(scale_cot, lambda p: math.atan(DEG_RIGHT_ANGLE - p), increasing=False)
+    SinH = Scaler(scale_sinh, lambda p: math.asinh(p))
+    CosH = Scaler(scale_cosh, lambda p: math.acosh(p))
+    TanH = Scaler(scale_tanh, lambda p: math.atanh(p))
+    Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2))
+    LogLog = Scaler(scale_log_log, lambda p: math.exp(p))
+    LogLogNeg = Scaler(scale_log_log, lambda p: math.exp(-p))
+    Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.sqrt(1 + math.pow(p, 2)))
+
+
 class Scale:
 
-    def __init__(self, left_sym: str, right_sym: str, gen_fn: callable,
-                 shift: float = 0, increasing=True, key=None, rule_part=RulePart.STOCK):
+    def __init__(self, left_sym: str, right_sym: str, gen_fn: callable, shift: float = 0,
+                 increasing=True, key=None, rule_part=RulePart.STOCK):
         self.left_sym = left_sym
         """left scale symbol"""
         self.right_sym = right_sym
@@ -575,7 +610,7 @@ class Scale:
     def pos_of(self, x, scale_width):
         return round(scale_width * self.frac_pos_of(x))
 
-    def scale_to(self, x, shift_adj=0, scale_width=SL):
+    def scale_to(self, x, scale_width, shift_adj=0):
         """
         Generating Function for the Scales
         :param Number x: the dependent variable
@@ -587,17 +622,17 @@ class Scale:
 
 
 class Scales:
-    A = Scale('A', 'x²', scale_square)
-    B = Scale('B', 'x²_y', scale_square)
-    C = Scale('C', 'x_y', scale_base)
-    CF = Scale('CF', 'πx_y', scale_base, shift=pi_fold_shift)
+    A = Scale('A', 'x²', Scalers.Square)
+    B = Scale('B', 'x²_y', Scalers.Square)
+    C = Scale('C', 'x_y', Scalers.Base)
+    CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift)
     CI = Scale('CI', '1/x_y', scale_inverse, increasing=False)
     CIF = Scale('CIF', '1/πx_y', scale_inverse_pi_folded, increasing=False)
-    D = Scale('D', 'x', scale_base)
-    DF = Scale('DF', 'πx', scale_base, shift=pi_fold_shift)
+    D = Scale('D', 'x', Scalers.Base)
+    DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift)
     DI = Scale('DI', '1/x', scale_inverse, increasing=False)
-    K = Scale('K', 'x³', scale_cube)
-    L = Scale('L', 'log x', scale_log)
+    K = Scale('K', 'x³', Scalers.Cube)
+    L = Scale('L', 'log x', Scalers.Log10)
     LL0 = Scale('LL₀', 'e^0.001x', scale_log_log0)
     LL1 = Scale('LL₁', 'e^0.01x', scale_log_log1)
     LL2 = Scale('LL₂', 'e^0.1x', scale_log_log2)
@@ -606,7 +641,7 @@ class Scales:
     LL01 = Scale('LL₀₁', 'e^-0.01x', scale_log_log01, increasing=False)
     LL02 = Scale('LL₀₂', 'e^-0.1x', scale_log_log02, increasing=False)
     LL03 = Scale('LL₀₃', 'e^-x', scale_log_log03, increasing=False)
-    P = Scale('P', '√1-x²', scale_pythagorean, key='P', increasing=False)
+    P = Scale('P', '√1-x²', Scalers.Pythagorean, key='P', increasing=False)
     R1 = Scale('R₁', '√x', scale_sqrt, key='R1')
     R2 = Scale('R₂', '√10x', scale_sqrt, key='R2', shift=-1)
     S = Scale('S', 'sin x°', scale_sin)
@@ -659,30 +694,31 @@ class GaugeMark:
         :param str col: color
         :param Number shift_adj:
         """
-        x = sc.scale_to(self.value, shift_adj=shift_adj, scale_width=SL)
+        x = sc.scale_to(self.value, SL, shift_adj=shift_adj)
         h = round(STH)
         draw_tick(r, y_off, x, h, STT, al)
         draw_symbol(r, col, y_off, self.sym, x, h * 1.4, font_size, FontStyle.REG, al)
 
 
-GaugeMark.e = GaugeMark('e', math.e, comment='base of natural logarithms')
-GaugeMark.inv_e = GaugeMark('1/e', 1 / math.e, comment='base of natural logarithms')
-GaugeMark.tau = GaugeMark('τ', TAU, comment='ratio of circle circumference to radius')
-GaugeMark.pi = GaugeMark('π', PI, comment='ratio of circle circumference to diameter')
-GaugeMark.pi_half = GaugeMark('π/2', PI / 2, comment='ratio of quarter arc length to radius')
-GaugeMark.inv_pi = GaugeMark('M', 1 / PI, comment='reciprocal of π')
-
-GaugeMark.deg_per_rad = GaugeMark('r', DEG_FULL / TAU / TEN, comment='degrees per radian')
-GaugeMark.rad_per_deg = GaugeMark('ρ', TAU / DEG_FULL, comment='radians per degree')
-GaugeMark.rad_per_min = GaugeMark('ρ′', TAU / DEG_FULL * 60, comment='radians per minute')
-GaugeMark.rad_per_sec = GaugeMark('ρ″', TAU / DEG_FULL * 60 * 60, comment='radians per second')
-
-GaugeMark.ln_over_log10 = GaugeMark('L', 1 / math.log10(math.e), comment='ratio of natural log to log base 10')
-
-GaugeMark.sqrt_ten = GaugeMark('√10', math.sqrt(TEN), comment='square root of 10')
-GaugeMark.cube_root_ten = GaugeMark('c', math.pow(TEN, 1 / 3), comment='cube root of 10')
-
-GaugeMark.hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
+class Marks:
+    e = GaugeMark('e', math.e, comment='base of natural logarithms')
+    inv_e = GaugeMark('1/e', 1 / math.e, comment='base of natural logarithms')
+    tau = GaugeMark('τ', TAU, comment='ratio of circle circumference to radius')
+    pi = GaugeMark('π', PI, comment='ratio of circle circumference to diameter')
+    pi_half = GaugeMark('π/2', PI / 2, comment='ratio of quarter arc length to radius')
+    inv_pi = GaugeMark('M', 1 / PI, comment='reciprocal of π')
+    
+    deg_per_rad = GaugeMark('r', DEG_FULL / TAU / TEN, comment='degrees per radian')
+    rad_per_deg = GaugeMark('ρ', TAU / DEG_FULL, comment='radians per degree')
+    rad_per_min = GaugeMark('ρ′', TAU / DEG_FULL * 60, comment='radians per minute')
+    rad_per_sec = GaugeMark('ρ″', TAU / DEG_FULL * 60 * 60, comment='radians per second')
+    
+    ln_over_log10 = GaugeMark('L', 1 / math.log10(math.e), comment='ratio of natural log to log base 10')
+    
+    sqrt_ten = GaugeMark('√10', math.sqrt(TEN), comment='square root of 10')
+    cube_root_ten = GaugeMark('c', math.pow(TEN, 1 / 3), comment='cube root of 10')
+    
+    hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
 
 
 def gen_scale(r, y_off, sc, al, overhang=0.02):
@@ -733,7 +769,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
 
     full_range = i_range_tenths(1, 10)
 
-    is_cd = sc.gen_fn == scale_base and sc.shift == 0  # C/D
+    is_cd = sc.gen_fn == Scalers.Base and sc.shift == 0  # C/D
 
     # Tick Placement (the bulk!)
     if is_cd or sc.gen_fn == scale_inverse:
@@ -758,16 +794,16 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
 
         # Gauge Points
         mark_color = RED if sc.gen_fn == scale_inverse else FG
-        GaugeMark.pi.draw(r, y_off, sc, font_size, al, col=mark_color)
+        Marks.pi.draw(r, y_off, sc, font_size, al, col=mark_color)
 
     italic = FontStyle.ITALIC
 
     if is_cd:
         if y_off < side_height + oY:
-            GaugeMark.deg_per_rad.draw(r, y_off, sc, font_size, al)
-            GaugeMark.tau.draw(r, y_off, sc, font_size, al)
+            Marks.deg_per_rad.draw(r, y_off, sc, font_size, al)
+            Marks.tau.draw(r, y_off, sc, font_size, al)
 
-    elif sc.gen_fn == scale_square:
+    elif sc.gen_fn == Scalers.Square:
 
         # Ticks
         pat(r, y_off, sc, MED, full_range, (0, 100), None, al)
@@ -790,18 +826,18 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_symbol(r, sym_col, y_off, sym, sc.pos_of(x * 10, SL), STH, font_size, reg, al)
 
         # Gauge Points
-        GaugeMark.pi.draw(r, y_off, sc, font_size, al)
-        GaugeMark.pi.draw(r, y_off, sc, font_size, al, shift_adj=0.5)
+        Marks.pi.draw(r, y_off, sc, font_size, al)
+        Marks.pi.draw(r, y_off, sc, font_size, al, shift_adj=0.5)
 
     elif sc == Scales.K:
         # Ticks per power of 10
         for b in [10 ** foo for foo in range(0, 3)]:
-            pat(r, y_off, sc, MED, i_range_tenths(1 * b, 10 * b, True), (0, 100 * b), None, al)
-            pat(r, y_off, sc, XL, i_range_tenths(1 * b, 6 * b, True), (50 * b, 100 * b), None, al)
-            pat(r, y_off, sc, SM, i_range_tenths(1 * b, 3 * b, True), (0, 10 * b), None, al)
-            pat(r, y_off, sc, XS, i_range_tenths(1 * b, 3 * b, True), (5 * b, 10 * b), None, al)
-            pat(r, y_off, sc, XS, i_range_tenths(3 * b, 6 * b, True), (0, 10 * b), None, al)
-            pat(r, y_off, sc, XS, i_range_tenths(6 * b, 10 * b, True), (0, 20 * b), None, al)
+            pat(r, y_off, sc, MED, i_range_tenths(1 * b, 10 * b), (0, 100 * b), None, al)
+            pat(r, y_off, sc, XL, i_range_tenths(1 * b, 6 * b), (50 * b, 100 * b), None, al)
+            pat(r, y_off, sc, SM, i_range_tenths(1 * b, 3 * b), (0, 10 * b), None, al)
+            pat(r, y_off, sc, XS, i_range_tenths(1 * b, 3 * b), (5 * b, 10 * b), None, al)
+            pat(r, y_off, sc, XS, i_range_tenths(3 * b, 6 * b), (0, 10 * b), None, al)
+            pat(r, y_off, sc, XS, i_range_tenths(6 * b, 10 * b), (0, 20 * b), None, al)
 
         # 1-10 Labels
         f = 75
@@ -940,13 +976,13 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             x_value = x / 10
             draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), XL * STH, 60, reg, al)
 
-    elif sc.gen_fn == scale_base and sc.shift == pi_fold_shift:  # CF/DF
+    elif sc.gen_fn == Scalers.Base and sc.shift == pi_fold_shift:  # CF/DF
 
         # Ticks
-        pat(r, y_off, sc, MED, i_range_tenths(1, 3, True), (0, 100), None, al)
-        pat(r, y_off, sc, MED, i_range_tenths(4, 10, True), (0, 100), None, al, shift_adj=-1)
-        pat(r, y_off, sc, XL, i_range_tenths(2, 3, True), (50, 100), None, al)
-        pat(r, y_off, sc, SM, i_range_tenths(1, 2, True), (0, 5), None, al)
+        pat(r, y_off, sc, MED, i_range_tenths(1, 3), (0, 100), None, al)
+        pat(r, y_off, sc, MED, i_range_tenths(4, 10), (0, 100), None, al, shift_adj=-1)
+        pat(r, y_off, sc, XL, i_range_tenths(2, 3), (50, 100), None, al)
+        pat(r, y_off, sc, SM, i_range_tenths(1, 2), (0, 5), None, al)
         pat(r, y_off, sc, SM, i_range(200, 310, True), (0, 10), None, al)
         pat(r, y_off, sc, XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=-1)
         pat(r, y_off, sc, SM, i_range(320, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=-1)
@@ -966,8 +1002,8 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x - 10, sc.pos_of(x / 10, SL), round(STH * 0.85), 60, reg, al)
 
         # Gauge Points
-        GaugeMark.pi.draw(r, y_off, sc, font_size, al)
-        GaugeMark.pi.draw(r, y_off, sc, font_size, al, shift_adj=-1)
+        Marks.pi.draw(r, y_off, sc, font_size, al)
+        Marks.pi.draw(r, y_off, sc, font_size, al, shift_adj=-1)
 
     elif sc == Scales.CIF:
 
@@ -1238,7 +1274,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         for x in range(0, 16):
             x_value = x / 10
             draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), label_h, font_size, reg, al)
-        GaugeMark.pi_half.draw(r, y_off, sc, font_size, al, FG)
+        Marks.pi_half.draw(r, y_off, sc, font_size, al, sym_col)
 
     elif sc == Scales.Theta:
         # Ticks
@@ -1324,7 +1360,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
         for x in [1.25, 1.3, 1.35, 1.4, 1.45, 1.5, 1.55, 1.6, 1.65, 1.7, 1.75, 1.8, 1.9, 2, 2.5, 3]:
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
-        GaugeMark.e.draw(r, y_off, sc, font_s, al, FG)
+        Marks.e.draw(r, y_off, sc, font_s, al, sym_col)
 
     elif sc == Scales.LL3:
         # Ticks
@@ -1361,7 +1397,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         draw_symbol(r, sym_col, y_off, '10⁴', sc.pos_of(10000, SL), label_h, font_s, reg, al)
         for x in range(2, 7):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x * 10000, SL), label_h, font_s, reg, al)
-        GaugeMark.e.draw(r, y_off, sc, font_s, al, FG)
+        Marks.e.draw(r, y_off, sc, font_s, al, sym_col)
 
     elif sc == Scales.LL03:
         # Ticks
@@ -1392,7 +1428,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
         draw_symbol(r, sym_col, y_off, '10⁻³', sc.pos_of(10 ** -3, SL), label_h, font_s, reg, al)
         draw_symbol(r, sym_col, y_off, '10⁻⁴', sc.pos_of(10 ** -4, SL), label_h, font_s, reg, al)
-        GaugeMark.inv_e.draw(r, y_off, sc, font_s, al, FG)
+        Marks.inv_e.draw(r, y_off, sc, font_s, al, sym_col)
 
     elif sc == Scales.LL02:
         # Ticks
@@ -1409,21 +1445,20 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         font_s = 45
         for x in [0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35]:
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
-        GaugeMark.inv_e.draw(r, y_off, sc, font_s, al, FG)
+        Marks.inv_e.draw(r, y_off, sc, font_s, al, sym_col)
 
     elif sc == Scales.LL01:
         # Ticks
         sf = 10000
         fp1 = 9000
-        fp2 = 9300
+        fp2 = 9500
         fp3 = 9800
         fpe = 9906
         pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 50), None, al, sf=sf)
         pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 10), (0, 50), al, sf=sf)
         pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 2), (0, 10), al, sf=sf)
         pat(r, y_off, sc, DOT, i_range(fp3, fpe, True), (0, 1), (0, 10), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 20), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 10), (0, 20), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 10), (0, 100), al, sf=sf)
         # Labels
         label_h = STH * MED
         font_s = 45
@@ -1585,7 +1620,7 @@ def draw_box(img_renderer, x0, y0, dx, dy):
     :param int dy: height extension of box in positive direction
     :return:
     """
-    img_renderer.rectangle((x0, y0, x0 + dx, y0 + dy), fill=None, outline=CUT_COLOR)
+    img_renderer.rectangle((x0, y0, x0 + dx, y0 + dy), outline=CUT_COLOR)
 
 
 def draw_corners(img_renderer, x1, y1, x2, y2, arm_width=20):
