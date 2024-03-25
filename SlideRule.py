@@ -29,6 +29,7 @@ from PIL import Image, ImageFont, ImageDraw
 
 TAU = math.tau
 PI = math.pi
+PI_HALF = PI / 2
 DEG_FULL = 360
 DEG_SEMI = 180
 DEG_RIGHT_ANGLE = 90
@@ -181,41 +182,56 @@ def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_
                 draw_tick(r, y_off, x_scaled, h, STT, al)
 
 
-def grad_pat(r, y_off, sc, al, tick_width, scale_width):
+def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width):
     """
     Draw a graduated pattern of tick marks across the scale range.
     Determine the lowest digit tick mark spacing and work upwards from there.
+
+    Tick Patterns:
+    * MED-XL-XS-DOT
+    * 1-.5-.1-.05
+    * 1-.5-.1-.02
+    * 1-.5-.1-.01
     :param ImageDraw.Draw r:
     :param int y_off:
     :param Scale sc:
     :param Align al:
     :param int tick_width:
+    :param int scale_height:
     :param int scale_width:
     """
     # Ticks
     first_value = sc.scaler.value_at_start()
     last_value = sc.scaler.value_at_end()
-    min_tick_offset = tick_width * 2
-    max_digits = math.floor(math.log10((last_value - first_value) * scale_width / min_tick_offset))
-    sf = 10**max_digits
+    min_tick_offset = tick_width * 2  # separate each tick by at least the space of its width
+    log_diff = math.log10(last_value - first_value)
+    num_digits = math.ceil(log_diff) + 2
+    sf = 10 ** num_digits  # ensure enough precision for int ranges
     range_start = int(first_value * sf)
     range_stop = int(last_value * sf)
-    full_range = i_range(range_start, range_stop, True)
     # TODO determine tick plan from max_digits
     max_tick_h = MED
-    deci_step = 10**(max_digits - 1)
-    half_step = deci_step >> 1
+    # Ensure between 6 and 30 numerals will display? Target log10 in 0.8..1.5
+    step_numeral = 10 ** (math.floor(log_diff - 0.5) + num_digits)
     # Top Level
-    pat(r, y_off, sc, max_tick_h, full_range, (0, deci_step), None, al, sf=sf)
-    pat(r, y_off, sc, SM, full_range, (half_step, deci_step), None, al, sf=sf)
+    full_range = range(range_start, range_stop + 1)
+    pat(r, y_off, sc, max_tick_h, full_range, (0, step_numeral), None, al, sf=sf)
+    step_half = step_numeral >> 1
+    pat(r, y_off, sc, SM, full_range, (step_half, step_numeral), None, al, sf=sf)
     # Second Level
-    centi_step = 10**(max_digits - 2)
-    pat(r, y_off, sc, XS, full_range, (0, centi_step), (0, half_step), al, sf=sf)
-    pat(r, y_off, sc, DOT, full_range, (0, centi_step >> 1), (0, centi_step), al, sf=sf)
+    step_tenth = int(step_numeral / 10)
+    pat(r, y_off, sc, XS, full_range, (0, step_tenth), (0, step_half), al, sf=sf)
+    step_last = step_tenth
+    for tick_div in [1, 2, 5]:
+        tick_offset = sc.diff_size_at(0, step_tenth / tick_div, scale_width=scale_width)
+        if tick_offset > min_tick_offset:
+            step_last = round(step_tenth / tick_div)
+            break
+    pat(r, y_off, sc, DOT, full_range, (0, step_tenth >> 1), (0, step_tenth), al, sf=sf)
     # Labels
     sym_col = sc.col
     h = max_tick_h * STH
-    for x in range(range_start, range_stop + 1, deci_step):
+    for x in range(range_start, range_stop + 1, step_numeral):
         x_value = x / sf
         draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, scale_width), h, 60, FontStyle.REG, al)
 
@@ -623,6 +639,8 @@ class Scalers:
     CosH = Scaler(scale_cosh, lambda p: math.acosh(p))
     TanH = Scaler(scale_tanh, lambda p: math.atanh(p))
     Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2))
+    Chi = Scaler(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
+    Theta = Scaler(lambda x: x / DEG_RIGHT_ANGLE, lambda p: p * DEG_RIGHT_ANGLE)
     LogLog = Scaler(scale_log_log, lambda p: math.exp(p))
     LogLogNeg = Scaler(scale_log_log, lambda p: math.exp(-p))
     Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.sqrt(1 + math.pow(p, 2)))
@@ -667,6 +685,12 @@ class Scale:
 
     def pos_of(self, x, scale_width):
         return round(scale_width * self.frac_pos_of(x))
+
+    def offset_between(self, x_start, x_end, scale_width=1):
+        return (self.frac_pos_of(x_end) - self.frac_pos_of(x_start)) * scale_width
+
+    def diff_size_at(self, x, x_step, scale_width=1):
+        return self.offset_between(x, x + x_step, scale_width=scale_width)
 
     def scale_to(self, x, scale_width, shift_adj=0):
         """
@@ -720,8 +744,8 @@ class Scales:
     Ch1 = Scale('Ch', 'cosh x', Scalers.CosH)
     Th = Scale('Th', 'tanh x', Scalers.TanH, shift=1)
 
-    Chi = Scale('χ', '', lambda x: x * 2 / PI, key='Chi')
-    Theta = Scale('θ', '°', lambda x: x / DEG_RIGHT_ANGLE, key='Theta')
+    Chi = Scale('χ', '', Scalers.Chi)
+    Theta = Scale('θ', '°', Scalers.Theta, key='Theta')
 
 
 SCALE_NAMES = ['A', 'B', 'C', 'D',
@@ -834,19 +858,19 @@ class Marks:
     inv_e = GaugeMark('1/e', 1 / math.e, comment='base of natural logarithms')
     tau = GaugeMark('τ', TAU, comment='ratio of circle circumference to radius')
     pi = GaugeMark('π', PI, comment='ratio of circle circumference to diameter')
-    pi_half = GaugeMark('π/2', PI / 2, comment='ratio of quarter arc length to radius')
+    pi_half = GaugeMark('π/2', PI_HALF, comment='ratio of quarter arc length to radius')
     inv_pi = GaugeMark('M', 1 / PI, comment='reciprocal of π')
-    
+
     deg_per_rad = GaugeMark('r', DEG_FULL / TAU / TEN, comment='degrees per radian')
     rad_per_deg = GaugeMark('ρ', TAU / DEG_FULL, comment='radians per degree')
     rad_per_min = GaugeMark('ρ′', TAU / DEG_FULL * 60, comment='radians per minute')
     rad_per_sec = GaugeMark('ρ″', TAU / DEG_FULL * 60 * 60, comment='radians per second')
-    
+
     ln_over_log10 = GaugeMark('L', 1 / math.log10(math.e), comment='ratio of natural log to log base 10')
-    
+
     sqrt_ten = GaugeMark('√10', math.sqrt(TEN), comment='square root of 10')
     cube_root_ten = GaugeMark('c', math.pow(TEN, 1 / 3), comment='cube root of 10')
-    
+
     hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
 
 
@@ -1180,7 +1204,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
                 draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, font_size, reg, al)
 
     elif sc == Scales.Ln:
-        grad_pat(r, y_off, sc, al, STT, SL)
+        grad_pat(r, y_off, sc, al, STT, SH, SL)
 
     elif sc.scaler == Scalers.Sin:
 
@@ -1391,35 +1415,11 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, 45, reg, al)
 
     elif sc == Scales.Chi:
-        # Ticks
-        sf = 1000
-        fp1 = 0
-        fpe = math.ceil(sf * PI / 2)
-        full_range = i_range(fp1, fpe, True)
-        pat(r, y_off, sc, MED, full_range, (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, SM, full_range, (50, 100), None, al, sf=sf)
-        pat(r, y_off, sc, XS, full_range, (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, DOT, full_range, (0, 5), (0, 10), al, sf=sf)
-
-        # Labels
-        label_h = STH * MED
-        for x in range(0, 16):
-            x_value = x / 10
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), label_h, font_size, reg, al)
+        grad_pat(r, y_off, sc, al, STT, SH, SL)
         Marks.pi_half.draw(r, y_off, sc, font_size, al, sym_col)
 
     elif sc == Scales.Theta:
-        # Ticks
-        full_range = i_range(0, 9000, True)
-        pat(r, y_off, sc, MED, full_range, (0, 1000), None, al)
-        pat(r, y_off, sc, SM, full_range, (500, 1000), None, al)
-        pat(r, y_off, sc, XS, full_range, (0, 100), (0, 500), al)
-        pat(r, y_off, sc, DOT, full_range, (0, 20), (0, 100), al)
-
-        # Labels
-        label_h = STH * MED
-        for x in range(0, 91, 10):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_size, reg, al)
+        grad_pat(r, y_off, sc, al, STT, SH, SL)
 
     elif sc == Scales.LL0:
         # Ticks
