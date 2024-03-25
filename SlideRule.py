@@ -127,6 +127,7 @@ def draw_tick(r, y_off, x, height, thickness, al):
     r.rectangle((x0, y0, x0 + thickness, y1), fill=FG)
 
 
+PPI = 677.33
 INDEX_PER_TENTH = 100
 LEFT_INDEX = INDEX_PER_TENTH
 RIGHT_INDEX = INDEX_PER_TENTH * 10 + 1
