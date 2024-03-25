@@ -575,14 +575,17 @@ class Scalers:
 
 class Scale:
 
-    def __init__(self, left_sym: str, right_sym: str, gen_fn: callable, shift: float = 0,
+    def __init__(self, left_sym: str, right_sym: str, scaler: callable, shift: float = 0,
                  increasing=True, key=None, rule_part=RulePart.STOCK):
         self.left_sym = left_sym
         """left scale symbol"""
         self.right_sym = right_sym
         """right scale symbol"""
-        self.gen_fn = gen_fn
+        self.scaler = scaler
+        self.gen_fn = scaler.fn if isinstance(scaler, Scaler) else scaler
         """generating function (producing a fraction of output width)"""
+        self.pos_fn = scaler.inverse if isinstance(scaler, Scaler) else None
+        """positioning function (takes a proportion of output width, returning what value is there)"""
         self.shift = shift
         """scale shift from left index (as a fraction of output width)"""
         self.increasing = increasing
@@ -623,16 +626,17 @@ class Scale:
 
 class Scales:
     A = Scale('A', 'x²', Scalers.Square)
-    B = Scale('B', 'x²_y', Scalers.Square)
-    C = Scale('C', 'x_y', Scalers.Base)
-    CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift)
-    CI = Scale('CI', '1/x_y', scale_inverse, increasing=False)
-    CIF = Scale('CIF', '1/πx_y', scale_inverse_pi_folded, increasing=False)
+    B = Scale('B', 'x²_y', Scalers.Square, rule_part=RulePart.SLIDE)
+    C = Scale('C', 'x_y', Scalers.Base, rule_part=RulePart.SLIDE)
+    CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, rule_part=RulePart.SLIDE)
+    CI = Scale('CI', '1/x_y', Scalers.Inverse, increasing=False, rule_part=RulePart.SLIDE)
+    CIF = Scale('CIF', '1/πx_y', scale_inverse_pi_folded, increasing=False, rule_part=RulePart.SLIDE)
     D = Scale('D', 'x', Scalers.Base)
     DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift)
-    DI = Scale('DI', '1/x', scale_inverse, increasing=False)
+    DI = Scale('DI', '1/x', Scalers.Inverse, increasing=False)
     K = Scale('K', 'x³', Scalers.Cube)
     L = Scale('L', 'log x', Scalers.Log10)
+    Ln = Scale('Ln', 'ln x', Scalers.Ln)
     LL0 = Scale('LL₀', 'e^0.001x', scale_log_log0)
     LL1 = Scale('LL₁', 'e^0.01x', scale_log_log1)
     LL2 = Scale('LL₂', 'e^0.1x', scale_log_log2)
@@ -642,24 +646,24 @@ class Scales:
     LL02 = Scale('LL₀₂', 'e^-0.1x', scale_log_log02, increasing=False)
     LL03 = Scale('LL₀₃', 'e^-x', scale_log_log03, increasing=False)
     P = Scale('P', '√1-x²', Scalers.Pythagorean, key='P', increasing=False)
-    R1 = Scale('R₁', '√x', scale_sqrt, key='R1')
-    R2 = Scale('R₂', '√10x', scale_sqrt, key='R2', shift=-1)
-    S = Scale('S', 'sin x°', scale_sin)
-    CoS = Scale('C', 'cos x°', scale_cos, increasing=False)
+    R1 = Scale('R₁', '√x', Scalers.SquareRoot, key='R1')
+    R2 = Scale('R₂', '√10x', Scalers.SquareRoot, key='R2', shift=-1)
+    S = Scale('S', 'sin x°', Scalers.Sin)
+    CoS = Scale('C', 'cos x°', Scalers.CoSin, increasing=False)
     ST = Scale('ST', 'tan 0.01x°', scale_sin_tan)
-    T = Scale('T', 'tan x°', scale_tan)
-    CoT = Scale('T', 'cot x°', scale_cot, increasing=False)
-    T1 = Scale('T₁', 'tan x°', scale_tan, key='T1')
-    T2 = Scale('T₂', 'tan 0.1x°', scale_tan, key='T2', shift=-1)
-    W1 = Scale('W₁', '√x', scale_sqrt, key='W1')
-    W2 = Scale('W₂', '√10x', scale_sqrt, key='W2', shift=-1)
+    T = Scale('T', 'tan x°', Scalers.Tan)
+    CoT = Scale('T', 'cot x°', Scalers.CoTan, increasing=False)
+    T1 = Scale('T₁', 'tan x°', Scalers.Tan, key='T1')
+    T2 = Scale('T₂', 'tan 0.1x°', Scalers.Tan, key='T2', shift=-1)
+    W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1')
+    W2 = Scale('W₂', '√10x', Scalers.SquareRoot, key='W2', shift=-1)
 
-    H1 = Scale('H₁', '√1+0.1x²', scale_hyperbolic, key='H1', shift=1)
-    H2 = Scale('H₂', '√1+x²', scale_hyperbolic, key='H2')
-    Sh1 = Scale('Sh₁', 'sinh x', scale_sinh, key='Sh1', shift=1)
-    Sh2 = Scale('Sh₂', 'sinh x', scale_sinh, key='Sh2')
-    Ch1 = Scale('Ch', 'cosh x', scale_cosh)
-    Th = Scale('Th', 'tanh x', scale_tanh, shift=1)
+    H1 = Scale('H₁', '√1+0.1x²', Scalers.Hyperbolic, key='H1', shift=1)
+    H2 = Scale('H₂', '√1+x²', Scalers.Hyperbolic, key='H2')
+    Sh1 = Scale('Sh₁', 'sinh x', Scalers.SinH, key='Sh1', shift=1)
+    Sh2 = Scale('Sh₂', 'sinh x', Scalers.SinH, key='Sh2')
+    Ch1 = Scale('Ch', 'cosh x', Scalers.CosH)
+    Th = Scale('Th', 'tanh x', Scalers.TanH, shift=1)
 
     Chi = Scale('χ', '', lambda x: x * 2 / PI, key='Chi')
     Theta = Scale('θ', '°', lambda x: x / DEG_RIGHT_ANGLE, key='Theta')
@@ -769,10 +773,10 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
 
     full_range = i_range_tenths(1, 10)
 
-    is_cd = sc.gen_fn == Scalers.Base and sc.shift == 0  # C/D
+    is_cd = sc.scaler == Scalers.Base and sc.shift == 0  # C/D
 
     # Tick Placement (the bulk!)
-    if is_cd or sc.gen_fn == scale_inverse:
+    if is_cd or sc.scaler == Scalers.Inverse:
 
         # Ticks
         pat(r, y_off, sc, MED, full_range, (0, 100), None, al)
@@ -803,7 +807,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             Marks.deg_per_rad.draw(r, y_off, sc, font_size, al)
             Marks.tau.draw(r, y_off, sc, font_size, al)
 
-    elif sc.gen_fn == Scalers.Square:
+    elif sc.scaler == Scalers.Square:
 
         # Ticks
         pat(r, y_off, sc, MED, full_range, (0, 100), None, al)
@@ -976,7 +980,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             x_value = x / 10
             draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), XL * STH, 60, reg, al)
 
-    elif sc.gen_fn == Scalers.Base and sc.shift == pi_fold_shift:  # CF/DF
+    elif sc.scaler == Scalers.Base and sc.shift == pi_fold_shift:  # CF/DF
 
         # Ticks
         pat(r, y_off, sc, MED, i_range_tenths(1, 3), (0, 100), None, al)
@@ -1050,7 +1054,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             elif x in range(1, 10):
                 draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, font_size, reg, al)
 
-    elif sc.gen_fn == scale_sin:
+    elif sc.scaler == Scalers.Sin:
 
         # Ticks
         pat(r, y_off, sc, XL, i_range(1000, 7000, True), (0, 1000), None, al)
