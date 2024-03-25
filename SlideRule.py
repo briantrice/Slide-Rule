@@ -553,6 +553,9 @@ def gen_base(x): return math.log10(x)
 def pos_base(p): return math.pow(10, p)
 
 
+LOG_TEN = math.log(10)
+
+
 class Scalers:
     Base = Scaler(gen_base, pos_base)
     Square = Scaler(lambda x: math.log10(x) / 2, lambda p: math.pow(100, p))
@@ -560,7 +563,7 @@ class Scalers:
     Inverse = Scaler(scale_inverse, lambda p: math.pow(p, -1), increasing=False)
     SquareRoot = Scaler(scale_sqrt, lambda p: math.sqrt(p))
     Log10 = Scaler(scale_log, lambda p: p * TEN)
-    Ln = Scaler(lambda x: x / math.e, lambda p: p * math.e)
+    Ln = Scaler(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
     Sin = Scaler(scale_sin, lambda p: math.asin(p))
     CoSin = Scaler(scale_cos, lambda p: math.asin(p), increasing=False)
     Tan = Scaler(scale_tan, lambda p: math.atan(p))
@@ -674,7 +677,7 @@ SCALE_NAMES = ['A', 'B', 'C', 'D',
                'K', 'R1', 'R2', 'CI',
                'DI', 'CF', 'DF', 'CIF', 'L',
                'S', 'T', 'ST',
-               'T1', 'T2', 'P',
+               'Ln', 'T1', 'T2', 'P',
                'LL0', 'LL1', 'LL2', 'LL3',
                'LL00', 'LL01', 'LL02', 'LL03',
                'W1', 'W2',
@@ -1121,6 +1124,20 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
                 draw_numeral(r, sym_col, y_off, 1, sc.pos_of(x, SL), STH, font_size, reg, al)
             elif x in range(1, 10):
                 draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, font_size, reg, al)
+
+    elif sc == Scales.Ln:
+        # Ticks
+        sf = 1000
+        full_range = i_range(0, 2300, True)
+        pat(r, y_off, sc, MED, full_range, (0, 100), None, al, sf=sf)
+        pat(r, y_off, sc, XL, full_range, (50, 100), None, al, sf=sf)
+        pat(r, y_off, sc, XS, full_range, (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, DOT, full_range, (0, 5), (0, 10), al, sf=sf)
+
+        # Labels
+        for x in range(0, 24):
+            x_value = x / 10
+            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), STH, 60, reg, al)
 
     elif sc.scaler == Scalers.Sin:
 
