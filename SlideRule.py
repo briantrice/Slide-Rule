@@ -1680,9 +1680,6 @@ def prompt_for_mode():
 # ---------------------- 6. Stickers -----------------------------
 
 
-should_delineate: bool = True
-
-
 def draw_box(img_renderer, x0, y0, dx, dy):
     """
     :param ImageDraw.ImageDraw img_renderer:
@@ -1762,10 +1759,16 @@ def main():
     args_parser.add_argument('--cutoffs',
                              action='store_true',
                              help='Render the metal cutoffs')
+    args_parser.add_argument('--debug',
+                             action='store_true',
+                             help='Render debug indications (corners and bounding boxes)')
     cli_args = args_parser.parse_args()
     render_mode = next(mode for mode in Mode if mode.value == (cli_args.mode or prompt_for_mode()))
     output_suffix = cli_args.suffix or ('test' if cli_args.test else None)
     render_cutoffs = cli_args.cutoffs
+    should_delineate = cli_args.debug
+    global DEBUG
+    DEBUG = should_delineate
 
     start_time = time.time()
 
