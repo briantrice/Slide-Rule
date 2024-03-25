@@ -317,9 +317,14 @@ def draw_numeral(r, color, y_off, num, x, y, font_size, font_style, al):
     :param FontStyle font_style: font style
     :param Align al: alignment
     """
-    num_sym = str(num)
-    if num_sym.startswith('0.'):
-        num_sym = num_sym[1:]  # Omit leading zero digit
+    if isinstance(num, int):
+        num_sym = str(num)
+    elif num.is_integer():
+        num_sym = str(int(num))
+    else:
+        num_sym = str(num)
+        if num_sym.startswith('0.'):
+            num_sym = num_sym[1:]  # Omit leading zero digit
     draw_symbol(r, color, y_off, num_sym, x, y, font_size, font_style, al)
 
 
