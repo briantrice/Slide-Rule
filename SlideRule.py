@@ -731,15 +731,18 @@ class SlideRuleLayout:
 
     def check_scales(self):
         for front_part in self.front_layout:
-            if not front_part: continue
+            if not front_part:
+                continue
             for scale_name in front_part:
                 if scale_name not in SCALE_NAMES:
                     raise Exception(f'Unrecognized front scale name: {scale_name}')
         for rear_part in self.front_layout:
-            if not rear_part: continue
+            if not rear_part:
+                continue
             for scale_name in rear_part:
                 if scale_name not in SCALE_NAMES:
                     raise Exception(f'Unrecognized rear scale name: {scale_name}')
+
 
 class Layouts:
     MannheimOriginal = SlideRuleLayout('A/B C/D')
