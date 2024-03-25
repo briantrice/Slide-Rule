@@ -181,6 +181,45 @@ def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_
                 draw_tick(r, y_off, x_scaled, h, STT, al)
 
 
+def grad_pat(r, y_off, sc, al, tick_width, scale_width):
+    """
+    Draw a graduated pattern of tick marks across the scale range.
+    Determine the lowest digit tick mark spacing and work upwards from there.
+    :param ImageDraw.Draw r:
+    :param int y_off:
+    :param Scale sc:
+    :param Align al:
+    :param int tick_width:
+    :param int scale_width:
+    """
+    # Ticks
+    first_value = sc.scaler.value_at_start()
+    last_value = sc.scaler.value_at_end()
+    min_tick_offset = tick_width * 2
+    max_digits = math.floor(math.log10((last_value - first_value) * scale_width / min_tick_offset))
+    sf = 10**max_digits
+    range_start = int(first_value * sf)
+    range_stop = int(last_value * sf)
+    full_range = i_range(range_start, range_stop, True)
+    # TODO determine tick plan from max_digits
+    max_tick_h = MED
+    deci_step = 10**(max_digits - 1)
+    half_step = deci_step >> 1
+    # Top Level
+    pat(r, y_off, sc, max_tick_h, full_range, (0, deci_step), None, al, sf=sf)
+    pat(r, y_off, sc, SM, full_range, (half_step, deci_step), None, al, sf=sf)
+    # Second Level
+    centi_step = 10**(max_digits - 2)
+    pat(r, y_off, sc, XS, full_range, (0, centi_step), (0, half_step), al, sf=sf)
+    pat(r, y_off, sc, DOT, full_range, (0, centi_step >> 1), (0, centi_step), al, sf=sf)
+    # Labels
+    sym_col = sc.col
+    h = max_tick_h * STH
+    for x in range(range_start, range_stop + 1, deci_step):
+        x_value = x / sf
+        draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, scale_width), h, 60, FontStyle.REG, al)
+
+
 class FontStyle(Enum):
     REG = 0  # regular
     ITALIC = 1  # italic
@@ -553,6 +592,12 @@ class Scaler(InvertibleFn):
 
     def value_at(self, position):
         return self.inverse(position)
+
+    def value_at_start(self):
+        return self.value_at(0)
+
+    def value_at_end(self):
+        return self.value_at(1)
 
 
 def gen_base(x): return math.log10(x)
@@ -1135,18 +1180,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
                 draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, font_size, reg, al)
 
     elif sc == Scales.Ln:
-        # Ticks
-        sf = 1000
-        full_range = i_range(0, 2300, True)
-        pat(r, y_off, sc, MED, full_range, (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, XL, full_range, (50, 100), None, al, sf=sf)
-        pat(r, y_off, sc, XS, full_range, (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, DOT, full_range, (0, 5), (0, 10), al, sf=sf)
-
-        # Labels
-        for x in range(0, 24):
-            x_value = x / 10
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), STH, 60, reg, al)
+        grad_pat(r, y_off, sc, al, STT, SL)
 
     elif sc.scaler == Scalers.Sin:
 
