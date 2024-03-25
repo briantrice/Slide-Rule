@@ -206,6 +206,16 @@ class SlideRuleLayoutTestCase(unittest.TestCase):
         self.assertEqual(actual.front_layout, [['K', 'A'], ['B', 'T', 'ST', 'S'], ['D', 'DI']])
         self.assertEqual(actual.rear_layout, [['L', 'DF'], ['CF', 'CIF', 'CI', 'C'], ['D', 'R1', 'R2']])
 
+    def test_single_side_slide(self):
+        actual = SlideRuleLayout('A/B C/D')
+        self.assertEqual(actual.front_layout, [['A'], ['B', 'C'], ['D']])
+        self.assertEqual(actual.rear_layout, [None, None, None])
+
+    def test_no_slide(self):
+        actual = SlideRuleLayout('A B C D')
+        self.assertEqual(actual.front_layout, [['A', 'B', 'C', 'D'], None, None])
+        self.assertEqual(actual.rear_layout, [None, None, None])
+
 
 if __name__ == '__main__':
     unittest.main()

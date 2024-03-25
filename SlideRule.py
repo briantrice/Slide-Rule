@@ -686,23 +686,27 @@ SCALE_NAMES = ['A', 'B', 'C', 'D',
 class SlideRuleLayout:
     def __init__(self, front_layout: str, rear_layout: str = None):
         if not rear_layout and '\n' in front_layout:
-            (front_layout, rear_layout) = front_layout.split('\n', 2)
+            (front_layout, rear_layout) = front_layout.splitlines()
         self.front_layout = self.parse_side_layout(front_layout)
         self.rear_layout = self.parse_side_layout(rear_layout)
+        self.check_scales()
 
     @classmethod
     def parse_segment_layout(cls, segment_layout: str) -> [str]:
-        return re.split(r'[, ]+', segment_layout.strip(' '))
+        if segment_layout:
+            return re.split(r'[, ]+', segment_layout.strip(' '))
+        else:
+            return None
 
     @classmethod
     def parts_of_side_layout(cls, side_layout: str) -> [str]:
         if '/' in side_layout:
             return side_layout.split('/')
-        first = re.match(r'^\|?\s*(.+)\[(.+)\](.*)\s*\|?$', side_layout)
-        if first:
-            return [first.group(1), first.group(2), first.group(3)]
+        parts = re.fullmatch(r'\|?\s*(.+)\[(.+)](.*)\s*\|?', side_layout)
+        if parts:
+            return [parts.group(1), parts.group(2), parts.group(3)]
         else:
-            return []
+            return [side_layout, '', '']
 
     @classmethod
     def parse_side_layout(cls, layout):
@@ -710,9 +714,9 @@ class SlideRuleLayout:
         :param str layout:
         :return: [[str], [str], [str]]
         """
-        upper_frame_scales = []
-        lower_frame_scales = []
-        slide_scales = []
+        upper_frame_scales = None
+        lower_frame_scales = None
+        slide_scales = None
         if layout:
             major_parts = [cls.parse_segment_layout(x) for x in cls.parts_of_side_layout(layout.strip(' |'))]
             num_parts = len(major_parts)
@@ -722,6 +726,17 @@ class SlideRuleLayout:
                 (upper_frame_scales, slide_scales, lower_frame_scales) = major_parts
         return [upper_frame_scales, slide_scales, lower_frame_scales]
 
+    def check_scales(self):
+        for front_part in self.front_layout:
+            if not front_part: continue
+            for scale_name in front_part:
+                if scale_name not in SCALE_NAMES:
+                    raise Exception(f'Unrecognized front scale name: {scale_name}')
+        for rear_part in self.front_layout:
+            if not rear_part: continue
+            for scale_name in rear_part:
+                if scale_name not in SCALE_NAMES:
+                    raise Exception(f'Unrecognized rear scale name: {scale_name}')
 
 class Layouts:
     MannheimOriginal = SlideRuleLayout('A/B C/D')
