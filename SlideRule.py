@@ -560,6 +560,7 @@ class Scalers:
     Inverse = Scaler(scale_inverse, lambda p: math.pow(p, -1), increasing=False)
     SquareRoot = Scaler(scale_sqrt, lambda p: math.sqrt(p))
     Log10 = Scaler(scale_log, lambda p: p * TEN)
+    Ln = Scaler(lambda x: x / math.e, lambda p: p * math.e)
     Sin = Scaler(scale_sin, lambda p: math.asin(p))
     CoSin = Scaler(scale_cos, lambda p: math.asin(p), increasing=False)
     Tan = Scaler(scale_tan, lambda p: math.atan(p))
