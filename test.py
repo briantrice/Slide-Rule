@@ -1,9 +1,10 @@
 import math
 import unittest
 
-from SlideRule import scale_sqrt, \
-    scale_log_log2, Scales, scale_log_log1, scale_log_log3, scale_log_log03, scale_log_log02, scale_log_log01, \
-    symbol_with_expon, scale_sqrt_ten, scale_hyperbolic, Scalers, symbol_parts
+from SlideRule import (Scales, Scalers, symbol_parts,
+                       scale_log_log1, scale_log_log2, scale_log_log3,
+                       scale_log_log01, scale_log_log02, scale_log_log03,
+                       symbol_with_expon, scale_sqrt_ten, scale_hyperbolic, SlideRuleLayout)
 
 scale_base = Scalers.Base
 
@@ -73,6 +74,7 @@ class ScaleSquareTestCase(unittest.TestCase):
 
 class ScaleSqrtTestCase(unittest.TestCase):
     def test_fenceposts(self):
+        scale_sqrt = Scalers.SquareRoot
         self.assertEqual(scale_sqrt(1), -2)
         self.assertEqual(scale_sqrt(math.sqrt(10)), -1)
         self.assertEqual(scale_sqrt(10), 0)
@@ -195,6 +197,14 @@ class UtilsTestCase(unittest.TestCase):
 
     def test_symbol_with_expon_subscript(self):
         self.assertEqual(('x', 'y', 'z'), symbol_parts('x^y_z'))
+
+
+class SlideRuleLayoutTestCase(unittest.TestCase):
+    def test_demo(self):
+        actual = SlideRuleLayout('|  K,  A  [ B, T, ST, S ] D,  DI    |',
+                                 '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |')
+        self.assertEqual(actual.front_layout, [['K', 'A'], ['B', 'T', 'ST', 'S'], ['D', 'DI']])
+        self.assertEqual(actual.rear_layout, [['L', 'DF'], ['CF', 'CIF', 'CI', 'C'], ['D', 'R1', 'R2']])
 
 
 if __name__ == '__main__':

@@ -682,6 +682,58 @@ SCALE_NAMES = ['A', 'B', 'C', 'D',
                'Chi', 'Theta']
 
 
+class SlideRuleLayout:
+    def __init__(self, front_layout: str, rear_layout: str = None):
+        if not rear_layout and '\n' in front_layout:
+            (front_layout, rear_layout) = front_layout.split('\n', 2)
+        self.front_layout = self.parse_side_layout(front_layout)
+        self.rear_layout = self.parse_side_layout(rear_layout)
+
+    @classmethod
+    def parse_segment_layout(cls, segment_layout: str) -> [str]:
+        return re.split(r'[, ]+', segment_layout.strip(' '))
+
+    @classmethod
+    def parts_of_side_layout(cls, side_layout: str) -> [str]:
+        if '/' in side_layout:
+            return side_layout.split('/')
+        first = re.match(r'^\|?\s*(.+)\[(.+)\](.*)\s*\|?$', side_layout)
+        if first:
+            return [first.group(1), first.group(2), first.group(3)]
+        else:
+            return []
+
+    @classmethod
+    def parse_side_layout(cls, layout):
+        """
+        :param str layout:
+        :return: [[str], [str], [str]]
+        """
+        upper_frame_scales = []
+        lower_frame_scales = []
+        slide_scales = []
+        if layout:
+            major_parts = [cls.parse_segment_layout(x) for x in cls.parts_of_side_layout(layout.strip(' |'))]
+            num_parts = len(major_parts)
+            if num_parts == 1:
+                (slide_scales) = major_parts
+            elif num_parts == 3:
+                (upper_frame_scales, slide_scales, lower_frame_scales) = major_parts
+        return [upper_frame_scales, slide_scales, lower_frame_scales]
+
+
+class Layouts:
+    MannheimOriginal = SlideRuleLayout('A/B C/D')
+    RegleDesEcoles = SlideRuleLayout('DF/CF C/D')
+    Mannheim = SlideRuleLayout('A/B CI C/D K', 'S L T')
+    Rietz = SlideRuleLayout('K A/B CI C/D L', 'S ST T')
+    Darmstadt = SlideRuleLayout('S T A/B K CI C/D P', 'L LL1 LL2 LL3')
+
+    # MODEL 1000 -- LEFT HANDED LIMACON 2020 -- KWENA & TOOR CO.S
+    Demo = SlideRuleLayout('|  K,  A  [ B, T, ST, S ] D,  DI    |',
+                           '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |')
+
+
 class GaugeMark:
     def __init__(self, sym, value, comment=None):
         self.sym = sym
@@ -1899,17 +1951,6 @@ def main():
         save_png(stickerprint_img, 'StickerCut', output_suffix)
 
     print(f'The program took {round(time.time() - start_time, 2)} seconds to run')
-
-
-# --------------------------7. Extras----------------------------
-
-# A B C D K R1 R2 CI DI CF DF L S T ST
-
-# Layout:
-# |  K,  A  [ B, T, ST, S ] D,  DI    |
-# |  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |
-
-# MODEL 1000 -- LEFT HANDED LIMACON 2020 -- KWENA & TOOR CO.S
 
 
 if __name__ == '__main__':
