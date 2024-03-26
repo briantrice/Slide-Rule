@@ -209,7 +209,7 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
         end_value = sc.value_at_end()
     min_tick_offset = tick_width * 2  # separate each tick by at least the space of its width
     log_diff = abs(math.log10(abs((end_value - start_value) / max(start_value, end_value))))
-    num_digits = math.ceil(log_diff) + 2
+    num_digits = math.ceil(log_diff) + 3
     sf = 10 ** num_digits  # ensure enough precision for int ranges
     # Ensure between 6 and 30 numerals will display? Target log10 in 0.8..1.5
     step_numeral = 10 ** (math.floor(math.log10(end_value - start_value) - 0.25) + num_digits)  # numeral level
@@ -220,17 +220,19 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
         v = step_tenth / tick_div / sf
         start_tick_offset = sc.diff_size_at(start_value, v, scale_width)  # separation of first tick
         end_tick_offset = -sc.diff_size_at(end_value, -v, scale_width)  # separation of last tick
-        if min(start_tick_offset, end_tick_offset) > min_tick_offset:
+        if min(start_tick_offset, end_tick_offset) >= min_tick_offset:
             step_last = max(round(step_tenth / tick_div), 1)
             break
     sym_col = sc.col
     num_tick = MED
+    half_tick = XL
+    tenth_tick = XS if step_last < step_tenth else DOT
     h = num_tick * STH
     # Ticks and Labels
     i_start = int(start_value * sf)
     i_offset = i_start % step_last
     if i_offset > 0:  # Align to first tick on or after start
-        i_start -= i_offset + step_last
+        i_start = i_start - i_offset + step_last
     for i in range(i_start, int(end_value * sf) + 1, step_last):
         i_value = i / sf
         x = sc.scale_to(i_value, scale_width)
@@ -239,9 +241,9 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
             h_mod = num_tick
             draw_numeral(r, sym_col, y_off, i_value, x, h, 60, FontStyle.REG, al)
         elif i % step_half == 0:  # Half marks
-            h_mod = XL
+            h_mod = half_tick
         elif i % step_tenth == 0:  # Tenth marks
-            h_mod = XS
+            h_mod = tenth_tick
         draw_tick(r, y_off, x, h_mod * STH, tick_width, al)
 
 
@@ -1104,29 +1106,11 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), XL * STH, 60, reg, al)
 
     elif sc == Scales.H1:
-        # Ticks
-        sf = 1000
-        fp1 = 1005
-        fp2 = 1100
-        fpe = 1414
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, XL, i_range(fp1, fpe, True), (50, 100), None, al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(fp1, fp2, True), (0, 10), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 5), (0, 10), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 1), (0, 5), al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(fp2, fpe, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 5), (0, 10), al, sf=sf)
-        # Labels
-        for x in range(1005, 1030, 5):
-            x_value = x / 1000
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), XL * STH, 60, reg, al)
-        for x in range(103, 108):
-            x_value = x / 100
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), XL * STH, 60, reg, al)
-        for x in range(11, 15):
-            x_value = x / TEN
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), MED * STH, font_size, reg, al)
+        d1 = 1.03
+        d2 = 1.1
+        grad_pat(r, y_off, sc, al, STT, SH, SL, end_value=d1)
+        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d1, end_value=d2)
+        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d2)
 
     elif sc == Scales.H2:
         draw_numeral(r, sym_col, y_off, 1.5, sc.pos_of(1.5, SL), XL * STH, 60, reg, al)
