@@ -248,6 +248,16 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
         draw_tick(r, y_off, x, h_mod * STH, tick_width, al)
 
 
+def grad_pat_divided(r, y_off, sc, al, tick_width, scale_height, scale_width, dividers):
+    if len(dividers) < 1:
+        raise ValueError('At least one divider needed')
+    grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, end_value=dividers[0])
+    last_i = len(dividers) - 1
+    for i, di in enumerate(dividers):
+        dj = dividers[i + 1] if i < last_i else None
+        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=di, end_value=dj)
+
+
 class FontStyle(Enum):
     REG = 0  # regular
     ITALIC = 1  # italic
@@ -1107,17 +1117,11 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), XL * STH, 60, reg, al)
 
     elif sc == Scales.H1:
-        d1 = 1.03
-        d2 = 1.1
-        grad_pat(r, y_off, sc, al, STT, SH, SL, end_value=d1)
-        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d1, end_value=d2)
-        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d2)
+        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [1.03, 1.1])
 
     elif sc == Scales.H2:
         draw_numeral(r, sym_col, y_off, 1.5, sc.pos_of(1.5, SL), XL * STH, 60, reg, al)
-        d1 = 4
-        grad_pat(r, y_off, sc, al, STT, SH, SL, end_value=d1)
-        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d1)
+        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [4])
 
     elif sc.scaler == Scalers.Base and sc.shift == pi_fold_shift:  # CF/DF
 
@@ -1344,11 +1348,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
 
     elif sc == Scales.Sh1:
-        d1 = 0.2
-        d2 = 0.4
-        grad_pat(r, y_off, sc, al, STT, SH, SL, end_value=d1)
-        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d1, end_value=d2)
-        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d2)
+        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [0.2, 0.4])
 
     elif sc == Scales.Sh2:
         grad_pat(r, y_off, sc, al, STT, SH, SL)
