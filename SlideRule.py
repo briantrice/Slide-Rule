@@ -211,8 +211,9 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
     log_diff = abs(math.log10(abs((end_value - start_value) / max(start_value, end_value))))
     num_digits = math.ceil(log_diff) + 3
     sf = 10 ** num_digits  # ensure enough precision for int ranges
-    # Ensure between 6 and 30 numerals will display? Target log10 in 0.8..1.5
-    step_numeral = 10 ** (math.floor(math.log10(end_value - start_value) - 0.25) + num_digits)  # numeral level
+    # Ensure between 6 and 15 numerals will display? Target log10 in 0.8..1.17
+    frac_width = sc.offset_between(start_value, end_value)
+    step_numeral = 10 ** (math.floor(math.log10(end_value - start_value) - 0.5 * frac_width) + num_digits)  # numeral level
     step_half = step_numeral >> 1
     step_tenth = int(step_numeral / 10)  # second level
     step_last = step_tenth  # last level
@@ -1353,31 +1354,20 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         grad_pat(r, y_off, sc, al, STT, SH, SL)
 
     elif sc == Scales.Th:
-        # Ticks
+        d1 = 0.2
+        d2 = 1
+        d3 = 2
+        de = 3
         sf = 1000
-        fp1 = 100
-        fp2 = 700
-        fp3 = 1000
-        fp4 = 2000
-        fpe = 3000
-        pat(r, y_off, sc, MED, i_range(fp1, fp3, True), (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, XL, i_range(fp1, fp3, True), (50, 100), None, al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, 200, True), (0, 1), (0, 10), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(200, fp2, True), (0, 5), (0, 10), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, MED, i_range(fp3, fpe, True), (0, 500), None, al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp3, fp4, True), (0, 100), (0, 500), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp3, fp4, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp4, fpe, True), (0, 100), (0, 500), al, sf=sf)
+        pat(r, y_off, sc, MED, i_range(d2*sf, de*sf, True), (0, 500), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(d2*sf, d3*sf, True), (0, 100), (0, 500), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(d2*sf, d3*sf, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, DOT, i_range(d3*sf, de*sf, True), (0, 100), (0, 500), al, sf=sf)
+        grad_pat(r, y_off, sc, al, STT, SH, SL, end_value=d1)
+        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d1, end_value=d2)
         # Labels
         label_h = MED * STH
-        for x in range(1, 10):
-            x_value = x / 10
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), label_h, 45, reg, al)
-        for x in [1.5]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, 45, reg, al)
-        for x in range(1, 4):
+        for x in range(d2, de + 1):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, 45, reg, al)
 
     elif sc == Scales.Chi:
