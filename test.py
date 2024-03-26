@@ -1,10 +1,11 @@
 import math
 import unittest
 
-from SlideRule import (Scales, Scalers, symbol_parts,
+from SlideRule import (Scales, Scalers, SlideRuleLayout,
+                       symbol_parts, symbol_with_expon,
                        scale_log_log1, scale_log_log2, scale_log_log3,
                        scale_log_log01, scale_log_log02, scale_log_log03,
-                       symbol_with_expon, scale_sqrt_ten, scale_hyperbolic, SlideRuleLayout)
+                       scale_sqrt_ten, scale_hyperbolic)
 
 scale_base = Scalers.Base
 
