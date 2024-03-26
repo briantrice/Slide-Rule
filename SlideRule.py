@@ -223,8 +223,9 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width):
     num_tick = MED
     h = num_tick * STH
     # Ticks and Labels
-    full_range = range(int(first_value * sf), int(last_value * sf) + 1, step_last)
-    for i in full_range:
+    i_start = int(first_value * sf)
+    i_start_aligned = i_start - i_start % step_last
+    for i in range(i_start_aligned, int(last_value * sf) + 1, step_last):
         i_value = i / sf
         x = sc.scale_to(i_value, scale_width)
         h_mod = DOT
@@ -635,11 +636,11 @@ class Scalers:
     Ln = Scaler(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
     Sin = Scaler(scale_sin, lambda p: math.asin(p))
     CoSin = Scaler(scale_cos, lambda p: math.asin(p), increasing=False)
-    Tan = Scaler(scale_tan, lambda p: math.atan(p))
+    Tan = Scaler(scale_tan, lambda p: math.atan(math.pow(10, p)))
     CoTan = Scaler(scale_cot, lambda p: math.atan(DEG_RIGHT_ANGLE - p), increasing=False)
-    SinH = Scaler(scale_sinh, lambda p: math.asinh(p))
-    CosH = Scaler(scale_cosh, lambda p: math.acosh(p))
-    TanH = Scaler(scale_tanh, lambda p: math.atanh(p))
+    SinH = Scaler(scale_sinh, lambda p: math.asinh(math.pow(10, p)))
+    CosH = Scaler(scale_cosh, lambda p: math.acosh(math.pow(10, p)))
+    TanH = Scaler(scale_tanh, lambda p: math.atanh(math.pow(10, p)))
     Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2))
     Chi = Scaler(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
     Theta = Scaler(lambda x: x / DEG_RIGHT_ANGLE, lambda p: p * DEG_RIGHT_ANGLE)
@@ -1374,19 +1375,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), label_h, 45, reg, al)
 
     elif sc == Scales.Sh2:
-        # Ticks
-        sf = 1000
-        fp1 = 881
-        fpe = 3000
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(fp1, fpe, True), (50, 100), None, al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fpe, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fpe, True), (0, 5), (0, 10), al, sf=sf)
-        # Labels
-        label_h = MED * STH
-        for x in range(9, 30):
-            x_value = x / 10
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), label_h, 45, reg, al)
+        grad_pat(r, y_off, sc, al, STT, SH, SL)
 
     elif sc == Scales.Th:
         # Ticks
