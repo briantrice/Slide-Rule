@@ -207,33 +207,35 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width):
     log_diff = math.log10(last_value - first_value)
     num_digits = math.ceil(log_diff) + 2
     sf = 10 ** num_digits  # ensure enough precision for int ranges
-    range_start = int(first_value * sf)
-    range_stop = int(last_value * sf)
-    # TODO determine tick plan from max_digits
-    max_tick_h = MED
     # Ensure between 6 and 30 numerals will display? Target log10 in 0.8..1.5
-    step_numeral = 10 ** (math.floor(log_diff - 0.5) + num_digits)
-    # Top Level
-    full_range = range(range_start, range_stop + 1)
-    pat(r, y_off, sc, max_tick_h, full_range, (0, step_numeral), None, al, sf=sf)
+    step_numeral = 10 ** (math.floor(log_diff - 0.5) + num_digits)  # numeral level
     step_half = step_numeral >> 1
-    pat(r, y_off, sc, SM, full_range, (step_half, step_numeral), None, al, sf=sf)
-    # Second Level
-    step_tenth = int(step_numeral / 10)
-    pat(r, y_off, sc, XS, full_range, (0, step_tenth), (0, step_half), al, sf=sf)
-    step_last = step_tenth
-    for tick_div in [1, 2, 5]:
-        tick_offset = sc.diff_size_at(0, step_tenth / tick_div, scale_width=scale_width)
-        if tick_offset > min_tick_offset:
+    step_tenth = int(step_numeral / 10)  # second level
+    step_last = step_tenth  # last level
+    for tick_div in [10, 5, 2]:
+        v = step_tenth / tick_div / sf
+        start_tick_offset = sc.diff_size_at(first_value, v, scale_width)
+        end_tick_offset = -sc.diff_size_at(last_value, -v, scale_width)
+        if min(start_tick_offset, end_tick_offset) > min_tick_offset:
             step_last = round(step_tenth / tick_div)
             break
-    pat(r, y_off, sc, DOT, full_range, (0, step_tenth >> 1), (0, step_tenth), al, sf=sf)
-    # Labels
     sym_col = sc.col
-    h = max_tick_h * STH
-    for x in range(range_start, range_stop + 1, step_numeral):
-        x_value = x / sf
-        draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, scale_width), h, 60, FontStyle.REG, al)
+    num_tick = MED
+    h = num_tick * STH
+    # Ticks and Labels
+    full_range = range(int(first_value * sf), int(last_value * sf) + 1, step_last)
+    for i in full_range:
+        i_value = i / sf
+        x = sc.scale_to(i_value, scale_width)
+        h_mod = DOT
+        if i % step_numeral == 0:  # Numeral marks
+            h_mod = num_tick
+            draw_numeral(r, sym_col, y_off, i_value, x, h, 60, FontStyle.REG, al)
+        elif i % step_half == 0:  # Half marks
+            h_mod = XL
+        elif i % step_tenth == 0:  # Tenth marks
+            h_mod = XS
+        draw_tick(r, y_off, x, h_mod * STH, tick_width, al)
 
 
 class FontStyle(Enum):
