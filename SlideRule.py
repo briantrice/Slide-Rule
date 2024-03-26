@@ -1291,7 +1291,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         pat(r, y_off, sc, XS, range(fp2, fpe, True), (0, 10), (0, 50), al)
         pat(r, y_off, sc, DOT, range(fp2, fpe, True), (0, 5), (0, 10), al)
         # Degree Labels
-        for x in range(45, 85):
+        for x in range(45, 85, 5):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), f, 60, reg, al)
 
     elif sc == Scales.ST:
