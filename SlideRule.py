@@ -182,7 +182,7 @@ def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_
                 draw_tick(r, y_off, x_scaled, h, STT, al)
 
 
-def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width):
+def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=None, end_value=None):
     """
     Draw a graduated pattern of tick marks across the scale range.
     Determine the lowest digit tick mark spacing and work upwards from there.
@@ -199,33 +199,39 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width):
     :param int tick_width:
     :param int scale_height:
     :param int scale_width:
+    :param Number start_value:
+    :param Number end_value:
     """
     # Ticks
-    first_value = sc.scaler.value_at_start()
-    last_value = sc.scaler.value_at_end()
+    if not start_value:
+        start_value = sc.value_at_start()
+    if not end_value:
+        end_value = sc.value_at_end()
     min_tick_offset = tick_width * 2  # separate each tick by at least the space of its width
-    log_diff = math.log10(last_value - first_value)
+    log_diff = abs(math.log10(abs((end_value - start_value) / max(start_value, end_value))))
     num_digits = math.ceil(log_diff) + 2
     sf = 10 ** num_digits  # ensure enough precision for int ranges
     # Ensure between 6 and 30 numerals will display? Target log10 in 0.8..1.5
-    step_numeral = 10 ** (math.floor(log_diff - 0.5) + num_digits)  # numeral level
+    step_numeral = 10 ** (math.floor(math.log10(end_value - start_value) - 0.25) + num_digits)  # numeral level
     step_half = step_numeral >> 1
     step_tenth = int(step_numeral / 10)  # second level
     step_last = step_tenth  # last level
     for tick_div in [10, 5, 2]:
         v = step_tenth / tick_div / sf
-        start_tick_offset = sc.diff_size_at(first_value, v, scale_width)
-        end_tick_offset = -sc.diff_size_at(last_value, -v, scale_width)
+        start_tick_offset = sc.diff_size_at(start_value, v, scale_width)  # separation of first tick
+        end_tick_offset = -sc.diff_size_at(end_value, -v, scale_width)  # separation of last tick
         if min(start_tick_offset, end_tick_offset) > min_tick_offset:
-            step_last = round(step_tenth / tick_div)
+            step_last = max(round(step_tenth / tick_div), 1)
             break
     sym_col = sc.col
     num_tick = MED
     h = num_tick * STH
     # Ticks and Labels
-    i_start = int(first_value * sf)
-    i_start_aligned = i_start - i_start % step_last
-    for i in range(i_start_aligned, int(last_value * sf) + 1, step_last):
+    i_start = int(start_value * sf)
+    i_offset = i_start % step_last
+    if i_offset > 0:  # Align to first tick on or after start
+        i_start -= i_offset + step_last
+    for i in range(i_start, int(end_value * sf) + 1, step_last):
         i_value = i / sf
         x = sc.scale_to(i_value, scale_width)
         h_mod = DOT
@@ -636,17 +642,17 @@ class Scalers:
     Ln = Scaler(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
     Sin = Scaler(scale_sin, lambda p: math.asin(p))
     CoSin = Scaler(scale_cos, lambda p: math.asin(p), increasing=False)
-    Tan = Scaler(scale_tan, lambda p: math.atan(math.pow(10, p)))
+    Tan = Scaler(scale_tan, lambda p: math.atan(pos_base(p)))
     CoTan = Scaler(scale_cot, lambda p: math.atan(DEG_RIGHT_ANGLE - p), increasing=False)
-    SinH = Scaler(scale_sinh, lambda p: math.asinh(math.pow(10, p)))
-    CosH = Scaler(scale_cosh, lambda p: math.acosh(math.pow(10, p)))
-    TanH = Scaler(scale_tanh, lambda p: math.atanh(math.pow(10, p)))
+    SinH = Scaler(scale_sinh, lambda p: math.asinh(pos_base(p)))
+    CosH = Scaler(scale_cosh, lambda p: math.acosh(pos_base(p)))
+    TanH = Scaler(scale_tanh, lambda p: math.atanh(pos_base(p)))
     Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2))
     Chi = Scaler(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
     Theta = Scaler(lambda x: x / DEG_RIGHT_ANGLE, lambda p: p * DEG_RIGHT_ANGLE)
     LogLog = Scaler(scale_log_log, lambda p: math.exp(p))
     LogLogNeg = Scaler(scale_log_log, lambda p: math.exp(-p))
-    Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.sqrt(1 + math.pow(p, 2)))
+    Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.sqrt(1 + math.pow(pos_base(p), 2)))
 
 
 class Scale:
@@ -685,6 +691,15 @@ class Scale:
         :return: float scaled so 0 and 1 are the left and right of the scale
         """
         return self.shift + shift_adj + self.gen_fn(x)
+
+    def value_at_frac_pos(self, frac_pos, shift_adj=0):
+        return self.pos_fn(frac_pos - self.shift - shift_adj)
+
+    def value_at_start(self):
+        return self.value_at_frac_pos(0)
+
+    def value_at_end(self):
+        return self.value_at_frac_pos(1)
 
     def pos_of(self, x, scale_width):
         return round(scale_width * self.frac_pos_of(x))
@@ -1114,23 +1129,10 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), MED * STH, font_size, reg, al)
 
     elif sc == Scales.H2:
-        # Ticks
-        sf = 1000
-        fp1 = 1414
-        fp2 = 4000
-        fpe = 10000
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 1000), None, al, sf=sf)
-        pat(r, y_off, sc, XL, i_range(fp1, fpe, True), (0, 500), (0, 1000), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fpe, True), (0, 100), (0, 500), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 20), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 50), (0, 100), al, sf=sf)
-        # Labels
-        label_h = MED * STH
-        for x in range(2, 11):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_size, reg, al)
-        for x in range(15, 45, 10):
-            x_value = x / 10
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), XL * STH, 60, reg, al)
+        draw_numeral(r, sym_col, y_off, 1.5, sc.pos_of(1.5, SL), XL * STH, 60, reg, al)
+        d1 = 4
+        grad_pat(r, y_off, sc, al, STT, SH, SL, end_value=d1)
+        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d1)
 
     elif sc.scaler == Scalers.Base and sc.shift == pi_fold_shift:  # CF/DF
 
@@ -1357,22 +1359,11 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
 
     elif sc == Scales.Sh1:
-        # Ticks
-        sf = 10000
-        fp1 = 998
-        fp2 = 5000
-        fpe = 8810
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 1000), None, al, sf=sf)
-        pat(r, y_off, sc, XL, i_range(fp1, fpe, True), (500, 1000), None, al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 100), (0, 500), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 20), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 100), (0, 500), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 50), (0, 100), al, sf=sf)
-        # Labels
-        label_h = MED * STH
-        for x in range(1, 9):
-            x_value = x / 10
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), label_h, 45, reg, al)
+        d1 = 0.2
+        d2 = 0.4
+        grad_pat(r, y_off, sc, al, STT, SH, SL, end_value=d1)
+        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d1, end_value=d2)
+        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d2)
 
     elif sc == Scales.Sh2:
         grad_pat(r, y_off, sc, al, STT, SH, SL)
