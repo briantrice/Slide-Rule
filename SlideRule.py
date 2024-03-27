@@ -216,8 +216,8 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
     step_numeral = 10 ** (math.floor(math.log10(abs(end_value - start_value)) - 0.5 * frac_width) + num_digits)
     step_half = step_numeral >> 1
     step_tenth = int(step_numeral / 10)  # second level
-    smallest_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_tenth / sf, scale_width)
-    if smallest_tick_offset < min_tick_offset:
+    tenth_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_tenth / sf, scale_width)
+    if tenth_tick_offset < min_tick_offset:
         step_tenth = step_numeral
     step_last = step_tenth  # last level
     for tick_div in [10, 5, 2]:
@@ -228,7 +228,7 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
             break
     sym_col = sc.col
     num_tick = MED
-    half_tick = XL
+    half_tick = XL if step_tenth < step_numeral else XS
     tenth_tick = XS if step_last < step_tenth else DOT
     h = num_tick * STH
     # Ticks and Labels
