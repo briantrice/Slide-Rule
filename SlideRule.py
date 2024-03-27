@@ -539,31 +539,7 @@ def scale_hyperbolic(x):
 def scale_log_log(x): return gen_base(math.log(x))
 
 
-def scale_log_log0(x): return scale_log_log(x) + 3
-
-
-def scale_log_log1(x): return scale_log_log(x) + 2
-
-
-def scale_log_log2(x): return scale_log_log(x) + 1
-
-
-def scale_log_log3(x): return scale_log_log(x)
-
-
 def scale_neg_log_log(x): return gen_base(-math.log(x))
-
-
-def scale_log_log00(x): return scale_neg_log_log(x) + 3
-
-
-def scale_log_log01(x): return scale_neg_log_log(x) + 2
-
-
-def scale_log_log02(x): return scale_neg_log_log(x) + 1
-
-
-def scale_log_log03(x): return scale_neg_log_log(x)
 
 
 def angle_opp(x):
@@ -671,8 +647,8 @@ class Scalers:
     Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2))
     Chi = Scaler(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
     Theta = Scaler(lambda x: x / DEG_RIGHT_ANGLE, lambda p: p * DEG_RIGHT_ANGLE)
-    LogLog = Scaler(scale_log_log, lambda p: math.exp(p))
-    LogLogNeg = Scaler(scale_log_log, lambda p: math.exp(-p))
+    LogLog = Scaler(scale_log_log, lambda p: math.exp(pos_base(p)))
+    LogLogNeg = Scaler(scale_neg_log_log, lambda p: math.exp(pos_base(-p)))
     Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.sqrt(1 + math.pow(pos_base(p), 2)))
 
 
@@ -755,14 +731,14 @@ class Scales:
     K = Scale('K', 'x³', Scalers.Cube)
     L = Scale('L', 'log x', Scalers.Log10)
     Ln = Scale('Ln', 'ln x', Scalers.Ln)
-    LL0 = Scale('LL₀', 'e^0.001x', scale_log_log0)
-    LL1 = Scale('LL₁', 'e^0.01x', scale_log_log1)
-    LL2 = Scale('LL₂', 'e^0.1x', scale_log_log2)
-    LL3 = Scale('LL₃', 'e^x', scale_log_log3)
-    LL00 = Scale('LL₀₀', 'e^-0.001x', scale_log_log00, increasing=False)
-    LL01 = Scale('LL₀₁', 'e^-0.01x', scale_log_log01, increasing=False)
-    LL02 = Scale('LL₀₂', 'e^-0.1x', scale_log_log02, increasing=False)
-    LL03 = Scale('LL₀₃', 'e^-x', scale_log_log03, increasing=False)
+    LL0 = Scale('LL₀', 'e^0.001x', Scalers.LogLog, shift=3)
+    LL1 = Scale('LL₁', 'e^0.01x', Scalers.LogLog, shift=2)
+    LL2 = Scale('LL₂', 'e^0.1x', Scalers.LogLog, shift=1)
+    LL3 = Scale('LL₃', 'e^x', Scalers.LogLog)
+    LL00 = Scale('LL₀₀', 'e^-0.001x', Scalers.LogLogNeg, increasing=False, shift=3)
+    LL01 = Scale('LL₀₁', 'e^-0.01x', Scalers.LogLogNeg, increasing=False, shift=2)
+    LL02 = Scale('LL₀₂', 'e^-0.1x', Scalers.LogLogNeg, increasing=False, shift=1)
+    LL03 = Scale('LL₀₃', 'e^-x', Scalers.LogLogNeg, increasing=False)
     P = Scale('P', '√1-x²', Scalers.Pythagorean, key='P', increasing=False)
     R1 = Scale('R₁', '√x', Scalers.SquareRoot, key='R1')
     R2 = Scale('R₂', '√10x', Scalers.SquareRoot, key='R2', shift=-1)
