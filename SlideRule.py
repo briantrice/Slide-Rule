@@ -212,16 +212,18 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
     num_digits = math.ceil(log_diff) + 3
     sf = 10 ** num_digits  # ensure enough precision for int ranges
     # Ensure between 6 and 15 numerals will display? Target log10 in 0.8..1.17
-    frac_width = sc.offset_between(start_value, end_value)
-    step_numeral = 10 ** (math.floor(math.log10(end_value - start_value) - 0.5 * frac_width) + num_digits)  # numeral level
+    frac_width = sc.offset_between(start_value, end_value, 1)
+    step_numeral = 10 ** (math.floor(math.log10(abs(end_value - start_value)) - 0.5 * frac_width) + num_digits)
     step_half = step_numeral >> 1
     step_tenth = int(step_numeral / 10)  # second level
+    smallest_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_tenth / sf, scale_width)
+    if smallest_tick_offset < min_tick_offset:
+        step_tenth = step_numeral
     step_last = step_tenth  # last level
     for tick_div in [10, 5, 2]:
         v = step_tenth / tick_div / sf
-        start_tick_offset = sc.diff_size_at(start_value, v, scale_width)  # separation of first tick
-        end_tick_offset = -sc.diff_size_at(end_value, -v, scale_width)  # separation of last tick
-        if min(start_tick_offset, end_tick_offset) >= min_tick_offset:
+        smallest_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, v, scale_width)
+        if smallest_tick_offset >= min_tick_offset:
             step_last = max(round(step_tenth / tick_div), 1)
             break
     sym_col = sc.col
@@ -701,11 +703,14 @@ class Scale:
     def pos_of(self, x, scale_width):
         return round(scale_width * self.frac_pos_of(x))
 
-    def offset_between(self, x_start, x_end, scale_width=1):
+    def offset_between(self, x_start, x_end, scale_width):
         return (self.frac_pos_of(x_end) - self.frac_pos_of(x_start)) * scale_width
 
-    def diff_size_at(self, x, x_step, scale_width=1):
-        return self.offset_between(x, x + x_step, scale_width=scale_width)
+    def smallest_diff_size_for_delta(self, x_start, x_end, x_delta, scale_width=1):
+        return min(
+            self.offset_between(x_start, x_start + x_delta, scale_width=scale_width),
+            self.offset_between(x_end - x_delta, x_end, scale_width=scale_width)
+        )
 
     def scale_to(self, x, scale_width, shift_adj=0):
         """
