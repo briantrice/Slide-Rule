@@ -236,13 +236,25 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
     i_offset = i_start % step_last
     if i_offset > 0:  # Align to first tick on or after start
         i_start = i_start - i_offset + step_last
+    font_s = 60
+    font_style = FontStyle.REG
+    numeral_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_numeral / sf, scale_width)
+    smaller_numerals = (numeral_tick_offset / get_width('_', font_s, font_style)) < 3
+    if smaller_numerals:
+        font_s = 45
     for i in range(i_start, int(end_value * sf) + 1, step_last):
-        i_value = i / sf
-        x = sc.scale_to(i_value, scale_width)
+        num = i / sf
+        x = sc.scale_to(num, scale_width)
         h_mod = DOT
         if i % step_numeral == 0:  # Numeral marks
             h_mod = num_tick
-            draw_numeral(r, sym_col, y_off, i_value, x, h, 60, FontStyle.REG, al)
+            if smaller_numerals and not math.log10(num).is_integer():
+                num_sym = str(num)
+                if num_sym.endswith('0'):
+                    num = int(num_sym[:1])
+                elif num_sym.startswith('0.'):
+                    num = int(num_sym[2])
+            draw_numeral(r, sym_col, y_off, num, x, h, font_s, font_style, al)
         elif i % step_half == 0:  # Half marks
             h_mod = half_tick
         elif i % step_tenth == 0:  # Tenth marks
@@ -250,15 +262,16 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
         draw_tick(r, y_off, x, h_mod * STH, tick_width, al)
 
 
-def grad_pat_divided(r, y_off, sc, al, tick_width, scale_height, scale_width, dividers):
+def grad_pat_divided(r, y_off, sc, al, tick_width, scale_height, scale_width, dividers,
+                     start_value=None, end_value=None):
     if dividers:
-        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, end_value=dividers[0])
+        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=start_value, end_value=dividers[0])
         last_i = len(dividers) - 1
         for i, di in enumerate(dividers):
-            dj = dividers[i + 1] if i < last_i else None
+            dj = dividers[i + 1] if i < last_i else end_value
             grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=di, end_value=dj)
     else:
-        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width)
+        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=start_value, end_value=end_value)
 
 
 class FontStyle(Enum):
@@ -1334,114 +1347,22 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         grad_pat(r, y_off, sc, al, STT, SH, SL)
 
     elif sc == Scales.LL0:
-        # Ticks
-        sf = 100000
-        fp1 = 100095
-        fp2 = 100200
-        fp3 = 100500
-        fpe = 101000
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, XL, i_range(fp1, fpe, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(fp1, fp2, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 2), (0, 10), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (1, 2), (0, 2), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 2), (0, 10), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp3, fpe, True), (0, 5), (0, 10), al, sf=sf)
-        # Labels
-        label_h = MED * STH
-        font_s = 45
-        for x in [1.001, 1.002, 1.003, 1.004, 1.005, 1.006, 1.007, 1.008, 1.009, 1.010]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
-        # for x in [1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.11]:
-        #     draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
+        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [1.002, 1.005],
+                         start_value=1.00095, end_value=1.0105)
 
     elif sc == Scales.LL1:
-        # Ticks
-        sf = 10000
-        fp1 = 10095
-        fp2 = 10200
-        fp3 = 10500
-        fpe = 11100
-        pat(r, y_off, sc, MED, i_range(fp1, fp2, True), (0, 10), None, al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 5), (0, 10), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 1), (0, 5), al, sf=sf)
-        pat(r, y_off, sc, MED, i_range(fp2, fp3, True), (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp2, fp3, True), (0, 10), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 2), (0, 10), al, sf=sf)
-        pat(r, y_off, sc, MED, i_range(fp3, fpe, True), (0, 50), None, al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp3, fpe, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp3, fpe, True), (0, 50), (0, 10), al, sf=sf)
-        # Labels
-        label_h = MED * STH
-        font_s = 45
-        for x in [1.01, 1.011, 1.015, 1.02, 1.025, 1.03, 1.035, 1.04, 1.045]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
-        for x in [1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.11]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
+        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [1.02, 1.05],
+                         start_value=1.0095, end_value=1.11)
 
     elif sc == Scales.LL2:
-        # Ticks
-        sf = 1000
-        fp1 = 1100
-        fp2 = 1200
-        fp3 = 2000
-        fpe = 2700
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(fp1, fp2, True), (0, 20), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 10), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (0, 2), (0, 10), al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(fp2, fp3, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp2, fp3, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp2, fp3, True), (0, 5), (0, 10), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp3, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(fp3, fpe, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(fp3, fpe, True), (0, 10), (0, 50), al, sf=sf)
-        # Labels
-        label_h = MED * STH
-        font_s = 45
-        for x in [1.1, 1.11, 1.12, 1.14, 1.16, 1.18, 1.2]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
-        for x in [1.25, 1.3, 1.35, 1.4, 1.45, 1.5, 1.55, 1.6, 1.65, 1.7, 1.75, 1.8, 1.9, 2, 2.5, 3]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
-        Marks.e.draw(r, y_off, sc, font_s, al, sym_col)
+        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [1.2, 2],
+                         start_value=1.1, end_value=3)
+        Marks.e.draw(r, y_off, sc, 60, al, sym_col)
 
     elif sc == Scales.LL3:
-        # Ticks
-        d1 = i_range(25, 100, False)
-        pat(r, y_off, sc, XS, d1, (0, 5), None, al, sf=10)
-        pat(r, y_off, sc, DOT, d1, (0, 1), (0, 10), al, sf=10)
-        d2 = i_range(10, 100, True)
-        pat(r, y_off, sc, MED, d2, (0, 10), None, al, sf=None)
-        pat(r, y_off, sc, SM, i_range(d2.start, 50, True), (5, 10), None, al, sf=None)
-        pat(r, y_off, sc, DOT, i_range(d2.start, 50, True), (0, 1), (0, 5), al, sf=None)
-        pat(r, y_off, sc, DOT, i_range(50, d2.stop, True), (0, 2), (0, 10), al, sf=None)
-        pat(r, y_off, sc, MED, i_range(100, 1000, True), (0, 100), None, al, sf=None)
-        pat(r, y_off, sc, DOT, i_range(100, 500, True), (0, 20), (0, 100), al, sf=None)
-        pat(r, y_off, sc, DOT, i_range(500, 1000, True), (0, 50), (0, 100), al, sf=None)
-        pat(r, y_off, sc, MED, i_range(1000, 10000, True), (0, 1000), None, al, sf=None)
-        pat(r, y_off, sc, DOT, i_range(1000, 5000, True), (0, 200), (0, 1000), al, sf=None)
-        pat(r, y_off, sc, DOT, i_range(5000, 10000, True), (0, 500), (0, 1000), al, sf=None)
-        pat(r, y_off, sc, MED, i_range(10000, 30000, True), (0, 10000), None, al, sf=None)
-        pat(r, y_off, sc, DOT, i_range(10000, 30000, True), (0, 2000), (0, 10000), al, sf=None)
-        # Labels
-        label_h = MED * STH
-        font_s = 45
-        for x in [2.5, 3, 3.5, 4, 4.5, 5, 5.5]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
-        for x in [6, 7, 8, 9]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
-        for x in [10, 15, 20, 25, 30, 40, 50, 100]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
-        for x in range(2, 10):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x * 100, SL), label_h, font_s, reg, al)
-        draw_symbol(r, sym_col, y_off, '10³', sc.pos_of(1000, SL), label_h, font_s, reg, al)
-        for x in range(2, 6):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x * 1000, SL), label_h, font_s, reg, al)
-        draw_symbol(r, sym_col, y_off, '10⁴', sc.pos_of(10000, SL), label_h, font_s, reg, al)
-        for x in range(2, 7):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x * 10000, SL), label_h, font_s, reg, al)
-        Marks.e.draw(r, y_off, sc, font_s, al, sym_col)
+        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [10, 50, 100, 1000, 10000],
+                         start_value=2.5, end_value=60000)
+        Marks.e.draw(r, y_off, sc, 60, al, sym_col)
 
     elif sc == Scales.LL03:
         # Ticks
