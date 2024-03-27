@@ -495,44 +495,48 @@ def extend(image, y, direction, amplitude):
 TEN = 10
 
 
-def scale_sqrt(x): return math.log10(math.sqrt(x / TEN)) * 4
-def scale_sqrt_ten(x): return math.log10(math.sqrt(x)) * 2
-def scale_inverse(x): return 1 - math.log10(x)
+def gen_base(x): return math.log10(x)
+def pos_base(p): return math.pow(TEN, p)
+def scale_square(x): return gen_base(x) / 2
+def scale_cube(x): return gen_base(x) / 3
+def scale_sqrt(x): return gen_base(x) * 2
+def scale_sqrt_ten(x): return gen_base(x) * 2
+def scale_inverse(x): return 1 - gen_base(x)
 
 
 pi_fold_shift = scale_inverse(PI)
 
 
-def scale_inverse_pi_folded(x): return pi_fold_shift - math.log10(x)
+def scale_inverse_pi_folded(x): return pi_fold_shift - gen_base(x)
 def scale_log(x): return x / TEN
-def scale_sin(x): return math.log10(TEN * math.sin(math.radians(x)))
-def scale_cos(x): return math.log10(TEN * math.cos(math.radians(x)))
-def scale_tan(x): return math.log10(TEN * math.tan(math.radians(x)))
-def scale_cot(x): return math.log10(TEN * math.tan(math.radians(DEG_RIGHT_ANGLE - x)))
+def scale_sin(x): return gen_base(TEN * math.sin(math.radians(x)))
+def scale_cos(x): return gen_base(TEN * math.cos(math.radians(x)))
+def scale_tan(x): return gen_base(TEN * math.tan(math.radians(x)))
+def scale_cot(x): return gen_base(TEN * math.tan(math.radians(DEG_RIGHT_ANGLE - x)))
 
 
 def scale_sin_tan(x):
     x_rad = math.radians(x)
-    return math.log10(TEN * TEN * (math.sin(x_rad) + math.tan(x_rad)) / 2)
+    return gen_base(TEN * TEN * (math.sin(x_rad) + math.tan(x_rad)) / 2)
 
 
-def scale_sinh(x): return math.log10(math.sinh(x))
-def scale_cosh(x): return math.log10(math.cosh(x))
-def scale_tanh(x): return math.log10(math.tanh(x))
+def scale_sinh(x): return gen_base(math.sinh(x))
+def scale_cosh(x): return gen_base(math.cosh(x))
+def scale_tanh(x): return gen_base(math.tanh(x))
 
 
 def scale_pythagorean(x):
     assert 0 <= x <= 1
-    return math.log10(math.sqrt(1 - (x ** 2))) + 1
+    return gen_base(math.sqrt(1 - (x ** 2))) + 1
 
 
 def scale_hyperbolic(x):
     assert x > 1
     # y = math.sqrt(1+x**2)
-    return math.log10(math.sqrt((x ** 2) - 1))
+    return gen_base(math.sqrt((x ** 2) - 1))
 
 
-def scale_log_log(x): return math.log10(math.log(x))
+def scale_log_log(x): return gen_base(math.log(x))
 
 
 def scale_log_log0(x): return scale_log_log(x) + 3
@@ -547,7 +551,7 @@ def scale_log_log2(x): return scale_log_log(x) + 1
 def scale_log_log3(x): return scale_log_log(x)
 
 
-def scale_neg_log_log(x): return math.log10(-math.log(x))
+def scale_neg_log_log(x): return gen_base(-math.log(x))
 
 
 def scale_log_log00(x): return scale_neg_log_log(x) + 3
@@ -646,19 +650,15 @@ class Scaler(InvertibleFn):
         return self.value_at(1)
 
 
-def gen_base(x): return math.log10(x)
-def pos_base(p): return math.pow(10, p)
-
-
 LOG_TEN = math.log(10)
 
 
 class Scalers:
     Base = Scaler(gen_base, pos_base)
-    Square = Scaler(lambda x: math.log10(x) / 2, lambda p: math.pow(100, p))
-    Cube = Scaler(lambda x: math.log10(x) / 3, lambda p: math.pow(1000, p))
-    Inverse = Scaler(scale_inverse, lambda p: math.pow(p, -1), increasing=False)
-    SquareRoot = Scaler(scale_sqrt, lambda p: math.sqrt(p))
+    Square = Scaler(scale_square, lambda p: pos_base(p * 2))
+    Cube = Scaler(scale_cube, lambda p: pos_base(p * 3))
+    Inverse = Scaler(scale_inverse, lambda p: pos_base(1 - p), increasing=False)
+    SquareRoot = Scaler(scale_sqrt, lambda p: pos_base(p / 2))
     Log10 = Scaler(scale_log, lambda p: p * TEN)
     Ln = Scaler(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
     Sin = Scaler(scale_sin, lambda p: math.asin(p))
@@ -1042,87 +1042,54 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
     elif sc == Scales.R1:
 
         # Ticks
-        pat(r, y_off, sc, MED, i_range(1000, 3200, True), (0, 100), None, al)
-        pat(r, y_off, sc, XL, i_range(1000, 2000, True), (0, 50), (0, 100), al)
-        pat(r, y_off, sc, SM, i_range(2000, 3200, True), (0, 50), None, al)
-        pat(r, y_off, sc, SM, i_range(1000, 2000, True), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, XS, i_range(1000, 2000, True), (5, 10), None, al)
-        pat(r, y_off, sc, XS, i_range(2000, 3180, True), (0, 10), (0, 50), al)
+        sf = 1000
+        pat(r, y_off, sc, MED, i_range(1000, 3200, True), (0, 100), None, al, sf=sf)
+        pat(r, y_off, sc, XL, i_range(1000, 2000, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(2000, 3200, True), (0, 50), None, al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(1000, 2000, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(1000, 2000, True), (5, 10), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(2000, 3180, True), (0, 10), (0, 50), al, sf=sf)
 
         # 1-10 Labels
         for x in range(1, 4):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(10 * x, SL), STH, font_size, reg, al)
+            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), STH, font_size, reg, al)
 
         # 0.1-3.1 Labels
         for x in range(11, 20):
-            draw_numeral(r, sym_col, y_off, x - 10, sc.pos_of(x, SL), STH, 60, reg, al)
+            draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x / 10, SL), STH, 60, reg, al)
         for x in range(21, 30):
-            draw_numeral(r, sym_col, y_off, x - 20, sc.pos_of(x, SL), STH, 60, reg, al)
-        draw_numeral(r, sym_col, y_off, 1, sc.pos_of(31, SL), STH, 60, reg, al)
+            draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x / 10, SL), STH, 60, reg, al)
+        draw_numeral(r, sym_col, y_off, 31 % 10, sc.pos_of(31 / 10, SL), STH, 60, reg, al)
 
     elif sc == Scales.W1:
-        # Ticks
-        fp1 = 950
-        fp2 = 2000
-        fpe = 3333
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 100), None, al)
-        pat(r, y_off, sc, XL, i_range(fp1, fp2, True), (0, 50), (0, 100), al)
-        pat(r, y_off, sc, XS, i_range(fp2, fpe, True), (0, 50), None, al)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, True), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, True), (5, 10), None, al)
-        pat(r, y_off, sc, DOT, i_range(fp2, fpe, True), (0, 10), (0, 50), al)
-
-        # 1-10 Labels
-        for x in range(1, 4):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(10 * x, SL), STH, font_size, reg, al)
-
-        # 0.1-3.1 Labels
-        for x in range(11, 20):
-            draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, 60, reg, al)
-        for x in range(21, 30):
-            draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, 60, reg, al)
-        for x in range(31, 34):
-            draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, 60, reg, al)
+        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [2])
+        Marks.sqrt_ten.draw(r, y_off, sc, 60, al, sc.col)
 
     elif sc == Scales.R2:
 
         # Ticks
-        pat(r, y_off, sc, MED, i_range(4000, 10000, True), (0, 1000), None, al)
-        pat(r, y_off, sc, XL, i_range(5000, 10000, False), (500, 1000), None, al)
-        pat(r, y_off, sc, SM, i_range(3200, 10000, False), (0, 100), (0, 1000), al)
-        pat(r, y_off, sc, SM, i_range(3200, 5000, False), (0, 50), None, al)
-        pat(r, y_off, sc, XS, i_range(3160, 5000, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, XS, i_range(5000, 10000, False), (0, 20), (0, 100), al)
+        sf = 1000
+        pat(r, y_off, sc, MED, i_range(4000, 10000, True), (0, 1000), None, al, sf=sf)
+        pat(r, y_off, sc, XL, i_range(5000, 10000, False), (500, 1000), None, al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(3200, 10000, False), (0, 100), (0, 1000), al, sf=sf)
+        pat(r, y_off, sc, SM, i_range(3200, 5000, False), (0, 50), None, al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(3160, 5000, False), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, XS, i_range(5000, 10000, False), (0, 20), (0, 100), al, sf=sf)
 
         # 1-10 Labels
         for x in range(4, 10):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(10 * x, SL), STH, font_size, reg, al)
+            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), STH, font_size, reg, al)
         draw_symbol(r, sym_col, y_off, '1', SL, STH, font_size, reg, al)
 
         # 0.1-3.1 Labels
         for x in range(32, 40):
-            draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x, SL), STH, 60, reg, al)
+            draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x / 10, SL), STH, 60, reg, al)
         for x in range(41, 50):
-            draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x, SL), STH, 60, reg, al)
+            draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x / 10, SL), STH, 60, reg, al)
 
     elif sc == Scales.W2:
-        # Ticks
-        fp1 = 3000
-        fp2 = 5000
-        fpe = 10600
-        pat(r, y_off, sc, MED, i_range(fp1, fpe, True), (0, 1000), None, al)
-        pat(r, y_off, sc, XL, i_range(fp1, fpe, False), (500, 1000), None, al)
-        pat(r, y_off, sc, SM, i_range(fp1, fpe, False), (0, 100), (0, 500), al)
-        pat(r, y_off, sc, XS, i_range(fp1, fp2, False), (0, 50), None, al)
-        pat(r, y_off, sc, DOT, i_range(fp1, fp2, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, DOT, i_range(fp2, fpe, False), (0, 20), (0, 100), al)
-
-        # 3-10 Labels
-        for x in range(3, 11):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x * 10, SL), MED * STH, font_size, reg, al)
-
-        for x in range(35, 115, 10):
-            draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), XL * STH, 60, reg, al)
+        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [5])
+        Marks.sqrt_ten.draw(r, y_off, sc, 60, al, sc.col)
 
     elif sc == Scales.H1:
         grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [1.03, 1.1])
