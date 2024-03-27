@@ -717,7 +717,7 @@ class Scale:
         return round(scale_width * self.frac_pos_of(x))
 
     def offset_between(self, x_start, x_end, scale_width):
-        return (self.frac_pos_of(x_end) - self.frac_pos_of(x_start)) * scale_width
+        return abs(self.frac_pos_of(x_end) - self.frac_pos_of(x_start)) * scale_width
 
     def smallest_diff_size_for_delta(self, x_start, x_end, x_delta, scale_width=1):
         return min(
