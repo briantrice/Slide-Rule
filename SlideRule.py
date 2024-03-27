@@ -106,7 +106,7 @@ class Side(Enum):
 # ----------------------2. Fundamental Functions----------------------------
 
 
-def draw_tick(r, y_off, x, height, thickness, al):
+def draw_tick(r, y_off, x, height, thickness, al, col=FG):
     """
     Places an individual tick
     :param ImageDraw.Draw r:
@@ -125,7 +125,7 @@ def draw_tick(r, y_off, x, height, thickness, al):
     elif al == Align.LOWER:
         y0 = y_off + SH - height
         y1 = y_off + SH
-    r.rectangle((x0, y0, x0 + thickness, y1), fill=FG)
+    r.rectangle((x0, y0, x0 + thickness, y1), fill=col)
 
 
 PPI = 677.33
@@ -259,7 +259,7 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
             h_mod = half_tick
         elif i % step_tenth == 0:  # Tenth marks
             h_mod = tenth_tick
-        draw_tick(r, y_off, x, h_mod * STH, tick_width, al)
+        draw_tick(r, y_off, x, h_mod * STH, tick_width, al, col=sym_col)
 
 
 def grad_pat_divided(r, y_off, sc, al, tick_width, scale_height, scale_width, dividers,
@@ -882,7 +882,7 @@ class GaugeMark:
         """
         x = sc.scale_to(self.value, SL, shift_adj=shift_adj)
         h = round(STH)
-        draw_tick(r, y_off, x, h, STT, al)
+        draw_tick(r, y_off, x, h, STT, al, col=col)
         draw_symbol(r, col, y_off, self.sym, x, h * 1.4, font_size, FontStyle.REG, al)
 
 
