@@ -249,13 +249,14 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
 
 
 def grad_pat_divided(r, y_off, sc, al, tick_width, scale_height, scale_width, dividers):
-    if len(dividers) < 1:
-        raise ValueError('At least one divider needed')
-    grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, end_value=dividers[0])
-    last_i = len(dividers) - 1
-    for i, di in enumerate(dividers):
-        dj = dividers[i + 1] if i < last_i else None
-        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=di, end_value=dj)
+    if dividers:
+        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, end_value=dividers[0])
+        last_i = len(dividers) - 1
+        for i, di in enumerate(dividers):
+            dj = dividers[i + 1] if i < last_i else None
+            grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=di, end_value=dj)
+    else:
+        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width)
 
 
 class FontStyle(Enum):
