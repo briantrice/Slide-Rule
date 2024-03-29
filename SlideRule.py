@@ -671,7 +671,7 @@ class Scalers:
 class Scale:
 
     def __init__(self, left_sym: str, right_sym: str, scaler: callable, shift: float = 0,
-                 increasing=True, key=None, rule_part=RulePart.STOCK):
+                 increasing=True, key=None, rule_part=RulePart.STOCK, opp_scale=None):
         self.left_sym = left_sym
         """left scale symbol"""
         self.right_sym = right_sym
@@ -688,6 +688,11 @@ class Scale:
         self.key = key or left_sym
         """non-unicode name; unused"""  # TODO extend for all alternate namings?
         self.rule_part = rule_part
+        """which part of the rule it's on, slide vs stock"""
+        self.opp_scale = opp_scale
+        """which scale, if on an edge, it's aligned with"""
+        if opp_scale:
+            opp_scale.opp_scale = self
 
     @property
     def col(self):
@@ -739,13 +744,13 @@ class Scale:
 
 class Scales:
     A = Scale('A', 'x²', Scalers.Square)
-    B = Scale('B', 'x²_y', Scalers.Square, rule_part=RulePart.SLIDE)
+    B = Scale('B', 'x²_y', Scalers.Square, rule_part=RulePart.SLIDE, opp_scale=A)
     C = Scale('C', 'x_y', Scalers.Base, rule_part=RulePart.SLIDE)
     CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, rule_part=RulePart.SLIDE)
     CI = Scale('CI', '1/x_y', Scalers.Inverse, increasing=False, rule_part=RulePart.SLIDE)
     CIF = Scale('CIF', '1/πx_y', scale_inverse_pi_folded, increasing=False, rule_part=RulePart.SLIDE)
-    D = Scale('D', 'x', Scalers.Base)
-    DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift)
+    D = Scale('D', 'x', Scalers.Base, opp_scale=C)
+    DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift, opp_scale=CF)
     DI = Scale('DI', '1/x', Scalers.Inverse, increasing=False)
     K = Scale('K', 'x³', Scalers.Cube)
     L = Scale('L', 'log x', Scalers.Log10)
