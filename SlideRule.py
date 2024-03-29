@@ -1744,7 +1744,7 @@ def main():
         draw_symbol(r, FG, 200, 'A B C D K R1 R2 CI DI CF DF CIF L S T ST', x_offset_cl, 0, 120, reg, upper)
 
         for n, sc in enumerate(SCALE_NAMES):
-            overhang = 0.06 if n > 17 else 0.02
+            overhang = 0.06 if n > 18 else 0.02
             gen_scale(r, k + (n + 1) * sh_with_margins, getattr(Scales, sc), lower, overhang=overhang)
 
         save_png(diagnostic_img, 'Diagnostic', output_suffix)
