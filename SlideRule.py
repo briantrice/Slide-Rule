@@ -254,7 +254,7 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
                 if num_sym.endswith('0'):
                     num = int(num_sym[:1])
                 elif num_sym.startswith('0.'):
-                    num = int(num_sym[2])
+                    num = int(num_sym[-1])
             draw_numeral(r, sym_col, y_off, num, x, h, font_s, font_style, al)
         elif i % step_half == 0:  # Half marks
             h_mod = half_tick
