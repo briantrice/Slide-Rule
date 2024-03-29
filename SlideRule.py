@@ -1328,20 +1328,18 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         grad_pat(r, y_off, sc, al, STT, SH, SL)
 
     elif sc == Scales.Th:
-        d1 = 0.2
+        sf = 1000
         d2 = 1
         d3 = 2
         de = 3
-        sf = 1000
+        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, dividers=[0.2, 0.4], end_value=d2)
         pat(r, y_off, sc, MED, i_range(d2*sf, de*sf, True), (0, 500), None, al, sf=sf)
         pat(r, y_off, sc, XS, i_range(d2*sf, d3*sf, True), (0, 100), (0, 500), al, sf=sf)
         pat(r, y_off, sc, DOT, i_range(d2*sf, d3*sf, True), (0, 50), (0, 100), al, sf=sf)
         pat(r, y_off, sc, DOT, i_range(d3*sf, de*sf, True), (0, 100), (0, 500), al, sf=sf)
-        grad_pat(r, y_off, sc, al, STT, SH, SL, end_value=d1)
-        grad_pat(r, y_off, sc, al, STT, SH, SL, start_value=d1, end_value=d2)
         # Labels
         label_h = MED * STH
-        for x in range(d2, de + 1):
+        for x in [1, 1.5, 2, 3]:
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, fs_smn, reg, al)
 
     elif sc == Scales.Chi:
