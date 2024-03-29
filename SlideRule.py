@@ -243,7 +243,7 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
     smaller_numerals = (numeral_tick_offset / get_width('_', font_s, font_style)) < 3
     if smaller_numerals:
         font_s = 45
-    for i in range(i_start, int(end_value * sf) + 1, step_last):
+    for i in range(i_start, int(end_value * sf), step_last):
         num = i / sf
         x = sc.scale_to(num, scale_width)
         h_mod = DOT
