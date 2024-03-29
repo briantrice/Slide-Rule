@@ -250,16 +250,17 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
     font_s = FontSize.NumLG
     font_style = FontStyle.REG
     numeral_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_numeral / sf, scale_width)
-    smaller_numerals = (numeral_tick_offset / get_width('_', font_s, font_style)) < 3
-    if smaller_numerals:
+    max_num_chars = numeral_tick_offset / get_width('_', font_s, font_style)
+    if max_num_chars < 4:
         font_s = FontSize.NumSM
+    single_digit = max_num_chars < 2
     for i in range(i_start, int(end_value * sf), step_last):
         num = i / sf
         x = sc.scale_to(num, scale_width)
         h_mod = DOT
         if i % step_numeral == 0:  # Numeral marks
             h_mod = num_tick
-            if smaller_numerals and not math.log10(num).is_integer():
+            if single_digit and not math.log10(num).is_integer():
                 num_sym = str(num)
                 if num_sym.endswith('0'):
                     num = int(num_sym[:1])
