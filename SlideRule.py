@@ -79,13 +79,16 @@ STH = 70  # standard tick height
 STT = 4  # standard tick thickness
 STS = STT * 3  # minimum tick horizontal separation
 
-# tick height size factors (h_mod in pat)
-DOT = 0.25
-XS = 0.5
-SM = 0.85
-MED = 1
-LG = 1.15
-XL = 1.3
+
+class HMod(Enum):
+    """Tick height size factors (h_mod in pat)"""
+    DOT = 0.25
+    XS = 0.5
+    SM = 0.85
+    MED = 1
+    LG = 1.15
+    LG2 = 1.2
+    XL = 1.3
 
 
 class FontSize(Enum):
@@ -169,7 +172,7 @@ def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_
     :param ImageDraw.Draw r:
     :param y_off: y pos
     :param Scale sc:
-    :param float h_mod: height modifier (input height scalar like xs, sm, med, lg)
+    :param HMod h_mod: height modifier (input height scalar like xs, sm, med, lg)
     :param Iterable index_range: index point range (X_LEFT_INDEX to X_RIGHT_INDEX at widest)
     :param (int, int) base_pat: the base pattern; a=offset from i_i, b=tick iteration offset
     :param (int, int)|None excl_pat: an exclusion pattern; a0=offset from i_i, b0=tick iteration offset
@@ -179,7 +182,7 @@ def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_
     :param int scale_width: number of pixels of scale width
     """
 
-    h = round(h_mod * STH)
+    h = round(h_mod.value * STH)
     (a, b) = base_pat
     (a0, b0) = excl_pat or (None, None)
     tick_col = sc.col
@@ -199,7 +202,6 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
     Determine the lowest digit tick mark spacing and work upwards from there.
 
     Tick Patterns:
-    * MED-XL-XS-DOT
     * 1-.5-.1-.05
     * 1-.5-.1-.02
     * 1-.5-.1-.01
@@ -238,10 +240,10 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
             step_last = max(round(step_tenth / tick_div), 1)
             break
     sym_col = sc.col
-    num_tick = MED
-    half_tick = XL if step_tenth < step_numeral else XS
-    tenth_tick = XS if step_last < step_tenth else DOT
-    h = num_tick * STH
+    num_tick = HMod.MED
+    half_tick = HMod.XL if step_tenth < step_numeral else HMod.XS
+    tenth_tick = HMod.XS if step_last < step_tenth else HMod.DOT
+    h = num_tick.value * STH
     # Ticks and Labels
     i_start = int(start_value * sf)
     i_offset = i_start % step_last
@@ -257,7 +259,7 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
     for i in range(i_start, int(end_value * sf), step_last):
         num = i / sf
         x = sc.scale_to(num, scale_width)
-        h_mod = DOT
+        h_mod = HMod.DOT
         if i % step_numeral == 0:  # Numeral marks
             h_mod = num_tick
             if single_digit and not math.log10(num).is_integer():
@@ -271,19 +273,22 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
             h_mod = half_tick
         elif i % step_tenth == 0:  # Tenth marks
             h_mod = tenth_tick
-        draw_tick(r, sym_col, y_off, x, h_mod * STH, tick_width, al)
+        draw_tick(r, sym_col, y_off, x, h_mod.value * STH, tick_width, al)
 
 
 def grad_pat_divided(r, y_off, sc, al, tick_width, scale_height, scale_width, dividers,
                      start_value=None, end_value=None):
     if dividers:
-        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=start_value, end_value=dividers[0])
+        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width,
+                 start_value=start_value, end_value=dividers[0])
         last_i = len(dividers) - 1
         for i, di in enumerate(dividers):
             dj = dividers[i + 1] if i < last_i else end_value
-            grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=di, end_value=dj)
+            grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width,
+                     start_value=di, end_value=dj)
     else:
-        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=start_value, end_value=end_value)
+        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width,
+                 start_value=start_value, end_value=end_value)
 
 
 class FontStyle(Enum):
@@ -986,14 +991,14 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
     if is_cd or sc.scaler == Scalers.Inverse:
 
         # Ticks
-        pat(r, y_off, sc, MED, full_range, (0, 100), None, al)
-        pat(r, y_off, sc, XL, full_range, (50, 100), (150, 1000), al)
-        pat(r, y_off, sc, SM, full_range, (0, 10), (150, 100), al)
+        pat(r, y_off, sc, HMod.MED, full_range, (0, 100), None, al)
+        pat(r, y_off, sc, HMod.XL, full_range, (50, 100), (150, 1000), al)
+        pat(r, y_off, sc, HMod.SM, full_range, (0, 10), (150, 100), al)
         range_1to2 = i_range_tenths(1, 2, False)
-        pat(r, y_off, sc, SM, range_1to2, (5, 10), None, al)
-        pat(r, y_off, sc, XS, range_1to2, (0, 1), (0, 5), al)
-        pat(r, y_off, sc, XS, i_range_tenths(2, 4, False), (0, 2), (0, 10), al)
-        pat(r, y_off, sc, XS, i_range_tenths(4, 10), (0, 5), (0, 10), al)
+        pat(r, y_off, sc, HMod.SM, range_1to2, (5, 10), None, al)
+        pat(r, y_off, sc, HMod.XS, range_1to2, (0, 1), (0, 5), al)
+        pat(r, y_off, sc, HMod.XS, i_range_tenths(2, 4, False), (0, 2), (0, 10), al)
+        pat(r, y_off, sc, HMod.XS, i_range_tenths(4, 10), (0, 5), (0, 10), al)
 
         # 1-10 Labels
         for x in range(1, 11):
@@ -1015,18 +1020,18 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
     elif sc.scaler == Scalers.Square:
 
         # Ticks
-        pat(r, y_off, sc, MED, full_range, (0, 100), None, al)
-        pat(r, y_off, sc, MED, i_range(1000, 10001, True), (0, 1000), None, al)
-        pat(r, y_off, sc, SM, i_range_tenths(1, 5), (0, 10), (50, 100), al)
-        pat(r, y_off, sc, SM, i_range(1000, 5001, True), (0, 100), (500, 1000), al)
-        pat(r, y_off, sc, XL, full_range, (50, 100), None, al)
-        pat(r, y_off, sc, XL, i_range(1000, 10001, True), (500, 1000), None, al)
-        pat(r, y_off, sc, XS, i_range_tenths(1, 2), (0, 2), None, al)
-        pat(r, y_off, sc, XS, i_range(1000, 2000, True), (0, 20), None, al)
-        pat(r, y_off, sc, XS, i_range_tenths(2, 5, False), (5, 10), None, al)
-        pat(r, y_off, sc, XS, i_range(2000, 5000, True), (50, 100), None, al)
-        pat(r, y_off, sc, XS, i_range_tenths(5, 10), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, XS, i_range(5000, 10001, True), (0, 100), (0, 500), al)
+        pat(r, y_off, sc, HMod.MED, full_range, (0, 100), None, al)
+        pat(r, y_off, sc, HMod.MED, i_range(1000, 10001, True), (0, 1000), None, al)
+        pat(r, y_off, sc, HMod.SM, i_range_tenths(1, 5), (0, 10), (50, 100), al)
+        pat(r, y_off, sc, HMod.SM, i_range(1000, 5001, True), (0, 100), (500, 1000), al)
+        pat(r, y_off, sc, HMod.XL, full_range, (50, 100), None, al)
+        pat(r, y_off, sc, HMod.XL, i_range(1000, 10001, True), (500, 1000), None, al)
+        pat(r, y_off, sc, HMod.XS, i_range_tenths(1, 2), (0, 2), None, al)
+        pat(r, y_off, sc, HMod.XS, i_range(1000, 2000, True), (0, 20), None, al)
+        pat(r, y_off, sc, HMod.XS, i_range_tenths(2, 5, False), (5, 10), None, al)
+        pat(r, y_off, sc, HMod.XS, i_range(2000, 5000, True), (50, 100), None, al)
+        pat(r, y_off, sc, HMod.XS, i_range_tenths(5, 10), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, HMod.XS, i_range(5000, 10001, True), (0, 100), (0, 500), al)
 
         # 1-10 Labels
         for x in range(1, 11):
@@ -1041,12 +1046,12 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
     elif sc == Scales.K:
         # Ticks per power of 10
         for b in [10 ** foo for foo in range(0, 3)]:
-            pat(r, y_off, sc, MED, i_range_tenths(1 * b, 10 * b), (0, 100 * b), None, al)
-            pat(r, y_off, sc, XL, i_range_tenths(1 * b, 6 * b), (50 * b, 100 * b), None, al)
-            pat(r, y_off, sc, SM, i_range_tenths(1 * b, 3 * b), (0, 10 * b), None, al)
-            pat(r, y_off, sc, XS, i_range_tenths(1 * b, 3 * b), (5 * b, 10 * b), None, al)
-            pat(r, y_off, sc, XS, i_range_tenths(3 * b, 6 * b), (0, 10 * b), None, al)
-            pat(r, y_off, sc, XS, i_range_tenths(6 * b, 10 * b), (0, 20 * b), None, al)
+            pat(r, y_off, sc, HMod.MED, i_range_tenths(1 * b, 10 * b), (0, 100 * b), None, al)
+            pat(r, y_off, sc, HMod.XL, i_range_tenths(1 * b, 6 * b), (50 * b, 100 * b), None, al)
+            pat(r, y_off, sc, HMod.SM, i_range_tenths(1 * b, 3 * b), (0, 10 * b), None, al)
+            pat(r, y_off, sc, HMod.XS, i_range_tenths(1 * b, 3 * b), (5 * b, 10 * b), None, al)
+            pat(r, y_off, sc, HMod.XS, i_range_tenths(3 * b, 6 * b), (0, 10 * b), None, al)
+            pat(r, y_off, sc, HMod.XS, i_range_tenths(6 * b, 10 * b), (0, 20 * b), None, al)
 
         # 1-10 Labels
         f = FontSize.NumXL
@@ -1060,12 +1065,12 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
 
         # Ticks
         sf = 1000
-        pat(r, y_off, sc, MED, i_range(1000, 3200, True), (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, XL, i_range(1000, 2000, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(2000, 3200, True), (0, 50), None, al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(1000, 2000, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(1000, 2000, True), (5, 10), None, al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(2000, 3180, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, HMod.MED, i_range(1000, 3200, True), (0, 100), None, al, sf=sf)
+        pat(r, y_off, sc, HMod.XL, i_range(1000, 2000, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, HMod.SM, i_range(2000, 3200, True), (0, 50), None, al, sf=sf)
+        pat(r, y_off, sc, HMod.SM, i_range(1000, 2000, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, HMod.XS, i_range(1000, 2000, True), (5, 10), None, al, sf=sf)
+        pat(r, y_off, sc, HMod.XS, i_range(2000, 3180, True), (0, 10), (0, 50), al, sf=sf)
 
         # 1-10 Labels
         for x in range(1, 4):
@@ -1090,12 +1095,12 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
 
         # Ticks
         sf = 1000
-        pat(r, y_off, sc, MED, i_range(4000, 10000, True), (0, 1000), None, al, sf=sf)
-        pat(r, y_off, sc, XL, i_range(5000, 10000, False), (500, 1000), None, al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(3200, 10000, False), (0, 100), (0, 1000), al, sf=sf)
-        pat(r, y_off, sc, SM, i_range(3200, 5000, False), (0, 50), None, al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(3160, 5000, False), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(5000, 10000, False), (0, 20), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, HMod.MED, i_range(4000, 10000, True), (0, 1000), None, al, sf=sf)
+        pat(r, y_off, sc, HMod.XL, i_range(5000, 10000, False), (500, 1000), None, al, sf=sf)
+        pat(r, y_off, sc, HMod.SM, i_range(3200, 10000, False), (0, 100), (0, 1000), al, sf=sf)
+        pat(r, y_off, sc, HMod.SM, i_range(3200, 5000, False), (0, 50), None, al, sf=sf)
+        pat(r, y_off, sc, HMod.XS, i_range(3160, 5000, False), (0, 10), (0, 50), al, sf=sf)
+        pat(r, y_off, sc, HMod.XS, i_range(5000, 10000, False), (0, 20), (0, 100), al, sf=sf)
 
         # 1-10 Labels
         for x in range(4, 10):
@@ -1109,27 +1114,27 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
             draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x / 10, SL), STH, fs_lgn, reg, al)
 
     elif sc == Scales.H1:
-        draw_numeral(r, sym_col, y_off, 1.005, sc.pos_of(1.005, SL), XL * STH, fs_lgn, reg, al)
+        draw_numeral(r, sym_col, y_off, 1.005, sc.pos_of(1.005, SL), HMod.XL.value * STH, fs_lgn, reg, al)
         grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [1.03, 1.1])
 
     elif sc == Scales.H2:
-        draw_numeral(r, sym_col, y_off, 1.5, sc.pos_of(1.5, SL), XL * STH, fs_lgn, reg, al)
+        draw_numeral(r, sym_col, y_off, 1.5, sc.pos_of(1.5, SL), HMod.XL.value * STH, fs_lgn, reg, al)
         grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [4])
 
     elif sc.scaler == Scalers.Base and sc.shift == pi_fold_shift:  # CF/DF
 
         # Ticks
-        pat(r, y_off, sc, MED, i_range_tenths(1, 3), (0, 100), None, al)
-        pat(r, y_off, sc, MED, i_range_tenths(4, 10), (0, 100), None, al, shift_adj=-1)
-        pat(r, y_off, sc, XL, i_range_tenths(2, 3), (50, 100), None, al)
-        pat(r, y_off, sc, SM, i_range_tenths(1, 2), (0, 5), None, al)
-        pat(r, y_off, sc, SM, i_range(200, 310, True), (0, 10), None, al)
-        pat(r, y_off, sc, XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=-1)
-        pat(r, y_off, sc, SM, i_range(320, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=-1)
-        pat(r, y_off, sc, XS, i_range(LEFT_INDEX, 200, True), (0, 1), (0, 5), al)
-        pat(r, y_off, sc, XS, i_range(200, 314, False), (0, 2), (0, 10), al)
-        pat(r, y_off, sc, XS, i_range(316, 400, True), (0, 2), (0, 10), al, shift_adj=-1)
-        pat(r, y_off, sc, XS, i_range(400, RIGHT_INDEX, False), (0, 5), (0, 10), al, shift_adj=-1)
+        pat(r, y_off, sc, HMod.MED, i_range_tenths(1, 3), (0, 100), None, al)
+        pat(r, y_off, sc, HMod.MED, i_range_tenths(4, 10), (0, 100), None, al, shift_adj=-1)
+        pat(r, y_off, sc, HMod.XL, i_range_tenths(2, 3), (50, 100), None, al)
+        pat(r, y_off, sc, HMod.SM, i_range_tenths(1, 2), (0, 5), None, al)
+        pat(r, y_off, sc, HMod.SM, i_range(200, 310, True), (0, 10), None, al)
+        pat(r, y_off, sc, HMod.XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=-1)
+        pat(r, y_off, sc, HMod.SM, i_range(320, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=-1)
+        pat(r, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, True), (0, 1), (0, 5), al)
+        pat(r, y_off, sc, HMod.XS, i_range(200, 314, False), (0, 2), (0, 10), al)
+        pat(r, y_off, sc, HMod.XS, i_range(316, 400, True), (0, 2), (0, 10), al, shift_adj=-1)
+        pat(r, y_off, sc, HMod.XS, i_range(400, RIGHT_INDEX, False), (0, 5), (0, 10), al, shift_adj=-1)
 
         # 1-10 Labels
         for x in range(1, 4):
@@ -1148,18 +1153,18 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
     elif sc == Scales.CIF:
 
         # Ticks
-        pat(r, y_off, sc, MED, i_range(LEFT_INDEX, 300, True), (0, 100), None, al)
-        pat(r, y_off, sc, MED, i_range(400, RIGHT_INDEX, False), (0, 100), None, al, shift_adj=1)
+        pat(r, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 300, True), (0, 100), None, al)
+        pat(r, y_off, sc, HMod.MED, i_range(400, RIGHT_INDEX, False), (0, 100), None, al, shift_adj=1)
 
-        pat(r, y_off, sc, XL, i_range(200, 300, True), (50, 100), None, al)
-        pat(r, y_off, sc, SM, i_range(LEFT_INDEX, 200, True), (0, 5), None, al)
-        pat(r, y_off, sc, SM, i_range(200, 320, True), (0, 10), None, al)
-        pat(r, y_off, sc, XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=1)
-        pat(r, y_off, sc, SM, i_range(310, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=1)
-        pat(r, y_off, sc, XS, i_range(LEFT_INDEX, 200, True), (0, 1), (0, 5), al)
-        pat(r, y_off, sc, XS, i_range(200, 320, True), (0, 2), (0, 10), al)
-        pat(r, y_off, sc, XS, i_range(310, 400, True), (0, 2), (0, 10), al, shift_adj=1)
-        pat(r, y_off, sc, XS, i_range(400, RIGHT_INDEX, False), (0, 5), (0, 10), al, shift_adj=1)
+        pat(r, y_off, sc, HMod.XL, i_range(200, 300, True), (50, 100), None, al)
+        pat(r, y_off, sc, HMod.SM, i_range(LEFT_INDEX, 200, True), (0, 5), None, al)
+        pat(r, y_off, sc, HMod.SM, i_range(200, 320, True), (0, 10), None, al)
+        pat(r, y_off, sc, HMod.XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=1)
+        pat(r, y_off, sc, HMod.SM, i_range(310, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=1)
+        pat(r, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, True), (0, 1), (0, 5), al)
+        pat(r, y_off, sc, HMod.XS, i_range(200, 320, True), (0, 2), (0, 10), al)
+        pat(r, y_off, sc, HMod.XS, i_range(310, 400, True), (0, 2), (0, 10), al, shift_adj=1)
+        pat(r, y_off, sc, HMod.XS, i_range(400, RIGHT_INDEX, False), (0, 5), (0, 10), al, shift_adj=1)
 
         # 1-10 Labels
         for x in range(4, 10):
@@ -1176,10 +1181,10 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         # Ticks
         range1 = i_range(0, RIGHT_INDEX, True)
         range2 = i_range(1, RIGHT_INDEX, True)
-        pat(r, y_off, sc, MED, range1, (0, 10), (50, 50), al)
-        pat(r, y_off, sc, XL, range2, (50, 100), None, al)
-        pat(r, y_off, sc, LG, range1, (0, 100), None, al)
-        pat(r, y_off, sc, XS, range2, (0, 2), (0, 50), al)
+        pat(r, y_off, sc, HMod.MED, range1, (0, 10), (50, 50), al)
+        pat(r, y_off, sc, HMod.XL, range2, (50, 100), None, al)
+        pat(r, y_off, sc, HMod.LG, range1, (0, 100), None, al)
+        pat(r, y_off, sc, HMod.XS, range2, (0, 2), (0, 50), al)
 
         # Labels
         for x in range(0, 11):
@@ -1196,79 +1201,83 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
     elif sc.scaler == Scalers.Sin:
 
         # Ticks
-        pat(r, y_off, sc, XL, i_range(1000, 7000, True), (0, 1000), None, al)
-        pat(r, y_off, sc, MED, i_range(7000, 10000, True), (0, 1000), None, al)
-        pat(r, y_off, sc, XL, i_range(600, 2000, True), (0, 100), None, al)
-        pat(r, y_off, sc, SM, i_range(600, 2000, False), (50, 100), (0, 100), al)
-        pat(r, y_off, sc, XL, i_range(2000, 6000, False), (500, 1000), (0, 1000), al)
-        pat(r, y_off, sc, SM, i_range(2000, 6000, False), (0, 100), (0, 500), al)
-        pat(r, y_off, sc, XS, i_range(570, 2000, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, XS, i_range(2000, 3000, False), (0, 20), (0, 100), al)
-        pat(r, y_off, sc, XS, i_range(3000, 6000, False), (0, 50), (0, 100), al)
-        pat(r, y_off, sc, SM, i_range(6000, 8500, True), (500, 1000), None, al)
-        pat(r, y_off, sc, XS, i_range(6000, 8000, False), (0, 100), None, al)
+        pat(r, y_off, sc, HMod.XL, i_range(1000, 7000, True), (0, 1000), None, al)
+        pat(r, y_off, sc, HMod.MED, i_range(7000, 10000, True), (0, 1000), None, al)
+        pat(r, y_off, sc, HMod.XL, i_range(600, 2000, True), (0, 100), None, al)
+        pat(r, y_off, sc, HMod.SM, i_range(600, 2000, False), (50, 100), (0, 100), al)
+        pat(r, y_off, sc, HMod.XL, i_range(2000, 6000, False), (500, 1000), (0, 1000), al)
+        pat(r, y_off, sc, HMod.SM, i_range(2000, 6000, False), (0, 100), (0, 500), al)
+        pat(r, y_off, sc, HMod.XS, i_range(570, 2000, False), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, HMod.XS, i_range(2000, 3000, False), (0, 20), (0, 100), al)
+        pat(r, y_off, sc, HMod.XS, i_range(3000, 6000, False), (0, 50), (0, 100), al)
+        pat(r, y_off, sc, HMod.SM, i_range(6000, 8500, True), (500, 1000), None, al)
+        pat(r, y_off, sc, HMod.XS, i_range(6000, 8000, False), (0, 100), None, al)
 
         # Degree Labels
 
         for x in range(6, 16):
+            x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_smn, italic)
+            draw_numeral(r, sym_col, y_off, x, x_coord, STH, fs_smn, reg, al)
             xi = angle_opp(x)
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_smn, italic), STH, fs_smn, reg, al)
-            draw_numeral(r, RED, y_off, xi, sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_smn, italic),
+            x_coord_opp = sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_smn, italic)
+            draw_numeral(r, RED, y_off, xi, x_coord_opp,
                          STH, fs_lgn, italic, al)
 
         for x in range(16, 20):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic), STH, fs_mdn, reg, al)
+            x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic)
+            draw_numeral(r, sym_col, y_off, x, x_coord, STH, fs_mdn, reg, al)
 
         for x in range(20, 71, 5):
             if (x % 5 == 0 and x < 40) or x % 10 == 0:
-                draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic), STH, fs_mdn, reg,
-                             al)
+                x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic)
+                draw_numeral(r, sym_col, y_off, x, x_coord, STH, fs_mdn, reg, al)
                 if x != 20:
                     xi = angle_opp(x)
+                    x_coord = sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_mdn, italic)
                     if xi != 40:
-                        draw_numeral(r, RED, y_off, xi,
-                                     sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_mdn, italic), STH, fs_mdn, italic, al)
+                        draw_numeral(r, RED, y_off, xi, x_coord, STH, fs_mdn, italic, al)
                     elif xi == 40:
-                        draw_numeral(r, RED, y_off + 11, 40,
-                                     sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_mdn, italic), STH, fs_mdn, italic, al)
+                        draw_numeral(r, RED, y_off + 11, 40, x_coord, STH, fs_mdn, italic, al)
 
         draw_numeral(r, sym_col, y_off, DEG_RIGHT_ANGLE, SL, STH, fs_lgn, reg, al)
 
     elif sc == Scales.T or sc == Scales.T1:
 
         # Ticks
-        pat(r, y_off, sc, XL, i_range(600, 2500, True), (0, 100), None, al)
-        pat(r, y_off, sc, XL, i_range(600, RIGHT_INDEX, False), (50, 100), None, al)
-        pat(r, y_off, sc, XL, i_range(2500, 4500, True), (0, 500), None, al)
-        pat(r, y_off, sc, MED, i_range(2500, 4500, True), (0, 100), None, al)
+        pat(r, y_off, sc, HMod.XL, i_range(600, 2500, True), (0, 100), None, al)
+        pat(r, y_off, sc, HMod.XL, i_range(600, RIGHT_INDEX, False), (50, 100), None, al)
+        pat(r, y_off, sc, HMod.XL, i_range(2500, 4500, True), (0, 500), None, al)
+        pat(r, y_off, sc, HMod.MED, i_range(2500, 4500, True), (0, 100), None, al)
         draw_tick(r, sc.col, y_off, SL, round(STH), STT, al)
-        pat(r, y_off, sc, MED, i_range(600, 950, True), (50, 100), None, al)
-        pat(r, y_off, sc, SM, i_range(570, RIGHT_INDEX, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, SM, i_range(1000, 2500, False), (50, 100), None, al)
-        pat(r, y_off, sc, XS, i_range(570, RIGHT_INDEX, False), (5, 10), (0, 10), al)
-        pat(r, y_off, sc, XS, i_range(1000, 2500, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, XS, i_range(2500, 4500, True), (0, 20), (0, 100), al)
+        pat(r, y_off, sc, HMod.MED, i_range(600, 950, True), (50, 100), None, al)
+        pat(r, y_off, sc, HMod.SM, i_range(570, RIGHT_INDEX, False), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, HMod.SM, i_range(1000, 2500, False), (50, 100), None, al)
+        pat(r, y_off, sc, HMod.XS, i_range(570, RIGHT_INDEX, False), (5, 10), (0, 10), al)
+        pat(r, y_off, sc, HMod.XS, i_range(1000, 2500, False), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, HMod.XS, i_range(2500, 4500, True), (0, 20), (0, 100), al)
 
         # Degree Labels
         f = 1.1 * STH
         opp_col = RED
         for x in range(6, 16):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_smn, italic), f, fs_smn, reg,
-                         al)
+            x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_smn, italic)
+            draw_numeral(r, sym_col, y_off, x, x_coord, f, fs_smn, reg, al)
             xi = angle_opp(x)
-            draw_numeral(r, opp_col, y_off, xi, sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_smn, italic),
-                         f, fs_smn, italic, al)
+            x_coord_opp = sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_smn, italic)
+            draw_numeral(r, opp_col, y_off, xi, x_coord_opp, f, fs_smn, italic, al)
 
         for x in range(16, 21):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic), f, fs_mdn, reg,
-                         al)
+            x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic)
+            draw_numeral(r, sym_col, y_off, x, x_coord, f, fs_mdn, reg, al)
 
         for x in range(25, 41, 5):
             if x % 5 == 0:
-                draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic), f, fs_mdn,
+                x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic)
+                draw_numeral(r, sym_col, y_off, x, x_coord, f, fs_mdn,
                              reg, al)
                 xi = angle_opp(x)
-                draw_numeral(r, opp_col, y_off, xi, sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_mdn, italic),
+                x_coord_opp = sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_mdn, italic)
+                draw_numeral(r, opp_col, y_off, xi, x_coord_opp,
                              f, fs_mdn, italic, al)
 
         draw_numeral(r, sym_col, y_off, 45, SL, f, fs_lgn, reg, al)
@@ -1279,11 +1288,11 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         fp1 = 4500
         fp2 = 7500
         fpe = 8450
-        pat(r, y_off, sc, MED, range(fp1, fpe, True), (0, 100), None, al)
-        pat(r, y_off, sc, XL, range(fp1, fpe, True), (50, 100), None, al)
-        pat(r, y_off, sc, DOT, range(fp1, fp2, True), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, XS, range(fp2, fpe, True), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, DOT, range(fp2, fpe, True), (0, 5), (0, 10), al)
+        pat(r, y_off, sc, HMod.MED, range(fp1, fpe, True), (0, 100), None, al)
+        pat(r, y_off, sc, HMod.XL, range(fp1, fpe, True), (50, 100), None, al)
+        pat(r, y_off, sc, HMod.DOT, range(fp1, fp2, True), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, HMod.XS, range(fp2, fpe, True), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, HMod.DOT, range(fp2, fpe, True), (0, 5), (0, 10), al)
         # Degree Labels
         for x in range(45, 85, 5):
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), f, fs_lgn, reg, al)
@@ -1291,20 +1300,20 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
     elif sc == Scales.ST:
 
         # Ticks
-        pat(r, y_off, sc, MED, i_range(LEFT_INDEX, 550, True), (0, 50), None, al)
-        pat(r, y_off, sc, 1.2, i_range(60, 100, False), (0, 10), None, al)
-        pat(r, y_off, sc, XL, i_range(60, 100, False), (5, 10), None, al)
-        pat(r, y_off, sc, MED, i_range(LEFT_INDEX, 200, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, SM, i_range(200, 590, False), (0, 10), None, al)
-        pat(r, y_off, sc, SM, i_range(57, 100, False), (0, 1), None, al)
-        pat(r, y_off, sc, SM, i_range(LEFT_INDEX, 200, False), (0, 5), None, al)
-        pat(r, y_off, sc, XS, i_range(LEFT_INDEX, 200, False), (0, 1), (0, 5), al)
-        pat(r, y_off, sc, XS, i_range(200, 400, False), (0, 2), (0, 10), al)
-        pat(r, y_off, sc, XS, i_range(400, 585, False), (5, 10), None, al)
+        pat(r, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 550, True), (0, 50), None, al)
+        pat(r, y_off, sc, HMod.LG2, i_range(60, 100, False), (0, 10), None, al)
+        pat(r, y_off, sc, HMod.XL, i_range(60, 100, False), (5, 10), None, al)
+        pat(r, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 200, False), (0, 10), (0, 50), al)
+        pat(r, y_off, sc, HMod.SM, i_range(200, 590, False), (0, 10), None, al)
+        pat(r, y_off, sc, HMod.SM, i_range(57, 100, False), (0, 1), None, al)
+        pat(r, y_off, sc, HMod.SM, i_range(LEFT_INDEX, 200, False), (0, 5), None, al)
+        pat(r, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, False), (0, 1), (0, 5), al)
+        pat(r, y_off, sc, HMod.XS, i_range(200, 400, False), (0, 2), (0, 10), al)
+        pat(r, y_off, sc, HMod.XS, i_range(400, 585, False), (5, 10), None, al)
 
         for x in range(570, 1000):
             if x % 5 == 0 and x % 10 - 0 != 0:
-                draw_tick(r, sc.col, y_off, sc.pos_of(x / 1000, SL), round(XS * STH), STT, al)
+                draw_tick(r, sc.col, y_off, sc.pos_of(x / 1000, SL), round(HMod.XS.value * STH), STT, al)
 
         # Degree Labels
         draw_symbol(r, sym_col, y_off, '1°', sc.pos_of(1, SL), STH, fs_lbl, reg, al)
@@ -1319,7 +1328,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
 
     elif sc == Scales.P:
         # Labels
-        label_h = MED * STH
+        label_h = HMod.MED.value * STH
         font_s = fs_smn
         for x in [0.995]:
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
@@ -1338,12 +1347,12 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         d3 = 2
         de = 3
         grad_pat_divided(r, y_off, sc, al, STT, SH, SL, dividers=[0.2, 0.4], end_value=d2)
-        pat(r, y_off, sc, MED, i_range(d2*sf, de*sf, True), (0, 500), None, al, sf=sf)
-        pat(r, y_off, sc, XS, i_range(d2*sf, d3*sf, True), (0, 100), (0, 500), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(d2*sf, d3*sf, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, DOT, i_range(d3*sf, de*sf, True), (0, 100), (0, 500), al, sf=sf)
+        pat(r, y_off, sc, HMod.MED, i_range(d2*sf, de*sf, True), (0, 500), None, al, sf=sf)
+        pat(r, y_off, sc, HMod.XS, i_range(d2*sf, d3*sf, True), (0, 100), (0, 500), al, sf=sf)
+        pat(r, y_off, sc, HMod.DOT, i_range(d2*sf, d3*sf, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, y_off, sc, HMod.DOT, i_range(d3*sf, de*sf, True), (0, 100), (0, 500), al, sf=sf)
         # Labels
-        label_h = MED * STH
+        label_h = HMod.MED.value * STH
         for x in [1, 1.5, 2, 3]:
             draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, fs_smn, reg, al)
 
