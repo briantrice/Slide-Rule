@@ -106,7 +106,7 @@ class Side(Enum):
 # ----------------------2. Fundamental Functions----------------------------
 
 
-def draw_tick(r, y_off, x, height, thickness, al, col=FG):
+def draw_tick(r, col, y_off, x, height, thickness, al):
     """
     Places an individual tick
     :param ImageDraw.Draw r:
@@ -172,14 +172,15 @@ def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_
     h = round(h_mod * STH)
     (a, b) = base_pat
     (a0, b0) = excl_pat or (None, None)
+    tick_col = sc.col
     for x in index_range:
         if x % b - a == 0:
             x_scaled = sc.scale_to(x / sf if sf else x, scale_width, shift_adj=shift_adj)
             if excl_pat:
                 if x % b0 - a0 != 0:
-                    draw_tick(r, y_off, x_scaled, h, STT, al)
+                    draw_tick(r, tick_col, y_off, x_scaled, h, STT, al)
             else:
-                draw_tick(r, y_off, x_scaled, h, STT, al)
+                draw_tick(r, tick_col, y_off, x_scaled, h, STT, al)
 
 
 def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=None, end_value=None):
@@ -259,7 +260,7 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
             h_mod = half_tick
         elif i % step_tenth == 0:  # Tenth marks
             h_mod = tenth_tick
-        draw_tick(r, y_off, x, h_mod * STH, tick_width, al, col=sym_col)
+        draw_tick(r, sym_col, y_off, x, h_mod * STH, tick_width, al)
 
 
 def grad_pat_divided(r, y_off, sc, al, tick_width, scale_height, scale_width, dividers,
@@ -882,7 +883,7 @@ class GaugeMark:
         """
         x = sc.scale_to(self.value, SL, shift_adj=shift_adj)
         h = round(STH)
-        draw_tick(r, y_off, x, h, STT, al, col=col)
+        draw_tick(r, col, y_off, x, h, STT, al)
         draw_symbol(r, col, y_off, self.sym, x, h * 1.4, font_size, FontStyle.REG, al)
 
 
@@ -1086,6 +1087,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         Marks.sqrt_ten.draw(r, y_off, sc, 60, al, sc.col)
 
     elif sc == Scales.H1:
+        draw_numeral(r, sym_col, y_off, 1.005, sc.pos_of(1.005, SL), XL * STH, 60, reg, al)
         grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [1.03, 1.1])
 
     elif sc == Scales.H2:
@@ -1217,7 +1219,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         pat(r, y_off, sc, XL, i_range(600, RIGHT_INDEX, False), (50, 100), None, al)
         pat(r, y_off, sc, XL, i_range(2500, 4500, True), (0, 500), None, al)
         pat(r, y_off, sc, MED, i_range(2500, 4500, True), (0, 100), None, al)
-        draw_tick(r, y_off, SL, round(STH), STT, al)
+        draw_tick(r, sc.col, y_off, SL, round(STH), STT, al)
         pat(r, y_off, sc, MED, i_range(600, 950, True), (50, 100), None, al)
         pat(r, y_off, sc, SM, i_range(570, RIGHT_INDEX, False), (0, 10), (0, 50), al)
         pat(r, y_off, sc, SM, i_range(1000, 2500, False), (50, 100), None, al)
@@ -1279,7 +1281,7 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
 
         for x in range(570, 1000):
             if x % 5 == 0 and x % 10 - 0 != 0:
-                draw_tick(r, y_off, sc.pos_of(x / 1000, SL), round(XS * STH), STT, al)
+                draw_tick(r, sc.col, y_off, sc.pos_of(x / 1000, SL), round(XS * STH), STT, al)
 
         # Degree Labels
         draw_symbol(r, sym_col, y_off, '1°', sc.pos_of(1, SL), STH, font_size, reg, al)
