@@ -426,7 +426,11 @@ def draw_numeral(r, color, y_off, num, x, y, font_size, font_style, al):
     elif not num.is_integer():
         num_sym = str(num)
         if num_sym.startswith('0.'):
-            num_sym = num_sym[1:]  # Omit leading zero digit
+            expon = math.log10(num)
+            if expon.is_integer() and abs(expon) > 2:
+                num_sym = f'10^{int(expon)}'
+            else:
+                num_sym = num_sym[1:]  # Omit leading zero digit
     elif num == 0:
         num_sym = '0'
     else:
