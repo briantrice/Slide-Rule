@@ -59,22 +59,53 @@ CUT_COLOR = RGB_BLUE  # color which indicates CUT
 
 
 class Geometry:
-    oX = 100  # x margins
-    oY = 100  # y margins
-    total_width = 8000 + 2 * oX
-    side_height = 1600
-    sliderule_height = side_height * 2 + 3 * oY
+    """
+    Slide Rule Geometric Parameters
+    """
+    oX: int = 100  # x margins
+    oY: int = 100  # y margins
+    side_width: int = 8000
+    side_height: int = 1600
 
-    SH = 160
+    SH: int = 160
     """scale height"""
 
-    SL = 5600  # scale length
-    li = round(total_width / 2 - SL / 2)  # left index offset from left edge
+    SL: int = 5600
+    """scale length"""
 
     # Ticks, Labels, are referenced from li as to be consistent
-    STH = 70  # standard tick height
-    STT = 4  # standard tick thickness
-    STS = STT * 3  # minimum tick horizontal separation
+    STH: int = 70
+    """standard tick height"""
+    STT: int = 4
+    """standard tick thickness"""
+
+    def __init__(self, side_wh: (int, int), margins_xy: (int, int), scale_wh: (int, int), tick_wh: (int, int)):
+        (self.side_width, self.side_height) = side_wh
+        (self.oX, self.oY) = margins_xy
+        (self.SL, self.SH) = scale_wh
+        (self.STT, self.STH) = tick_wh
+
+    @property
+    def total_width(self):
+        return self.side_width + 2 * self.oX
+
+    @property
+    def midpoint_x(self):
+        return self.total_width / 2
+
+    @property
+    def print_height(self):
+        return self.side_height * 2 + 3 * self.oY
+
+    @property
+    def li(self):
+        """left index offset from left edge"""
+        return round((self.total_width - self.SL) / 2)
+
+    @property
+    def min_tick_offset(self):
+        """minimum tick horizontal offset"""
+        return self.STT * 2  # separate each tick by at least the space of its width
 
 
 class HMod(Enum):
@@ -128,7 +159,7 @@ def draw_tick(r, geom, col, y_off, x, height, al):
     :param Align al: alignment
     """
 
-    x0 = x + li - 2
+    x0 = x + geom.li - 2
     y0 = y1 = y_off
     if al == Align.UPPER:
         y0 = y_off
@@ -217,7 +248,7 @@ def grad_pat(r, geom, y_off, sc, al, start_value=None, end_value=None):
         start_value = sc.value_at_start()
     if not end_value:
         end_value = sc.value_at_end()
-    min_tick_offset = geom.STT * 2  # separate each tick by at least the space of its width
+    min_tick_offset = geom.min_tick_offset
     log_diff = abs(math.log10(abs((end_value - start_value) / max(start_value, end_value))))
     num_digits = math.ceil(log_diff) + 3
     scale_width = geom.SL
@@ -387,7 +418,7 @@ def draw_symbol(r, geom, color, y_off, symbol, x, y, font_size, font_style, al):
         y_top += y
     elif al == Align.LOWER:
         y_top += geom.SH - 1 - y - h * 1.2
-    x_left = x + li - w / 2 + geom.STT / 2
+    x_left = x + geom.li - w / 2 + geom.STT / 2
     draw_symbol_inner(r, base_sym, color, round(x_left), y_top, font)
 
     if exponent or subscript:
@@ -703,6 +734,7 @@ class Scale:
         """which scale, if on an edge, it's aligned with"""
         if opp_scale:
             opp_scale.opp_scale = self
+        self.al = Align.UPPER if opp_scale else Align.LOWER
 
     def __repr__(self):
         return f'Scale({self.key}, {self.right_sym}, {self.scaler})'
@@ -831,7 +863,7 @@ SCALE_NAMES = ['A', 'B', 'C', 'D',
                'Ln', 'T1', 'T2', 'P',
                'LL0', 'LL1', 'LL2', 'LL3',
                'LL00', 'LL01', 'LL02', 'LL03',
-               'W1', 'W2', 'W1Prime', 'W2Prime',
+               'W1', 'W1Prime', 'W2', 'W2Prime',
                'H1', 'H2',
                'Sh1', 'Sh2', 'Th',
                'Chi', 'Theta', 'f_x', 'L_r']
@@ -907,7 +939,7 @@ class Layouts:
 
     # BOGELEX 1000 -- LEFT HANDED LIMACON 2020 -- KWENA & TOOR CO.S
     Demo = Layout('|  K,  A  [ B, T, ST, S ] D,  DI    |',
-                           '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |')
+                  '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |')
 
 
 class Model:
@@ -915,7 +947,6 @@ class Model:
         self.brand = brand
         self.name = model_name
         self.layout = layout
-
 
     def __repr__(self):
         return f'Model({self.brand}, {self.name}, {self.layout})'
@@ -1000,7 +1031,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
     font = font_for_family(reg, fs_lbl)
 
     if DEBUG:
-        r.rectangle((li, y_off, li + geom.SL, y_off + geom.SH), outline='grey')
+        r.rectangle((geom.li, y_off, geom.li + geom.SL, y_off + geom.SH), outline='grey')
 
     # Right
     (right_sym, _, _) = symbol_parts(sc.right_sym)
@@ -1061,7 +1092,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
         Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al, col=mark_color)
 
     if is_cd:
-        if y_off < geom.side_height + oY:
+        if y_off < geom.side_height + geom.oY:
             Marks.deg_per_rad.draw(r, geom, y_off, sc, fs_lbl, al)
             Marks.tau.draw(r, geom, y_off, sc, fs_lbl, al)
 
@@ -1480,8 +1511,8 @@ def draw_borders(r, geom, y0, side, color=RGB_BLACK):
     total_width = geom.total_width
     side_height = geom.side_height
     for horizontal_y in [y0 + y_off for y_off in y_offsets]:
-        r.rectangle((oX, horizontal_y, total_width - oX, horizontal_y + 2), fill=color)
-    for vertical_x in [oX, total_width - oX]:
+        r.rectangle((geom.oX, horizontal_y, total_width - geom.oX, horizontal_y + 2), fill=color)
+    for vertical_x in [geom.oX, total_width - geom.oX]:
         r.rectangle((vertical_x, y0, vertical_x + 2, y0 + side_height), fill=color)
 
     # Top Stator Cut-outs
@@ -1490,7 +1521,7 @@ def draw_borders(r, geom, y0, side, color=RGB_BLACK):
     if side == Side.REAR:
         y_start = y_start + 1120
     y_end = 480 + y_start
-    for horizontal_x in [240 + oX, (total_width - 240) - oX]:
+    for horizontal_x in [240 + geom.oX, (total_width - 240) - geom.oX]:
         r.rectangle((horizontal_x, y_start, horizontal_x + 2, y_end), color)
 
 
@@ -1505,7 +1536,7 @@ def draw_metal_cutoffs(r, geom, y0, side):
     b = 30  # offset of metal from boundary
 
     # Initial Boundary verticals
-    verticals = [480 + oX, geom.total_width - 480 - oX]
+    verticals = [480 + geom.oX, geom.total_width - 480 - geom.oX]
     for i, start in enumerate(verticals):
         r.rectangle((start - 1, y0, start + 1, y0 + i), RGB_CUTOFF)
 
@@ -1531,12 +1562,12 @@ def draw_metal_cutoffs(r, geom, y0, side):
     side_height = geom.side_height
     total_width = geom.total_width
     # Create the left piece using format: (x1,x2,y1,y2)
-    coords = [[240 + b + oX, 480 - b + oX, b + y0, b + y0],  # 1
-              [b + oX, 240 + b + oX, 1120 + b + y0, 1120 + b + y0],  # 2
-              [b + oX, 480 - b + oX, side_height - b + y0, side_height - b + y0],  # 3
-              [240 + b + oX, 240 + b + oX, b + y0, 1120 + b + y0],  # 4
-              [b + oX, b + oX, 1120 + b + y0, side_height - b + y0],  # 5
-              [480 - b + oX, 480 - b + oX, b + y0, side_height - b + y0]]  # 6
+    coords = [[240 + b + geom.oX, 480 - b + geom.oX, b + y0, b + y0],  # 1
+              [b + geom.oX, 240 + b + geom.oX, 1120 + b + y0, 1120 + b + y0],  # 2
+              [b + geom.oX, 480 - b + geom.oX, side_height - b + y0, side_height - b + y0],  # 3
+              [240 + b + geom.oX, 240 + b + geom.oX, b + y0, 1120 + b + y0],  # 4
+              [b + geom.oX, b + geom.oX, 1120 + b + y0, side_height - b + y0],  # 5
+              [480 - b + geom.oX, 480 - b + geom.oX, b + y0, side_height - b + y0]]  # 6
 
     # Symmetrically create the right piece
     for i in range(0, len(coords)):
@@ -1651,7 +1682,6 @@ def save_png(img_to_save, basename, output_suffix=None):
 
 def main():
     import argparse
-    global oX, oY
     args_parser = argparse.ArgumentParser()
     args_parser.add_argument('--mode',
                              choices=[m.value for m in VALID_MODES],
@@ -1682,39 +1712,43 @@ def main():
     reg = FontStyle.REG
     upper = Align.UPPER
     lower = Align.LOWER
-    geom = Geometry()
-    sliderule_img = Image.new('RGB', (geom.total_width, geom.sliderule_height), BG)
+    geom = Geometry(
+        (8000, 1600),
+        (100, 100),
+        (5600, 160),
+        (4, 70)
+    )
+    sliderule_img = Image.new('RGB', (geom.total_width, geom.print_height), BG)
     r = ImageDraw.Draw(sliderule_img)
     if render_mode == Mode.RENDER or render_mode == Mode.STICKERPRINT:
-        y_front_end = geom.side_height + 2 * oY
+        y_front_end = geom.side_height + 2 * geom.oY
         if render_mode == Mode.RENDER:
-            draw_borders(r, geom, oY, Side.FRONT)
+            draw_borders(r, geom, geom.oY, Side.FRONT)
             if render_cutoffs:
-                draw_metal_cutoffs(r, geom, oY, Side.FRONT)
+                draw_metal_cutoffs(r, geom, geom.oY, Side.FRONT)
             draw_borders(r, geom, y_front_end, Side.REAR)
             if render_cutoffs:
                 draw_metal_cutoffs(r, geom, y_front_end, Side.REAR)
 
         # Front Scale
-        gen_scale(r, geom, 110 + oY, Scales.L, lower)
-        gen_scale(r, geom, 320 + oY, Scales.DF, lower)
-        gen_scale(r, geom, 800 + oY, Scales.CI, lower)
-        gen_scale(r, geom, 960 + oY, Scales.C, lower)
+        gen_scale(r, geom, 110 + geom.oY, Scales.L, lower)
+        gen_scale(r, geom, 320 + geom.oY, Scales.DF, lower)
+        gen_scale(r, geom, 800 + geom.oY, Scales.CI, lower)
+        gen_scale(r, geom, 960 + geom.oY, Scales.C, lower)
 
-        gen_scale(r, geom, 480 + oY, Scales.CF, upper)
-        gen_scale(r, geom, 640 + oY, Scales.CIF, upper)
-        gen_scale(r, geom, 1120 + oY, Scales.D, upper)
-        gen_scale(r, geom, 1280 + oY, Scales.R1, upper)
-        gen_scale(r, geom, 1435 + oY, Scales.R2, upper)
+        gen_scale(r, geom, 480 + geom.oY, Scales.CF, upper)
+        gen_scale(r, geom, 640 + geom.oY, Scales.CIF, upper)
+        gen_scale(r, geom, 1120 + geom.oY, Scales.D, upper)
+        gen_scale(r, geom, 1280 + geom.oY, Scales.R1, upper)
+        gen_scale(r, geom, 1435 + geom.oY, Scales.R2, upper)
 
         # These are my weirdo alternative universe "brand names", "model name", etc.
         # Feel free to comment them out
-        global li
         fs_lbl = FontSize.ScaleLBL
-        draw_symbol(r, geom, RED, 25 + oY, 'BOGELEX 1000', (geom.total_width - 2 * oX) * 1 / 4 - li, 0, fs_lbl, reg, upper)
-        draw_symbol(r, geom, RED, 25 + oY, 'LEFT HANDED LIMAÇON 2020', (geom.total_width - 2 * oX) * 2 / 4 - li + oX, 0, fs_lbl, reg,
+        draw_symbol(r, geom, RED, 25 + geom.oY, 'BOGELEX 1000', (geom.total_width - 2 * geom.oX) * 1 / 4 - geom.li, 0, fs_lbl, reg, upper)
+        draw_symbol(r, geom, RED, 25 + geom.oY, 'LEFT HANDED LIMAÇON 2020', (geom.total_width - 2 * geom.oX) * 2 / 4 - geom.li + geom.oX, 0, fs_lbl, reg,
                     upper)
-        draw_symbol(r, geom, RED, 25 + oY, 'KWENA & TOOR CO.', (geom.total_width - 2 * oX) * 3 / 4 - li, 0, fs_lbl, reg, upper)
+        draw_symbol(r, geom, RED, 25 + geom.oY, 'KWENA & TOOR CO.', (geom.total_width - 2 * geom.oX) * 3 / 4 - geom.li, 0, fs_lbl, reg, upper)
 
         # Back Scale
         gen_scale(r, geom, 110 + y_front_end, Scales.K, lower)
@@ -1733,25 +1767,27 @@ def main():
     if render_mode == Mode.DIAGNOSTIC:
         # If you're reading this, you're a real one
         # +5 brownie points to you
-
-        oX = 0  # x dir margins
-        oY = 0  # y dir margins
-        total_width = scale_width + 250 * 2
-
-        k = 120 + geom.SH
-        sh_with_margins = geom.SH + 40
+        scale_height = 160
+        k = 120 + scale_height
+        sh_with_margins = scale_height + 40
         total_height = k + (len(SCALE_NAMES) + 1) * sh_with_margins
-        li = round(total_width / 2 - geom.SL / 2)  # update left index
-        diagnostic_img = Image.new('RGB', (total_width, total_height), BG)
+        geom = Geometry(
+            (6500, total_height),
+            (250, 250),  # remove y-margin to stack scales
+            (5600, scale_height),
+            (4, 70)
+        )
+        diagnostic_img = Image.new('RGB', (geom.total_width, total_height), BG)
         r = ImageDraw.Draw(diagnostic_img)
 
-        x_offset_cl = total_width / 2 - li
-        draw_symbol(r, geom, FG, 50, 'Diagnostic Test Print of Available Scales', x_offset_cl, 0, FontSize.Title, reg, upper)
-        draw_symbol(r, geom, FG, 200, 'A B C D K R1 R2 CI DI CF DF CIF L S T ST', x_offset_cl, 0, FontSize.Subtitle, reg, upper)
+        title_x = geom.midpoint_x - geom.li
+        draw_symbol(r, geom, FG, 50, 'Diagnostic Test Print of Available Scales', title_x, 0, FontSize.Title, reg, upper)
+        draw_symbol(r, geom, FG, 200, 'A B C D K R1 R2 CI DI CF DF CIF L S T ST', title_x, 0, FontSize.Subtitle, reg, upper)
 
-        for n, sc in enumerate(SCALE_NAMES):
+        for n, sc_name in enumerate(SCALE_NAMES):
             overhang = 0.06 if n > 18 else 0.02
-            gen_scale(r, geom, k + (n + 1) * sh_with_margins, getattr(Scales, sc), lower, overhang=overhang)
+            sc = getattr(Scales, sc_name)
+            gen_scale(r, geom, k + (n + 1) * sh_with_margins, sc, sc.al, overhang=overhang)
 
         save_png(diagnostic_img, 'Diagnostic', output_suffix)
 
@@ -1780,21 +1816,21 @@ def main():
         y_bleed = 0
 
         y_bleed += o_y2 + o_a
-        x_left = oX + 750
-        transcribe(sliderule_img, stickerprint_img, x_left, oY, scale_width, 480, o_x2, y_bleed)
+        x_left = geom.oX + 750
+        transcribe(sliderule_img, stickerprint_img, x_left, geom.oY, scale_width, 480, o_x2, y_bleed)
         extend(stickerprint_img, geom, y_bleed + 480 - 1, BleedDir.DOWN, ext)
         if should_delineate:
             draw_corners(r, o_x2, y_bleed - o_a, o_x2 + scale_width, y_bleed + 480)
 
         y_bleed += 480 + o_a
-        transcribe(sliderule_img, stickerprint_img, x_left, oY + 481, scale_width, 640, o_x2, y_bleed)
+        transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + 481, scale_width, 640, o_x2, y_bleed)
         extend(stickerprint_img, geom, y_bleed + 1, BleedDir.UP, ext)
         extend(stickerprint_img, geom, y_bleed + 640 - 1, BleedDir.DOWN, ext)
         if should_delineate:
             draw_corners(r, o_x2, y_bleed, o_x2 + scale_width, y_bleed + 640)
 
         y_bleed += 640 + o_a
-        transcribe(sliderule_img, stickerprint_img, x_left, oY + 1120, scale_width, 480, o_x2, y_bleed)
+        transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + 1120, scale_width, 480, o_x2, y_bleed)
         extend(stickerprint_img, geom, y_bleed + 1, BleedDir.UP, ext)
         extend(stickerprint_img, geom, y_bleed + 480 - 1, BleedDir.DOWN, ext)
         if should_delineate:
@@ -1804,7 +1840,7 @@ def main():
 
         y_bleed += 480 + o_a + o_a + o_a
 
-        y_start = oY + geom.side_height + oY
+        y_start = geom.oY + geom.side_height + geom.oY
         transcribe(sliderule_img, stickerprint_img, x_left, y_start, scale_width, 480, o_x2, y_bleed)
         extend(stickerprint_img, geom, y_bleed + 480 - 1, BleedDir.DOWN, ext)
         if should_delineate:
