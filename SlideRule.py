@@ -596,6 +596,9 @@ class InvertibleFn:
             lambda x: another.inverse(self.inverse(x))
         )
 
+    def __repr__(self):
+        return f'Scaler({self.fn}, {self.inverse})'
+
     def __add__(self, other):
         return self.__class__(
             lambda x: self.fn(x + other),
@@ -700,6 +703,9 @@ class Scale:
         """which scale, if on an edge, it's aligned with"""
         if opp_scale:
             opp_scale.opp_scale = self
+
+    def __repr__(self):
+        return f'Scale({self.key}, {self.right_sym}, {self.scaler})'
 
     @property
     def col(self):
@@ -839,6 +845,9 @@ class Layout:
         self.rear_layout = self.parse_side_layout(rear_layout)
         self.check_scales()
 
+    def __repr__(self):
+        return f'Layout({self.front_layout}, {self.rear_layout})'
+
     @classmethod
     def parse_segment_layout(cls, segment_layout: str) -> [str]:
         if segment_layout:
@@ -906,6 +915,10 @@ class Model:
         self.brand = brand
         self.name = model_name
         self.layout = layout
+
+
+    def __repr__(self):
+        return f'Model({self.brand}, {self.name}, {self.layout})'
 
 
 class Models:
