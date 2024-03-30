@@ -58,26 +58,23 @@ FG = BLACK
 CUT_COLOR = RGB_BLUE  # color which indicates CUT
 
 
-class SlideRuleDimensions:
-    pass
+class Geometry:
+    oX = 100  # x margins
+    oY = 100  # y margins
+    total_width = 8000 + 2 * oX
+    side_height = 1600
+    sliderule_height = side_height * 2 + 3 * oY
 
+    SH = 160
+    """scale height"""
 
-oX = 100  # x margins
-oY = 100  # y margins
-total_width = 8000 + 2 * oX
-side_height = 1600
-sliderule_height = side_height * 2 + 3 * oY
+    SL = 5600  # scale length
+    li = round(total_width / 2 - SL / 2)  # left index offset from left edge
 
-SH = 160
-"""scale height"""
-
-SL = 5600  # scale length
-li = round(total_width / 2 - SL / 2)  # left index offset from left edge
-
-# Ticks, Labels, are referenced from li as to be consistent
-STH = 70  # standard tick height
-STT = 4  # standard tick thickness
-STS = STT * 3  # minimum tick horizontal separation
+    # Ticks, Labels, are referenced from li as to be consistent
+    STH = 70  # standard tick height
+    STT = 4  # standard tick thickness
+    STS = STT * 3  # minimum tick horizontal separation
 
 
 class HMod(Enum):
@@ -119,14 +116,15 @@ class Side(Enum):
 # ----------------------2. Fundamental Functions----------------------------
 
 
-def draw_tick(r, col, y_off, x, height, thickness, al):
+def draw_tick(r, geom, col, y_off, x, height, al):
     """
     Places an individual tick
     :param ImageDraw.Draw r:
+    :param Geometry geom:
+    :param str col: color
     :param y_off: y pos
     :param x: offset of left edge from *left index*
     :param height: height of tickmark (measured from baseline or upper line)
-    :param thickness: thickness of tickmark (measured from left edge)
     :param Align al: alignment
     """
 
@@ -136,9 +134,9 @@ def draw_tick(r, col, y_off, x, height, thickness, al):
         y0 = y_off
         y1 = y_off + height
     elif al == Align.LOWER:
-        y0 = y_off + SH - height
-        y1 = y_off + SH
-    r.rectangle((x0, y0, x0 + thickness, y1), fill=col)
+        y0 = y_off + geom.SH - height
+        y1 = y_off + geom.SH
+    r.rectangle((x0, y0, x0 + geom.STT, y1), fill=col)
 
 
 PPI = 677.33
@@ -163,13 +161,14 @@ def i_range_tenths(first: int, last: int, include_last=True) -> range:
     return i_range(first * INDEX_PER_TENTH, last * INDEX_PER_TENTH, include_last)
 
 
-def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_adj=0, scale_width=SL):
+def pat(r, geom, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_adj=0):
     """
     Place ticks in a pattern
     a+bN (N ∈ Z) defines the patterning (which ticks to place)
     a0+b0N (N ∈ Z) defines the exclusion patterning (which ticks not to place)
 
     :param ImageDraw.Draw r:
+    :param Geometry geom:
     :param y_off: y pos
     :param Scale sc:
     :param HMod h_mod: height modifier (input height scalar like xs, sm, med, lg)
@@ -179,24 +178,24 @@ def pat(r, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_
     :param Align al: alignment
     :param int|None sf: scale factor - how much to divide the inputs by before scaling (to generate fine decimals)
     :param float shift_adj: how much to adjust the shift from the scale
-    :param int scale_width: number of pixels of scale width
     """
 
-    h = round(h_mod.value * STH)
+    h = round(h_mod.value * geom.STH)
     (a, b) = base_pat
     (a0, b0) = excl_pat or (None, None)
     tick_col = sc.col
+    scale_width = geom.SL
     for x in index_range:
         if x % b - a == 0:
             x_scaled = sc.scale_to(x / sf if sf else x, scale_width, shift_adj=shift_adj)
             if excl_pat:
                 if x % b0 - a0 != 0:
-                    draw_tick(r, tick_col, y_off, x_scaled, h, STT, al)
+                    draw_tick(r, geom, tick_col, y_off, x_scaled, h, al)
             else:
-                draw_tick(r, tick_col, y_off, x_scaled, h, STT, al)
+                draw_tick(r, geom, tick_col, y_off, x_scaled, h, al)
 
 
-def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_value=None, end_value=None):
+def grad_pat(r, geom, y_off, sc, al, start_value=None, end_value=None):
     """
     Draw a graduated pattern of tick marks across the scale range.
     Determine the lowest digit tick mark spacing and work upwards from there.
@@ -206,12 +205,10 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
     * 1-.5-.1-.02
     * 1-.5-.1-.01
     :param ImageDraw.Draw r:
+    :param Geometry geom:
     :param int y_off:
     :param Scale sc:
     :param Align al:
-    :param int tick_width:
-    :param int scale_height:
-    :param int scale_width:
     :param Number start_value:
     :param Number end_value:
     """
@@ -220,9 +217,10 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
         start_value = sc.value_at_start()
     if not end_value:
         end_value = sc.value_at_end()
-    min_tick_offset = tick_width * 2  # separate each tick by at least the space of its width
+    min_tick_offset = geom.STT * 2  # separate each tick by at least the space of its width
     log_diff = abs(math.log10(abs((end_value - start_value) / max(start_value, end_value))))
     num_digits = math.ceil(log_diff) + 3
+    scale_width = geom.SL
     sf = 10 ** num_digits  # ensure enough precision for int ranges
     # Ensure between 6 and 15 numerals will display? Target log10 in 0.8..1.17
     frac_width = sc.offset_between(start_value, end_value, 1)
@@ -243,7 +241,8 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
     num_tick = HMod.MED
     half_tick = HMod.XL if step_tenth < step_numeral else HMod.XS
     tenth_tick = HMod.XS if step_last < step_tenth else HMod.DOT
-    h = num_tick.value * STH
+    tick_h = geom.STH
+    h = num_tick.value * tick_h
     # Ticks and Labels
     i_start = int(start_value * sf)
     i_offset = i_start % step_last
@@ -268,27 +267,12 @@ def grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width, start_valu
                     num = int(num_sym[:1])
                 elif num_sym.startswith('0.'):
                     num = int(num_sym[-1])
-            draw_numeral(r, sym_col, y_off, num, x, h, font_s, font_style, al)
+            draw_numeral(r, geom, sym_col, y_off, num, x, h, font_s, font_style, al)
         elif i % step_half == 0:  # Half marks
             h_mod = half_tick
         elif i % step_tenth == 0:  # Tenth marks
             h_mod = tenth_tick
-        draw_tick(r, sym_col, y_off, x, h_mod.value * STH, tick_width, al)
-
-
-def grad_pat_divided(r, y_off, sc, al, tick_width, scale_height, scale_width, dividers,
-                     start_value=None, end_value=None):
-    if dividers:
-        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width,
-                 start_value=start_value, end_value=dividers[0])
-        last_i = len(dividers) - 1
-        for i, di in enumerate(dividers):
-            dj = dividers[i + 1] if i < last_i else end_value
-            grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width,
-                     start_value=di, end_value=dj)
-    else:
-        grad_pat(r, y_off, sc, al, tick_width, scale_height, scale_width,
-                 start_value=start_value, end_value=end_value)
+        draw_tick(r, geom, sym_col, y_off, x, h_mod.value * tick_h, al)
 
 
 class FontStyle(Enum):
@@ -378,9 +362,10 @@ def draw_symbol_inner(r, symbol, color, x_left, y_top, font):
     r.text((x_left, y_top), symbol, font=font, fill=color)
 
 
-def draw_symbol(r, color, y_off, symbol, x, y, font_size, font_style, al):
+def draw_symbol(r, geom, color, y_off, symbol, x, y, font_size, font_style, al):
     """
     :param ImageDraw.Draw r:
+    :param Geometry geom:
     :param str color: color name that PIL recognizes
     :param int y_off: y pos
     :param str symbol: content (text or number)
@@ -401,8 +386,8 @@ def draw_symbol(r, color, y_off, symbol, x, y, font_size, font_style, al):
     if al == Align.UPPER:
         y_top += y
     elif al == Align.LOWER:
-        y_top += SH - 1 - y - h * 1.2
-    x_left = x + li - w / 2 + STT / 2
+        y_top += geom.SH - 1 - y - h * 1.2
+    x_left = x + li - w / 2 + geom.STT / 2
     draw_symbol_inner(r, base_sym, color, round(x_left), y_top, font)
 
     if exponent or subscript:
@@ -415,9 +400,10 @@ def draw_symbol(r, color, y_off, symbol, x, y, font_size, font_style, al):
             draw_symbol_sub(r, subscript, color, h, x_right, y_top, sub_font)
 
 
-def draw_numeral(r, color, y_off, num, x, y, font_size, font_style, al):
+def draw_numeral(r, geom, color, y_off, num, x, y, font_size, font_style, al):
     """
     :param ImageDraw.Draw r:
+    :param Geometry geom:
     :param str color: color name that PIL recognizes
     :param int y_off: y pos
     :param Number num: number
@@ -446,7 +432,7 @@ def draw_numeral(r, color, y_off, num, x, y, font_size, font_style, al):
         else:
             num_sym = str(int(num))
 
-    draw_symbol(r, color, y_off, num_sym, x, y, font_size, font_style, al)
+    draw_symbol(r, geom, color, y_off, num_sym, x, y, font_size, font_style, al)
 
 
 RE_EXPON_CARET = re.compile(r'^(.+)\^([-0-9.a-z]+)$')
@@ -504,16 +490,17 @@ def draw_symbol_sub(r, sub_sym, color, h_base, x_left, y_base, font):
     draw_symbol_inner(r, sub_sym, color, x_left, y_base + h_base / 2, font)
 
 
-def extend(image, y, direction, amplitude):
+def extend(image, geom, y, direction, amplitude):
     """
     Used to create bleed for sticker cutouts
     :param Image.Image image: e.g. img, img2, etc.
+    :param Geometry geom:
     :param int y: y pixel row to duplicate
     :param BleedDir direction: direction
     :param int amplitude: number of pixels to extend
     """
 
-    for x in range(0, total_width):
+    for x in range(0, geom.total_width):
         bleed_color = image.getpixel((x, y))
 
         if direction == BleedDir.UP:
@@ -739,8 +726,8 @@ class Scale:
     def value_at_end(self):
         return self.value_at_frac_pos(1)
 
-    def pos_of(self, x, scale_width):
-        return round(scale_width * self.frac_pos_of(x))
+    def pos_of(self, x, geom):
+        return round(geom.SL * self.frac_pos_of(x))
 
     def offset_between(self, x_start, x_end, scale_width):
         return abs(self.frac_pos_of(x_end) - self.frac_pos_of(x_start)) * scale_width
@@ -761,6 +748,15 @@ class Scale:
         """
         return round(scale_width * self.frac_pos_of(x, shift_adj=shift_adj))
 
+    def grad_pat_divided(self, r, geom, y_off, al, dividers, start_value=None, end_value=None):
+        if dividers:
+            grad_pat(r, geom, y_off, self, al, start_value=start_value, end_value=dividers[0])
+            last_i = len(dividers) - 1
+            for i, di in enumerate(dividers):
+                dj = dividers[i + 1] if i < last_i else end_value
+                grad_pat(r, geom, y_off, self, al, start_value=di, end_value=dj)
+        else:
+            grad_pat(r, geom, y_off, self, al, start_value=start_value, end_value=end_value)
 
 class Scales:
     A = Scale('A', 'x²', Scalers.Square)
@@ -795,6 +791,8 @@ class Scales:
     T2 = Scale('T₂', 'tan 0.1x°', Scalers.Tan, key='T2', shift=-1)
     W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1')
     W2 = Scale('W₂', '√10x', Scalers.SquareRoot, key='W2', shift=-1)
+    W1Prime = Scale("W₁", '√x', Scalers.SquareRoot, key='W1Prime', opp_scale=W1)
+    W2Prime = Scale("W₂", '√10x', Scalers.SquareRoot, key='W2Prime', shift=-1, opp_scale=W2)
 
     H1 = Scale('H₁', '√1+0.1x²', Scalers.Hyperbolic, key='H1', shift=1)
     H2 = Scale('H₂', '√1+x²', Scalers.Hyperbolic, key='H2')
@@ -803,8 +801,21 @@ class Scales:
     Ch1 = Scale('Ch', 'cosh x', Scalers.CosH)
     Th = Scale('Th', 'tanh x', Scalers.TanH, shift=1)
 
+    # EE-specific
+    # Hemmi 153:
     Chi = Scale('χ', '', Scalers.Chi)
     Theta = Scale('θ', '°', Scalers.Theta, key='Theta')
+    # Pickett N-515-T:
+    f_x = Scale('f_x', 'x/2π', Scalers.Base, shift=gen_base(TAU))
+    L_r = Scale('(L_r) H', '1/(2πx)²', Scaler(
+        lambda x: gen_base(TAU * x) / -2,
+        lambda p: 1/(TAU * pos_base(p))**2
+    ), increasing=False)
+
+
+# TODO scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest
+# TODO meta-scale showing % with 100% over 1/unity
+#  special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
 
 
 SCALE_NAMES = ['A', 'B', 'C', 'D',
@@ -814,13 +825,13 @@ SCALE_NAMES = ['A', 'B', 'C', 'D',
                'Ln', 'T1', 'T2', 'P',
                'LL0', 'LL1', 'LL2', 'LL3',
                'LL00', 'LL01', 'LL02', 'LL03',
-               'W1', 'W2',
+               'W1', 'W2', 'W1Prime', 'W2Prime',
                'H1', 'H2',
                'Sh1', 'Sh2', 'Th',
-               'Chi', 'Theta']
+               'Chi', 'Theta', 'f_x', 'L_r']
 
 
-class SlideRuleLayout:
+class Layout:
     def __init__(self, front_layout: str, rear_layout: str = None):
         if not rear_layout and '\n' in front_layout:
             (front_layout, rear_layout) = front_layout.splitlines()
@@ -879,15 +890,37 @@ class SlideRuleLayout:
 
 
 class Layouts:
-    MannheimOriginal = SlideRuleLayout('A/B C/D')
-    RegleDesEcoles = SlideRuleLayout('DF/CF C/D')
-    Mannheim = SlideRuleLayout('A/B CI C/D K', 'S L T')
-    Rietz = SlideRuleLayout('K A/B CI C/D L', 'S ST T')
-    Darmstadt = SlideRuleLayout('S T A/B K CI C/D P', 'L LL1 LL2 LL3')
+    MannheimOriginal = Layout('A/B C/D')
+    RegleDesEcoles = Layout('DF/CF C/D')
+    Mannheim = Layout('A/B CI C/D K', 'S L T')
+    Rietz = Layout('K A/B CI C/D L', 'S ST T')
+    Darmstadt = Layout('S T A/B K CI C/D P', 'L LL1 LL2 LL3')
 
-    # MODEL 1000 -- LEFT HANDED LIMACON 2020 -- KWENA & TOOR CO.S
-    Demo = SlideRuleLayout('|  K,  A  [ B, T, ST, S ] D,  DI    |',
+    # BOGELEX 1000 -- LEFT HANDED LIMACON 2020 -- KWENA & TOOR CO.S
+    Demo = Layout('|  K,  A  [ B, T, ST, S ] D,  DI    |',
                            '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |')
+
+
+class Model:
+    def __init__(self, brand: str, model_name: str, layout: Layout):
+        self.brand = brand
+        self.name = model_name
+        self.layout = layout
+
+
+class Models:
+    Demo = Model('BOGELEX 1000', 'LEFT HANDED LIMACON 2020', Layouts.Demo)
+    Aristo868 = Model('Aristo', '868', Layout(
+        'ST T1 T2 DF/CF CIF CI C/D P S',
+        'LL01 LL02 LL03 A/B L K C/D LL3 LL2 LL1'
+    ))
+    PickettN515T = Model('Pickett', 'N-515-T', Layout(
+        'L_r f_x A/B S T CI C/D L Ln'
+    ))
+    FaberCastell283 = Model('Faber-Castell', '2/83', Layout(
+        'K T1 T2 DF/CF CIF CI C/D S ST P',
+        'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3'
+    ))
 
 
 class GaugeMark:
@@ -896,9 +929,10 @@ class GaugeMark:
         self.value = value
         self.comment = comment
 
-    def draw(self, r, y_off, sc, font_size, al, col=FG, shift_adj=0):
+    def draw(self, r, geom, y_off, sc, font_size, al, col=FG, shift_adj=0):
         """
         :param ImageDraw.Draw r:
+        :param Geometry geom:
         :param int y_off: y pos
         :param Scale sc:
         :param FontSize font_size: font size
@@ -906,10 +940,10 @@ class GaugeMark:
         :param str col: color
         :param Number shift_adj:
         """
-        x = sc.scale_to(self.value, SL, shift_adj=shift_adj)
-        h = round(STH)
-        draw_tick(r, col, y_off, x, h, STT, al)
-        draw_symbol(r, col, y_off, self.sym, x, h * 1.4, font_size, FontStyle.REG, al)
+        x = sc.scale_to(self.value, geom.SL, shift_adj=shift_adj)
+        h = round(geom.STH)
+        draw_tick(r, geom, col, y_off, x, h, al)
+        draw_symbol(r, geom, col, y_off, self.sym, x, h * 1.4, font_size, FontStyle.REG, al)
 
 
 class Marks:
@@ -933,9 +967,10 @@ class Marks:
     hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
 
 
-def gen_scale(r, y_off, sc, al, overhang=0.02):
+def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
     """
     :param ImageDraw.Draw r:
+    :param Geometry geom:
     :param int y_off: y pos
     :param Scale sc:
     :param Align al: alignment
@@ -952,22 +987,22 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
     font = font_for_family(reg, fs_lbl)
 
     if DEBUG:
-        r.rectangle((li, y_off, li + SL, y_off + SH), outline='grey')
+        r.rectangle((li, y_off, li + geom.SL, y_off + geom.SH), outline='grey')
 
     # Right
     (right_sym, _, _) = symbol_parts(sc.right_sym)
     w2, h2 = get_font_size(right_sym, font)
-    y2 = (SH - h2) / 2
-    x_right = (1 + overhang) * SL + w2 / 2
+    y2 = (geom.SH - h2) / 2
+    x_right = (1 + overhang) * geom.SL + w2 / 2
     sym_col = sc.col
-    draw_symbol(r, sym_col, y_off, sc.right_sym, x_right, y2, fs_lbl, reg, al)
+    draw_symbol(r, geom, sym_col, y_off, sc.right_sym, x_right, y2, fs_lbl, reg, al)
 
     # Left
     (left_sym, _, _) = symbol_parts(sc.left_sym)
     w1, h1 = get_font_size(left_sym, font)
-    y1 = (SH - h1) / 2
-    x_left = (0 - overhang) * SL - w1 / 2
-    draw_symbol(r, sym_col, y_off, sc.left_sym, x_left, y1, fs_lbl, reg, al)
+    y1 = (geom.SH - h1) / 2
+    x_left = (0 - overhang) * geom.SL - w1 / 2
+    draw_symbol(r, geom, sym_col, y_off, sc.left_sym, x_left, y1, fs_lbl, reg, al)
 
     # Special Symbols for S, and T
     sc_alt = None
@@ -977,11 +1012,11 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
         sc_alt = Scales.CoT
 
     if sc_alt:
-        draw_symbol(r, sc_alt.col, y_off, sc_alt.left_sym, x_left - get_width('__', fs_lbl, reg),
+        draw_symbol(r, geom, sc_alt.col, y_off, sc_alt.left_sym, x_left - get_width('__', fs_lbl, reg),
                     y2, fs_lbl, reg, al)
-        draw_symbol(r, sc_alt.col, y_off, sc_alt.right_sym, x_right, y2 - h2 * 0.8, fs_lbl, reg, al)
+        draw_symbol(r, geom, sc_alt.col, y_off, sc_alt.right_sym, x_right, y2 - h2 * 0.8, fs_lbl, reg, al)
     elif sc == Scales.ST:
-        draw_symbol(r, sc.col, y_off, 'sin 0.01x°', x_right, y2 - h2 * 0.8, fs_lbl, reg, al)
+        draw_symbol(r, geom, sc.col, y_off, 'sin 0.01x°', x_right, y2 - h2 * 0.8, fs_lbl, reg, al)
 
     full_range = i_range_tenths(1, 10)
 
@@ -991,413 +1026,419 @@ def gen_scale(r, y_off, sc, al, overhang=0.02):
     if is_cd or sc.scaler == Scalers.Inverse:
 
         # Ticks
-        pat(r, y_off, sc, HMod.MED, full_range, (0, 100), None, al)
-        pat(r, y_off, sc, HMod.XL, full_range, (50, 100), (150, 1000), al)
-        pat(r, y_off, sc, HMod.SM, full_range, (0, 10), (150, 100), al)
+        pat(r, geom, y_off, sc, HMod.MED, full_range, (0, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, full_range, (50, 100), (150, 1000), al)
+        pat(r, geom, y_off, sc, HMod.SM, full_range, (0, 10), (150, 100), al)
         range_1to2 = i_range_tenths(1, 2, False)
-        pat(r, y_off, sc, HMod.SM, range_1to2, (5, 10), None, al)
-        pat(r, y_off, sc, HMod.XS, range_1to2, (0, 1), (0, 5), al)
-        pat(r, y_off, sc, HMod.XS, i_range_tenths(2, 4, False), (0, 2), (0, 10), al)
-        pat(r, y_off, sc, HMod.XS, i_range_tenths(4, 10), (0, 5), (0, 10), al)
+        pat(r, geom, y_off, sc, HMod.SM, range_1to2, (5, 10), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, range_1to2, (0, 1), (0, 5), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range_tenths(2, 4, False), (0, 2), (0, 10), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range_tenths(4, 10), (0, 5), (0, 10), al)
 
         # 1-10 Labels
         for x in range(1, 11):
-            draw_symbol(r, sym_col, y_off, leading_digit_of(x), sc.pos_of(x, SL), STH, fs_lbl, reg, al)
+            draw_symbol(r, geom, sym_col, y_off, leading_digit_of(x), sc.pos_of(x, geom), geom.STH, fs_lbl, reg, al)
 
         # 0.1-0.9 Labels
         for x in range(11, 20):
-            draw_numeral(r, sym_col, y_off, x - 10, sc.pos_of(x / 10, SL), round(STH * 0.85), fs_lgn, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x - 10, sc.pos_of(x / 10, geom), round(geom.STH * 0.85), fs_lgn, reg, al)
 
         # Gauge Points
         mark_color = RED if sc.gen_fn == scale_inverse else FG
-        Marks.pi.draw(r, y_off, sc, fs_lbl, al, col=mark_color)
+        Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al, col=mark_color)
 
     if is_cd:
-        if y_off < side_height + oY:
-            Marks.deg_per_rad.draw(r, y_off, sc, fs_lbl, al)
-            Marks.tau.draw(r, y_off, sc, fs_lbl, al)
+        if y_off < geom.side_height + oY:
+            Marks.deg_per_rad.draw(r, geom, y_off, sc, fs_lbl, al)
+            Marks.tau.draw(r, geom, y_off, sc, fs_lbl, al)
 
     elif sc.scaler == Scalers.Square:
 
         # Ticks
-        pat(r, y_off, sc, HMod.MED, full_range, (0, 100), None, al)
-        pat(r, y_off, sc, HMod.MED, i_range(1000, 10001, True), (0, 1000), None, al)
-        pat(r, y_off, sc, HMod.SM, i_range_tenths(1, 5), (0, 10), (50, 100), al)
-        pat(r, y_off, sc, HMod.SM, i_range(1000, 5001, True), (0, 100), (500, 1000), al)
-        pat(r, y_off, sc, HMod.XL, full_range, (50, 100), None, al)
-        pat(r, y_off, sc, HMod.XL, i_range(1000, 10001, True), (500, 1000), None, al)
-        pat(r, y_off, sc, HMod.XS, i_range_tenths(1, 2), (0, 2), None, al)
-        pat(r, y_off, sc, HMod.XS, i_range(1000, 2000, True), (0, 20), None, al)
-        pat(r, y_off, sc, HMod.XS, i_range_tenths(2, 5, False), (5, 10), None, al)
-        pat(r, y_off, sc, HMod.XS, i_range(2000, 5000, True), (50, 100), None, al)
-        pat(r, y_off, sc, HMod.XS, i_range_tenths(5, 10), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, HMod.XS, i_range(5000, 10001, True), (0, 100), (0, 500), al)
+        pat(r, geom, y_off, sc, HMod.MED, full_range, (0, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(1000, 10001, True), (0, 1000), None, al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range_tenths(1, 5), (0, 10), (50, 100), al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(1000, 5001, True), (0, 100), (500, 1000), al)
+        pat(r, geom, y_off, sc, HMod.XL, full_range, (50, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(1000, 10001, True), (500, 1000), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range_tenths(1, 2), (0, 2), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(1000, 2000, True), (0, 20), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range_tenths(2, 5, False), (5, 10), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(2000, 5000, True), (50, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range_tenths(5, 10), (0, 10), (0, 50), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(5000, 10001, True), (0, 100), (0, 500), al)
 
         # 1-10 Labels
         for x in range(1, 11):
             sym = leading_digit_of(x)
-            draw_symbol(r, sym_col, y_off, sym, sc.pos_of(x, SL), STH, fs_lbl, reg, al)
-            draw_symbol(r, sym_col, y_off, sym, sc.pos_of(x * 10, SL), STH, fs_lbl, reg, al)
+            draw_symbol(r, geom, sym_col, y_off, sym, sc.pos_of(x, geom), geom.STH, fs_lbl, reg, al)
+            draw_symbol(r, geom, sym_col, y_off, sym, sc.pos_of(x * 10, geom), geom.STH, fs_lbl, reg, al)
 
         # Gauge Points
-        Marks.pi.draw(r, y_off, sc, fs_lbl, al)
-        Marks.pi.draw(r, y_off, sc, fs_lbl, al, shift_adj=0.5)
+        Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al)
+        Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al, shift_adj=0.5)
 
     elif sc == Scales.K:
         # Ticks per power of 10
         for b in [10 ** foo for foo in range(0, 3)]:
-            pat(r, y_off, sc, HMod.MED, i_range_tenths(1 * b, 10 * b), (0, 100 * b), None, al)
-            pat(r, y_off, sc, HMod.XL, i_range_tenths(1 * b, 6 * b), (50 * b, 100 * b), None, al)
-            pat(r, y_off, sc, HMod.SM, i_range_tenths(1 * b, 3 * b), (0, 10 * b), None, al)
-            pat(r, y_off, sc, HMod.XS, i_range_tenths(1 * b, 3 * b), (5 * b, 10 * b), None, al)
-            pat(r, y_off, sc, HMod.XS, i_range_tenths(3 * b, 6 * b), (0, 10 * b), None, al)
-            pat(r, y_off, sc, HMod.XS, i_range_tenths(6 * b, 10 * b), (0, 20 * b), None, al)
+            pat(r, geom, y_off, sc, HMod.MED, i_range_tenths(1 * b, 10 * b), (0, 100 * b), None, al)
+            pat(r, geom, y_off, sc, HMod.XL, i_range_tenths(1 * b, 6 * b), (50 * b, 100 * b), None, al)
+            pat(r, geom, y_off, sc, HMod.SM, i_range_tenths(1 * b, 3 * b), (0, 10 * b), None, al)
+            pat(r, geom, y_off, sc, HMod.XS, i_range_tenths(1 * b, 3 * b), (5 * b, 10 * b), None, al)
+            pat(r, geom, y_off, sc, HMod.XS, i_range_tenths(3 * b, 6 * b), (0, 10 * b), None, al)
+            pat(r, geom, y_off, sc, HMod.XS, i_range_tenths(6 * b, 10 * b), (0, 20 * b), None, al)
 
         # 1-10 Labels
         f = FontSize.NumXL
         for x in range(1, 11):
             sym = leading_digit_of(x)
-            draw_symbol(r, sym_col, y_off, sym, sc.pos_of(x, SL), STH, f, reg, al)
-            draw_symbol(r, sym_col, y_off, sym, sc.pos_of(x * 10, SL), STH, f, reg, al)
-            draw_symbol(r, sym_col, y_off, sym, sc.pos_of(x * 100, SL), STH, f, reg, al)
+            draw_symbol(r, geom, sym_col, y_off, sym, sc.pos_of(x, geom), geom.STH, f, reg, al)
+            draw_symbol(r, geom, sym_col, y_off, sym, sc.pos_of(x * 10, geom), geom.STH, f, reg, al)
+            draw_symbol(r, geom, sym_col, y_off, sym, sc.pos_of(x * 100, geom), geom.STH, f, reg, al)
 
     elif sc == Scales.R1:
 
         # Ticks
         sf = 1000
-        pat(r, y_off, sc, HMod.MED, i_range(1000, 3200, True), (0, 100), None, al, sf=sf)
-        pat(r, y_off, sc, HMod.XL, i_range(1000, 2000, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, HMod.SM, i_range(2000, 3200, True), (0, 50), None, al, sf=sf)
-        pat(r, y_off, sc, HMod.SM, i_range(1000, 2000, True), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, HMod.XS, i_range(1000, 2000, True), (5, 10), None, al, sf=sf)
-        pat(r, y_off, sc, HMod.XS, i_range(2000, 3180, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(1000, 3200, True), (0, 100), None, al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(1000, 2000, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(2000, 3200, True), (0, 50), None, al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(1000, 2000, True), (0, 10), (0, 50), al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(1000, 2000, True), (5, 10), None, al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(2000, 3180, True), (0, 10), (0, 50), al, sf=sf)
 
         # 1-10 Labels
         for x in range(1, 4):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), STH, fs_lbl, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom), geom.STH, fs_lbl, reg, al)
 
         # 0.1-3.1 Labels
         for x in range(11, 20):
-            draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x / 10, SL), STH, fs_lgn, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x % 10, sc.pos_of(x / 10, geom), geom.STH, fs_lgn, reg, al)
         for x in range(21, 30):
-            draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x / 10, SL), STH, fs_lgn, reg, al)
-        draw_numeral(r, sym_col, y_off, 31 % 10, sc.pos_of(31 / 10, SL), STH, fs_lgn, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x % 10, sc.pos_of(x / 10, geom), geom.STH, fs_lgn, reg, al)
+        draw_numeral(r, geom, sym_col, y_off, 31 % 10, sc.pos_of(31 / 10, geom), geom.STH, fs_lgn, reg, al)
 
     elif sc in {Scales.W1, Scales.W1Prime}:
-        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [2])
-        Marks.sqrt_ten.draw(r, y_off, sc, fs_lgn, al, sc.col)
+        sc.grad_pat_divided(r, geom, y_off, al, [2])
+        Marks.sqrt_ten.draw(r, geom, y_off, sc, fs_lgn, al, sc.col)
 
     elif sc in {Scales.W2, Scales.W2Prime}:
-        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [5])
-        Marks.sqrt_ten.draw(r, y_off, sc, fs_lgn, al, sc.col)
+        sc.grad_pat_divided(r, geom, y_off, al, [5])
+        Marks.sqrt_ten.draw(r, geom, y_off, sc, fs_lgn, al, sc.col)
 
     elif sc == Scales.R2:
 
         # Ticks
         sf = 1000
-        pat(r, y_off, sc, HMod.MED, i_range(4000, 10000, True), (0, 1000), None, al, sf=sf)
-        pat(r, y_off, sc, HMod.XL, i_range(5000, 10000, False), (500, 1000), None, al, sf=sf)
-        pat(r, y_off, sc, HMod.SM, i_range(3200, 10000, False), (0, 100), (0, 1000), al, sf=sf)
-        pat(r, y_off, sc, HMod.SM, i_range(3200, 5000, False), (0, 50), None, al, sf=sf)
-        pat(r, y_off, sc, HMod.XS, i_range(3160, 5000, False), (0, 10), (0, 50), al, sf=sf)
-        pat(r, y_off, sc, HMod.XS, i_range(5000, 10000, False), (0, 20), (0, 100), al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(4000, 10000, True), (0, 1000), None, al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(5000, 10000, False), (500, 1000), None, al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(3200, 10000, False), (0, 100), (0, 1000), al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(3200, 5000, False), (0, 50), None, al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(3160, 5000, False), (0, 10), (0, 50), al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(5000, 10000, False), (0, 20), (0, 100), al, sf=sf)
 
         # 1-10 Labels
         for x in range(4, 10):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), STH, fs_lbl, reg, al)
-        draw_symbol(r, sym_col, y_off, '1', SL, STH, fs_lbl, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom), geom.STH, fs_lbl, reg, al)
+        draw_symbol(r, geom, sym_col, y_off, '1', geom.SL, geom.STH, fs_lbl, reg, al)
 
         # 0.1-3.1 Labels
         for x in range(32, 40):
-            draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x / 10, SL), STH, fs_lgn, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x % 10, sc.pos_of(x / 10, geom), geom.STH, fs_lgn, reg, al)
         for x in range(41, 50):
-            draw_numeral(r, sym_col, y_off, x % 10, sc.pos_of(x / 10, SL), STH, fs_lgn, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x % 10, sc.pos_of(x / 10, geom), geom.STH, fs_lgn, reg, al)
 
     elif sc == Scales.H1:
-        draw_numeral(r, sym_col, y_off, 1.005, sc.pos_of(1.005, SL), HMod.XL.value * STH, fs_lgn, reg, al)
-        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [1.03, 1.1])
+        draw_numeral(r, geom, sym_col, y_off, 1.005, sc.pos_of(1.005, geom), HMod.XL.value * geom.STH, fs_lgn, reg, al)
+        sc.grad_pat_divided(r, geom, y_off, al, [1.03, 1.1])
 
     elif sc == Scales.H2:
-        draw_numeral(r, sym_col, y_off, 1.5, sc.pos_of(1.5, SL), HMod.XL.value * STH, fs_lgn, reg, al)
-        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [4])
+        draw_numeral(r, geom, sym_col, y_off, 1.5, sc.pos_of(1.5, geom), HMod.XL.value * geom.STH, fs_lgn, reg, al)
+        sc.grad_pat_divided(r, geom, y_off, al, [4])
 
     elif sc.scaler == Scalers.Base and sc.shift == pi_fold_shift:  # CF/DF
 
         # Ticks
-        pat(r, y_off, sc, HMod.MED, i_range_tenths(1, 3), (0, 100), None, al)
-        pat(r, y_off, sc, HMod.MED, i_range_tenths(4, 10), (0, 100), None, al, shift_adj=-1)
-        pat(r, y_off, sc, HMod.XL, i_range_tenths(2, 3), (50, 100), None, al)
-        pat(r, y_off, sc, HMod.SM, i_range_tenths(1, 2), (0, 5), None, al)
-        pat(r, y_off, sc, HMod.SM, i_range(200, 310, True), (0, 10), None, al)
-        pat(r, y_off, sc, HMod.XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=-1)
-        pat(r, y_off, sc, HMod.SM, i_range(320, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=-1)
-        pat(r, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, True), (0, 1), (0, 5), al)
-        pat(r, y_off, sc, HMod.XS, i_range(200, 314, False), (0, 2), (0, 10), al)
-        pat(r, y_off, sc, HMod.XS, i_range(316, 400, True), (0, 2), (0, 10), al, shift_adj=-1)
-        pat(r, y_off, sc, HMod.XS, i_range(400, RIGHT_INDEX, False), (0, 5), (0, 10), al, shift_adj=-1)
+        pat(r, geom, y_off, sc, HMod.MED, i_range_tenths(1, 3), (0, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range_tenths(4, 10), (0, 100), None, al, shift_adj=-1)
+        pat(r, geom, y_off, sc, HMod.XL, i_range_tenths(2, 3), (50, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range_tenths(1, 2), (0, 5), None, al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(200, 310, True), (0, 10), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=-1)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(320, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=-1)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, True), (0, 1), (0, 5), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(200, 314, False), (0, 2), (0, 10), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(316, 400, True), (0, 2), (0, 10), al, shift_adj=-1)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(400, RIGHT_INDEX, False), (0, 5), (0, 10), al, shift_adj=-1)
 
         # 1-10 Labels
         for x in range(1, 4):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), STH, fs_lbl, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom), geom.STH, fs_lbl, reg, al)
         for x in range(4, 10):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL) - SL, STH, fs_lbl, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom) - geom.SL, geom.STH, fs_lbl, reg, al)
 
         # 0.1-0.9 Labels
         for x in range(11, 20):
-            draw_numeral(r, sym_col, y_off, x - 10, sc.pos_of(x / 10, SL), round(STH * 0.85), fs_lgn, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x - 10, sc.pos_of(x / 10, geom), round(geom.STH * 0.85), fs_lgn, reg, al)
 
         # Gauge Points
-        Marks.pi.draw(r, y_off, sc, fs_lbl, al)
-        Marks.pi.draw(r, y_off, sc, fs_lbl, al, shift_adj=-1)
+        Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al)
+        Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al, shift_adj=-1)
 
     elif sc == Scales.CIF:
 
         # Ticks
-        pat(r, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 300, True), (0, 100), None, al)
-        pat(r, y_off, sc, HMod.MED, i_range(400, RIGHT_INDEX, False), (0, 100), None, al, shift_adj=1)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 300, True), (0, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(400, RIGHT_INDEX, False), (0, 100), None, al, shift_adj=1)
 
-        pat(r, y_off, sc, HMod.XL, i_range(200, 300, True), (50, 100), None, al)
-        pat(r, y_off, sc, HMod.SM, i_range(LEFT_INDEX, 200, True), (0, 5), None, al)
-        pat(r, y_off, sc, HMod.SM, i_range(200, 320, True), (0, 10), None, al)
-        pat(r, y_off, sc, HMod.XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=1)
-        pat(r, y_off, sc, HMod.SM, i_range(310, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=1)
-        pat(r, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, True), (0, 1), (0, 5), al)
-        pat(r, y_off, sc, HMod.XS, i_range(200, 320, True), (0, 2), (0, 10), al)
-        pat(r, y_off, sc, HMod.XS, i_range(310, 400, True), (0, 2), (0, 10), al, shift_adj=1)
-        pat(r, y_off, sc, HMod.XS, i_range(400, RIGHT_INDEX, False), (0, 5), (0, 10), al, shift_adj=1)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(200, 300, True), (50, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(LEFT_INDEX, 200, True), (0, 5), None, al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(200, 320, True), (0, 10), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=1)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(310, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=1)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, True), (0, 1), (0, 5), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(200, 320, True), (0, 2), (0, 10), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(310, 400, True), (0, 2), (0, 10), al, shift_adj=1)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(400, RIGHT_INDEX, False), (0, 5), (0, 10), al, shift_adj=1)
 
         # 1-10 Labels
         for x in range(4, 10):
-            draw_numeral(r, RED, y_off, x, sc.pos_of(x, SL) + SL, STH, fs_lbl, reg, al)
+            draw_numeral(r, geom, RED, y_off, x, sc.pos_of(x, geom) + geom.SL, geom.STH, fs_lbl, reg, al)
         for x in range(1, 4):
-            draw_numeral(r, RED, y_off, x, sc.pos_of(x, SL), STH, fs_lbl, reg, al)
+            draw_numeral(r, geom, RED, y_off, x, sc.pos_of(x, geom), geom.STH, fs_lbl, reg, al)
 
         # 0.1-0.9 Labels
         for x in range(11, 20):
-            draw_numeral(r, RED, y_off, x - 10, sc.pos_of(x / 10, SL), round(STH * 0.85), fs_lgn, reg, al)
+            draw_numeral(r, geom, RED, y_off, x - 10, sc.pos_of(x / 10, geom), round(geom.STH * 0.85), fs_lgn, reg, al)
 
     elif sc == Scales.L:
 
         # Ticks
         range1 = i_range(0, RIGHT_INDEX, True)
         range2 = i_range(1, RIGHT_INDEX, True)
-        pat(r, y_off, sc, HMod.MED, range1, (0, 10), (50, 50), al)
-        pat(r, y_off, sc, HMod.XL, range2, (50, 100), None, al)
-        pat(r, y_off, sc, HMod.LG, range1, (0, 100), None, al)
-        pat(r, y_off, sc, HMod.XS, range2, (0, 2), (0, 50), al)
+        pat(r, geom, y_off, sc, HMod.MED, range1, (0, 10), (50, 50), al)
+        pat(r, geom, y_off, sc, HMod.XL, range2, (50, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.LG, range1, (0, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, range2, (0, 2), (0, 50), al)
 
         # Labels
         for x in range(0, 11):
             if x == 0:
-                draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), STH, fs_lbl, reg, al)
+                draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom), geom.STH, fs_lbl, reg, al)
             if x == 10:
-                draw_numeral(r, sym_col, y_off, 1, sc.pos_of(x, SL), STH, fs_lbl, reg, al)
+                draw_numeral(r, geom, sym_col, y_off, 1, sc.pos_of(x, geom), geom.STH, fs_lbl, reg, al)
             elif x in range(1, 10):
-                draw_numeral(r, sym_col, y_off, x / 10, sc.pos_of(x, SL), STH, fs_lbl, reg, al)
+                draw_numeral(r, geom, sym_col, y_off, x / 10, sc.pos_of(x, geom), geom.STH, fs_lbl, reg, al)
 
     elif sc == Scales.Ln:
-        grad_pat(r, y_off, sc, al, STT, SH, SL)
+        grad_pat(r, geom, y_off, sc, al)
 
     elif sc.scaler == Scalers.Sin:
 
         # Ticks
-        pat(r, y_off, sc, HMod.XL, i_range(1000, 7000, True), (0, 1000), None, al)
-        pat(r, y_off, sc, HMod.MED, i_range(7000, 10000, True), (0, 1000), None, al)
-        pat(r, y_off, sc, HMod.XL, i_range(600, 2000, True), (0, 100), None, al)
-        pat(r, y_off, sc, HMod.SM, i_range(600, 2000, False), (50, 100), (0, 100), al)
-        pat(r, y_off, sc, HMod.XL, i_range(2000, 6000, False), (500, 1000), (0, 1000), al)
-        pat(r, y_off, sc, HMod.SM, i_range(2000, 6000, False), (0, 100), (0, 500), al)
-        pat(r, y_off, sc, HMod.XS, i_range(570, 2000, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, HMod.XS, i_range(2000, 3000, False), (0, 20), (0, 100), al)
-        pat(r, y_off, sc, HMod.XS, i_range(3000, 6000, False), (0, 50), (0, 100), al)
-        pat(r, y_off, sc, HMod.SM, i_range(6000, 8500, True), (500, 1000), None, al)
-        pat(r, y_off, sc, HMod.XS, i_range(6000, 8000, False), (0, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(1000, 7000, True), (0, 1000), None, al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(7000, 10000, True), (0, 1000), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(600, 2000, True), (0, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(600, 2000, False), (50, 100), (0, 100), al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(2000, 6000, False), (500, 1000), (0, 1000), al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(2000, 6000, False), (0, 100), (0, 500), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(570, 2000, False), (0, 10), (0, 50), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(2000, 3000, False), (0, 20), (0, 100), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(3000, 6000, False), (0, 50), (0, 100), al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(6000, 8500, True), (500, 1000), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(6000, 8000, False), (0, 100), None, al)
 
         # Degree Labels
 
         for x in range(6, 16):
-            x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_smn, italic)
-            draw_numeral(r, sym_col, y_off, x, x_coord, STH, fs_smn, reg, al)
+            x_coord = sc.pos_of(x, geom) + 1.2 / 2 * get_width(x, fs_smn, italic)
+            draw_numeral(r, geom, sym_col, y_off, x, x_coord, geom.STH, fs_smn, reg, al)
             xi = angle_opp(x)
-            x_coord_opp = sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_smn, italic)
-            draw_numeral(r, RED, y_off, xi, x_coord_opp,
-                         STH, fs_lgn, italic, al)
+            x_coord_opp = sc.pos_of(x, geom) - 1.4 / 2 * get_width(xi, fs_smn, italic)
+            draw_numeral(r, geom, RED, y_off, xi, x_coord_opp,
+                         geom.STH, fs_lgn, italic, al)
 
         for x in range(16, 20):
-            x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic)
-            draw_numeral(r, sym_col, y_off, x, x_coord, STH, fs_mdn, reg, al)
+            x_coord = sc.pos_of(x, geom) + 1.2 / 2 * get_width(x, fs_mdn, italic)
+            draw_numeral(r, geom, sym_col, y_off, x, x_coord, geom.STH, fs_mdn, reg, al)
 
         for x in range(20, 71, 5):
             if (x % 5 == 0 and x < 40) or x % 10 == 0:
-                x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic)
-                draw_numeral(r, sym_col, y_off, x, x_coord, STH, fs_mdn, reg, al)
+                x_coord = sc.pos_of(x, geom) + 1.2 / 2 * get_width(x, fs_mdn, italic)
+                draw_numeral(r, geom, sym_col, y_off, x, x_coord, geom.STH, fs_mdn, reg, al)
                 if x != 20:
                     xi = angle_opp(x)
-                    x_coord = sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_mdn, italic)
+                    x_coord = sc.pos_of(x, geom) - 1.4 / 2 * get_width(xi, fs_mdn, italic)
                     if xi != 40:
-                        draw_numeral(r, RED, y_off, xi, x_coord, STH, fs_mdn, italic, al)
+                        draw_numeral(r, geom, RED, y_off, xi, x_coord, geom.STH, fs_mdn, italic, al)
                     elif xi == 40:
-                        draw_numeral(r, RED, y_off + 11, 40, x_coord, STH, fs_mdn, italic, al)
+                        draw_numeral(r, geom, RED, y_off + 11, 40, x_coord, geom.STH, fs_mdn, italic, al)
 
-        draw_numeral(r, sym_col, y_off, DEG_RIGHT_ANGLE, SL, STH, fs_lgn, reg, al)
+        draw_numeral(r, geom, sym_col, y_off, DEG_RIGHT_ANGLE, geom.SL, geom.STH, fs_lgn, reg, al)
 
     elif sc == Scales.T or sc == Scales.T1:
 
         # Ticks
-        pat(r, y_off, sc, HMod.XL, i_range(600, 2500, True), (0, 100), None, al)
-        pat(r, y_off, sc, HMod.XL, i_range(600, RIGHT_INDEX, False), (50, 100), None, al)
-        pat(r, y_off, sc, HMod.XL, i_range(2500, 4500, True), (0, 500), None, al)
-        pat(r, y_off, sc, HMod.MED, i_range(2500, 4500, True), (0, 100), None, al)
-        draw_tick(r, sc.col, y_off, SL, round(STH), STT, al)
-        pat(r, y_off, sc, HMod.MED, i_range(600, 950, True), (50, 100), None, al)
-        pat(r, y_off, sc, HMod.SM, i_range(570, RIGHT_INDEX, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, HMod.SM, i_range(1000, 2500, False), (50, 100), None, al)
-        pat(r, y_off, sc, HMod.XS, i_range(570, RIGHT_INDEX, False), (5, 10), (0, 10), al)
-        pat(r, y_off, sc, HMod.XS, i_range(1000, 2500, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, HMod.XS, i_range(2500, 4500, True), (0, 20), (0, 100), al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(600, 2500, True), (0, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(600, RIGHT_INDEX, False), (50, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(2500, 4500, True), (0, 500), None, al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(2500, 4500, True), (0, 100), None, al)
+        draw_tick(r, geom, sc.col, y_off, geom.SL, round(geom.STH), al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(600, 950, True), (50, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(570, RIGHT_INDEX, False), (0, 10), (0, 50), al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(1000, 2500, False), (50, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(570, RIGHT_INDEX, False), (5, 10), (0, 10), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(1000, 2500, False), (0, 10), (0, 50), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(2500, 4500, True), (0, 20), (0, 100), al)
 
         # Degree Labels
-        f = 1.1 * STH
+        f = 1.1 * geom.STH
         opp_col = RED
         for x in range(6, 16):
-            x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_smn, italic)
-            draw_numeral(r, sym_col, y_off, x, x_coord, f, fs_smn, reg, al)
+            x_coord = sc.pos_of(x, geom) + 1.2 / 2 * get_width(x, fs_smn, italic)
+            draw_numeral(r, geom, sym_col, y_off, x, x_coord, f, fs_smn, reg, al)
             xi = angle_opp(x)
-            x_coord_opp = sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_smn, italic)
-            draw_numeral(r, opp_col, y_off, xi, x_coord_opp, f, fs_smn, italic, al)
+            x_coord_opp = sc.pos_of(x, geom) - 1.4 / 2 * get_width(xi, fs_smn, italic)
+            draw_numeral(r, geom, opp_col, y_off, xi, x_coord_opp, f, fs_smn, italic, al)
 
         for x in range(16, 21):
-            x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic)
-            draw_numeral(r, sym_col, y_off, x, x_coord, f, fs_mdn, reg, al)
+            x_coord = sc.pos_of(x, geom) + 1.2 / 2 * get_width(x, fs_mdn, italic)
+            draw_numeral(r, geom, sym_col, y_off, x, x_coord, f, fs_mdn, reg, al)
 
         for x in range(25, 41, 5):
             if x % 5 == 0:
-                x_coord = sc.pos_of(x, SL) + 1.2 / 2 * get_width(x, fs_mdn, italic)
-                draw_numeral(r, sym_col, y_off, x, x_coord, f, fs_mdn,
+                x_coord = sc.pos_of(x, geom) + 1.2 / 2 * get_width(x, fs_mdn, italic)
+                draw_numeral(r, geom, sym_col, y_off, x, x_coord, f, fs_mdn,
                              reg, al)
                 xi = angle_opp(x)
-                x_coord_opp = sc.pos_of(x, SL) - 1.4 / 2 * get_width(xi, fs_mdn, italic)
-                draw_numeral(r, opp_col, y_off, xi, x_coord_opp,
+                x_coord_opp = sc.pos_of(x, geom) - 1.4 / 2 * get_width(xi, fs_mdn, italic)
+                draw_numeral(r, geom, opp_col, y_off, xi, x_coord_opp,
                              f, fs_mdn, italic, al)
 
-        draw_numeral(r, sym_col, y_off, 45, SL, f, fs_lgn, reg, al)
+        draw_numeral(r, geom, sym_col, y_off, 45, geom.SL, f, fs_lgn, reg, al)
 
     elif sc == Scales.T2:
-        f = 1.1 * STH
+        f = 1.1 * geom.STH
         # Ticks
         fp1 = 4500
         fp2 = 7500
         fpe = 8450
-        pat(r, y_off, sc, HMod.MED, range(fp1, fpe, True), (0, 100), None, al)
-        pat(r, y_off, sc, HMod.XL, range(fp1, fpe, True), (50, 100), None, al)
-        pat(r, y_off, sc, HMod.DOT, range(fp1, fp2, True), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, HMod.XS, range(fp2, fpe, True), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, HMod.DOT, range(fp2, fpe, True), (0, 5), (0, 10), al)
+        pat(r, geom, y_off, sc, HMod.MED, range(fp1, fpe, True), (0, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, range(fp1, fpe, True), (50, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.DOT, range(fp1, fp2, True), (0, 10), (0, 50), al)
+        pat(r, geom, y_off, sc, HMod.XS, range(fp2, fpe, True), (0, 10), (0, 50), al)
+        pat(r, geom, y_off, sc, HMod.DOT, range(fp2, fpe, True), (0, 5), (0, 10), al)
         # Degree Labels
         for x in range(45, 85, 5):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), f, fs_lgn, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom), f, fs_lgn, reg, al)
 
     elif sc == Scales.ST:
 
         # Ticks
-        pat(r, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 550, True), (0, 50), None, al)
-        pat(r, y_off, sc, HMod.LG2, i_range(60, 100, False), (0, 10), None, al)
-        pat(r, y_off, sc, HMod.XL, i_range(60, 100, False), (5, 10), None, al)
-        pat(r, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 200, False), (0, 10), (0, 50), al)
-        pat(r, y_off, sc, HMod.SM, i_range(200, 590, False), (0, 10), None, al)
-        pat(r, y_off, sc, HMod.SM, i_range(57, 100, False), (0, 1), None, al)
-        pat(r, y_off, sc, HMod.SM, i_range(LEFT_INDEX, 200, False), (0, 5), None, al)
-        pat(r, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, False), (0, 1), (0, 5), al)
-        pat(r, y_off, sc, HMod.XS, i_range(200, 400, False), (0, 2), (0, 10), al)
-        pat(r, y_off, sc, HMod.XS, i_range(400, 585, False), (5, 10), None, al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 550, True), (0, 50), None, al)
+        pat(r, geom, y_off, sc, HMod.LG2, i_range(60, 100, False), (0, 10), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(60, 100, False), (5, 10), None, al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 200, False), (0, 10), (0, 50), al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(200, 590, False), (0, 10), None, al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(57, 100, False), (0, 1), None, al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(LEFT_INDEX, 200, False), (0, 5), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, False), (0, 1), (0, 5), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(200, 400, False), (0, 2), (0, 10), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(400, 585, False), (5, 10), None, al)
 
         for x in range(570, 1000):
             if x % 5 == 0 and x % 10 - 0 != 0:
-                draw_tick(r, sc.col, y_off, sc.pos_of(x / 1000, SL), round(HMod.XS.value * STH), STT, al)
+                draw_tick(r, geom, sc.col, y_off, sc.pos_of(x / 1000, geom), round(HMod.XS.value * geom.STH), al)
 
         # Degree Labels
-        draw_symbol(r, sym_col, y_off, '1°', sc.pos_of(1, SL), STH, fs_lbl, reg, al)
+        draw_symbol(r, geom, sym_col, y_off, '1°', sc.pos_of(1, geom), geom.STH, fs_lbl, reg, al)
         for x in range(6, 10):
             x_value = x / 10
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), STH, fs_lbl, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x_value, sc.pos_of(x_value, geom), geom.STH, fs_lbl, reg, al)
         for x in range(1, 4):
             x_value = x + 0.5
-            draw_numeral(r, sym_col, y_off, x_value, sc.pos_of(x_value, SL), STH, fs_lbl, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x_value, sc.pos_of(x_value, geom), geom.STH, fs_lbl, reg, al)
         for x in range(2, 6):
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), STH, fs_lbl, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom), geom.STH, fs_lbl, reg, al)
 
     elif sc == Scales.P:
         # Labels
-        label_h = HMod.MED.value * STH
+        label_h = HMod.MED.value * geom.STH
         font_s = fs_smn
         for x in [0.995]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, font_s, reg, al)
-        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [0.3, 0.7, 0.9, 0.98],
-                         start_value=0.1, end_value=.995)
+            draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom), label_h, font_s, reg, al)
+        sc.grad_pat_divided(r, geom, y_off, al, [0.3, 0.7, 0.9, 0.98],
+                            start_value=0.1, end_value=.995)
 
     elif sc == Scales.Sh1:
-        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, [0.2, 0.4])
+        sc.grad_pat_divided(r, geom, y_off, al, [0.2, 0.4])
 
     elif sc == Scales.Sh2:
-        grad_pat(r, y_off, sc, al, STT, SH, SL)
+        grad_pat(r, geom, y_off, sc, al)
 
     elif sc == Scales.Th:
         sf = 1000
         d2 = 1
         d3 = 2
         de = 3
-        grad_pat_divided(r, y_off, sc, al, STT, SH, SL, dividers=[0.2, 0.4], end_value=d2)
-        pat(r, y_off, sc, HMod.MED, i_range(d2*sf, de*sf, True), (0, 500), None, al, sf=sf)
-        pat(r, y_off, sc, HMod.XS, i_range(d2*sf, d3*sf, True), (0, 100), (0, 500), al, sf=sf)
-        pat(r, y_off, sc, HMod.DOT, i_range(d2*sf, d3*sf, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, y_off, sc, HMod.DOT, i_range(d3*sf, de*sf, True), (0, 100), (0, 500), al, sf=sf)
+        sc.grad_pat_divided(r, geom, y_off, al, dividers=[0.2, 0.4], end_value=d2)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(d2*sf, de*sf, True), (0, 500), None, al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(d2*sf, d3*sf, True), (0, 100), (0, 500), al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.DOT, i_range(d2*sf, d3*sf, True), (0, 50), (0, 100), al, sf=sf)
+        pat(r, geom, y_off, sc, HMod.DOT, i_range(d3*sf, de*sf, True), (0, 100), (0, 500), al, sf=sf)
         # Labels
-        label_h = HMod.MED.value * STH
+        label_h = HMod.MED.value * geom.STH
         for x in [1, 1.5, 2, 3]:
-            draw_numeral(r, sym_col, y_off, x, sc.pos_of(x, SL), label_h, fs_smn, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom), label_h, fs_smn, reg, al)
 
     elif sc == Scales.Chi:
-        grad_pat(r, y_off, sc, al, STT, SH, SL)
-        Marks.pi_half.draw(r, y_off, sc, fs_lbl, al, sym_col)
+        grad_pat(r, geom, y_off, sc, al)
+        Marks.pi_half.draw(r, geom, y_off, sc, fs_lbl, al, sym_col)
 
     elif sc == Scales.Theta:
-        grad_pat(r, y_off, sc, al, STT, SH, SL)
+        grad_pat(r, geom, y_off, sc, al)
+
+    elif sc == Scales.f_x:
+        sc.grad_pat_divided(r, geom, y_off, al, [0.2, 0.5, 1])
+
+    elif sc == Scales.L_r:
+        pass  # grad_pat(r, geom, y_off, sc, al)
 
     elif sc == Scales.LL0:
-        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [1.002, 1.005],
-                         start_value=1.00095, end_value=1.0105)
+        sc.grad_pat_divided(r, geom, y_off, al, [1.002, 1.005],
+                            start_value=1.00095, end_value=1.0105)
 
     elif sc == Scales.LL1:
-        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [1.02, 1.05],
-                         start_value=1.0095, end_value=1.11)
+        sc.grad_pat_divided(r, geom, y_off, al, [1.02, 1.05],
+                            start_value=1.0095, end_value=1.11)
 
     elif sc == Scales.LL2:
-        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [1.2, 2],
-                         start_value=1.1, end_value=3)
-        Marks.e.draw(r, y_off, sc, fs_lgn, al, sym_col)
+        sc.grad_pat_divided(r, geom, y_off, al, [1.2, 2],
+                            start_value=1.1, end_value=3)
+        Marks.e.draw(r, geom, y_off, sc, fs_lgn, al, sym_col)
 
     elif sc == Scales.LL3:
-        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [10, 50, 100, 1000, 10000],
-                         start_value=2.5, end_value=60000)
-        Marks.e.draw(r, y_off, sc, fs_lgn, al, sym_col)
+        sc.grad_pat_divided(r, geom, y_off, al, [10, 50, 100, 1000, 10000],
+                            start_value=2.5, end_value=60000)
+        Marks.e.draw(r, geom, y_off, sc, fs_lgn, al, sym_col)
 
     elif sc == Scales.LL03:
-        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [0.001, 0.01, 0.1],
-                         start_value=0.0001, end_value=0.39)
-        Marks.inv_e.draw(r, y_off, sc, fs_smn, al, sym_col)
+        sc.grad_pat_divided(r, geom, y_off, al, [0.001, 0.01, 0.1],
+                            start_value=0.0001, end_value=0.39)
+        Marks.inv_e.draw(r, geom, y_off, sc, fs_smn, al, sym_col)
 
     elif sc == Scales.LL02:
-        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [0.75],
-                         start_value=0.35, end_value=0.91)
-        Marks.inv_e.draw(r, y_off, sc, fs_smn, al, sc.col)
+        sc.grad_pat_divided(r, geom, y_off, al, [0.75],
+                            start_value=0.35, end_value=0.91)
+        Marks.inv_e.draw(r, geom, y_off, sc, fs_smn, al, sc.col)
 
     elif sc == Scales.LL01:
-        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [0.95, 0.98],
-                         start_value=0.9, end_value=0.9906)
+        sc.grad_pat_divided(r, geom, y_off, al, [0.95, 0.98],
+                            start_value=0.9, end_value=0.9906)
 
     elif sc == Scales.LL00:
-        grad_pat_divided(r, y_off, sc, al, STT, STH, SL, [0.998],
-                         start_value=0.989, end_value=0.9991)
+        sc.grad_pat_divided(r, geom, y_off, al, [0.998],
+                            start_value=0.989, end_value=0.9991)
 
 
 def leading_digit_of(x: int) -> str:
@@ -1410,10 +1451,11 @@ def leading_digit_of(x: int) -> str:
 # since I built them with specific numbers rather than variables
 
 
-def draw_borders(r, y0, side, color=RGB_BLACK):
+def draw_borders(r, geom, y0, side, color=RGB_BLACK):
     """
     Place initial borders around scales
     :param ImageDraw.Draw r:
+    :param Geometry geom:
     :param y0: vertical offset
     :param Side side:
     :param string|tuple color:
@@ -1422,6 +1464,8 @@ def draw_borders(r, y0, side, color=RGB_BLACK):
     # Main Frame
     y_offsets = [0, 479, 1119, 1598]
 
+    total_width = geom.total_width
+    side_height = geom.side_height
     for horizontal_y in [y0 + y_off for y_off in y_offsets]:
         r.rectangle((oX, horizontal_y, total_width - oX, horizontal_y + 2), fill=color)
     for vertical_x in [oX, total_width - oX]:
@@ -1437,17 +1481,18 @@ def draw_borders(r, y0, side, color=RGB_BLACK):
         r.rectangle((horizontal_x, y_start, horizontal_x + 2, y_end), color)
 
 
-def draw_metal_cutoffs(r, y0, side):
+def draw_metal_cutoffs(r, geom, y0, side):
     """
     Use to temporarily view the metal bracket locations
     :param ImageDraw.Draw r:
+    :param Geometry geom:
     :param int y0: vertical offset
     :param Side side:
     """
     b = 30  # offset of metal from boundary
 
     # Initial Boundary verticals
-    verticals = [480 + oX, total_width - 480 - oX]
+    verticals = [480 + oX, geom.total_width - 480 - oX]
     for i, start in enumerate(verticals):
         r.rectangle((start - 1, y0, start + 1, y0 + i), RGB_CUTOFF)
 
@@ -1470,6 +1515,8 @@ def draw_metal_cutoffs(r, y0, side):
         #       3           -1600
         #   |     |     |
 
+    side_height = geom.side_height
+    total_width = geom.total_width
     # Create the left piece using format: (x1,x2,y1,y2)
     coords = [[240 + b + oX, 480 - b + oX, b + y0, b + y0],  # 1
               [b + oX, 240 + b + oX, 1120 + b + y0, 1120 + b + y0],  # 2
@@ -1622,50 +1669,50 @@ def main():
     reg = FontStyle.REG
     upper = Align.UPPER
     lower = Align.LOWER
-    global total_width
-    sliderule_img = Image.new('RGB', (total_width, sliderule_height), BG)
+    geom = Geometry()
+    sliderule_img = Image.new('RGB', (geom.total_width, geom.sliderule_height), BG)
     r = ImageDraw.Draw(sliderule_img)
     if render_mode == Mode.RENDER or render_mode == Mode.STICKERPRINT:
-        y_front_end = side_height + 2 * oY
+        y_front_end = geom.side_height + 2 * oY
         if render_mode == Mode.RENDER:
-            draw_borders(r, oY, Side.FRONT)
+            draw_borders(r, geom, oY, Side.FRONT)
             if render_cutoffs:
-                draw_metal_cutoffs(r, oY, Side.FRONT)
-            draw_borders(r, y_front_end, Side.REAR)
+                draw_metal_cutoffs(r, geom, oY, Side.FRONT)
+            draw_borders(r, geom, y_front_end, Side.REAR)
             if render_cutoffs:
-                draw_metal_cutoffs(r, y_front_end, Side.REAR)
+                draw_metal_cutoffs(r, geom, y_front_end, Side.REAR)
 
         # Front Scale
-        gen_scale(r, 110 + oY, Scales.L, lower)
-        gen_scale(r, 320 + oY, Scales.DF, lower)
-        gen_scale(r, 800 + oY, Scales.CI, lower)
-        gen_scale(r, 960 + oY, Scales.C, lower)
+        gen_scale(r, geom, 110 + oY, Scales.L, lower)
+        gen_scale(r, geom, 320 + oY, Scales.DF, lower)
+        gen_scale(r, geom, 800 + oY, Scales.CI, lower)
+        gen_scale(r, geom, 960 + oY, Scales.C, lower)
 
-        gen_scale(r, 480 + oY, Scales.CF, upper)
-        gen_scale(r, 640 + oY, Scales.CIF, upper)
-        gen_scale(r, 1120 + oY, Scales.D, upper)
-        gen_scale(r, 1280 + oY, Scales.R1, upper)
-        gen_scale(r, 1435 + oY, Scales.R2, upper)
+        gen_scale(r, geom, 480 + oY, Scales.CF, upper)
+        gen_scale(r, geom, 640 + oY, Scales.CIF, upper)
+        gen_scale(r, geom, 1120 + oY, Scales.D, upper)
+        gen_scale(r, geom, 1280 + oY, Scales.R1, upper)
+        gen_scale(r, geom, 1435 + oY, Scales.R2, upper)
 
         # These are my weirdo alternative universe "brand names", "model name", etc.
         # Feel free to comment them out
         global li
         fs_lbl = FontSize.ScaleLBL
-        draw_symbol(r, RED, 25 + oY, 'BOGELEX 1000', (total_width - 2 * oX) * 1 / 4 - li, 0, fs_lbl, reg, upper)
-        draw_symbol(r, RED, 25 + oY, 'LEFT HANDED LIMAÇON 2020', (total_width - 2 * oX) * 2 / 4 - li + oX, 0, fs_lbl, reg,
+        draw_symbol(r, geom, RED, 25 + oY, 'BOGELEX 1000', (geom.total_width - 2 * oX) * 1 / 4 - li, 0, fs_lbl, reg, upper)
+        draw_symbol(r, geom, RED, 25 + oY, 'LEFT HANDED LIMAÇON 2020', (geom.total_width - 2 * oX) * 2 / 4 - li + oX, 0, fs_lbl, reg,
                     upper)
-        draw_symbol(r, RED, 25 + oY, 'KWENA & TOOR CO.', (total_width - 2 * oX) * 3 / 4 - li, 0, fs_lbl, reg, upper)
+        draw_symbol(r, geom, RED, 25 + oY, 'KWENA & TOOR CO.', (geom.total_width - 2 * oX) * 3 / 4 - li, 0, fs_lbl, reg, upper)
 
         # Back Scale
-        gen_scale(r, 110 + y_front_end, Scales.K, lower)
-        gen_scale(r, 320 + y_front_end, Scales.A, lower)
-        gen_scale(r, 640 + y_front_end, Scales.T, lower)
-        gen_scale(r, 800 + y_front_end, Scales.ST, lower)
-        gen_scale(r, 960 + y_front_end, Scales.S, lower)
+        gen_scale(r, geom, 110 + y_front_end, Scales.K, lower)
+        gen_scale(r, geom, 320 + y_front_end, Scales.A, lower)
+        gen_scale(r, geom, 640 + y_front_end, Scales.T, lower)
+        gen_scale(r, geom, 800 + y_front_end, Scales.ST, lower)
+        gen_scale(r, geom, 960 + y_front_end, Scales.S, lower)
 
-        gen_scale(r, 480 + y_front_end, Scales.B, upper)
-        gen_scale(r, 1120 + y_front_end, Scales.D, upper)
-        gen_scale(r, 1360 + y_front_end, Scales.DI, upper)
+        gen_scale(r, geom, 480 + y_front_end, Scales.B, upper)
+        gen_scale(r, geom, 1120 + y_front_end, Scales.D, upper)
+        gen_scale(r, geom, 1360 + y_front_end, Scales.DI, upper)
 
     if render_mode == Mode.RENDER:
         save_png(sliderule_img, 'SlideRuleScales', output_suffix)
@@ -1678,20 +1725,20 @@ def main():
         oY = 0  # y dir margins
         total_width = scale_width + 250 * 2
 
-        k = 120 + SH
-        sh_with_margins = SH + 40
+        k = 120 + geom.SH
+        sh_with_margins = geom.SH + 40
         total_height = k + (len(SCALE_NAMES) + 1) * sh_with_margins
-        li = round(total_width / 2 - SL / 2)  # update left index
+        li = round(total_width / 2 - geom.SL / 2)  # update left index
         diagnostic_img = Image.new('RGB', (total_width, total_height), BG)
         r = ImageDraw.Draw(diagnostic_img)
 
         x_offset_cl = total_width / 2 - li
-        draw_symbol(r, FG, 50, 'Diagnostic Test Print of Available Scales', x_offset_cl, 0, FontSize.Title, reg, upper)
-        draw_symbol(r, FG, 200, 'A B C D K R1 R2 CI DI CF DF CIF L S T ST', x_offset_cl, 0, FontSize.Subtitle, reg, upper)
+        draw_symbol(r, geom, FG, 50, 'Diagnostic Test Print of Available Scales', x_offset_cl, 0, FontSize.Title, reg, upper)
+        draw_symbol(r, geom, FG, 200, 'A B C D K R1 R2 CI DI CF DF CIF L S T ST', x_offset_cl, 0, FontSize.Subtitle, reg, upper)
 
         for n, sc in enumerate(SCALE_NAMES):
             overhang = 0.06 if n > 18 else 0.02
-            gen_scale(r, k + (n + 1) * sh_with_margins, getattr(Scales, sc), lower, overhang=overhang)
+            gen_scale(r, geom, k + (n + 1) * sh_with_margins, getattr(Scales, sc), lower, overhang=overhang)
 
         save_png(diagnostic_img, 'Diagnostic', output_suffix)
 
@@ -1722,21 +1769,21 @@ def main():
         y_bleed += o_y2 + o_a
         x_left = oX + 750
         transcribe(sliderule_img, stickerprint_img, x_left, oY, scale_width, 480, o_x2, y_bleed)
-        extend(stickerprint_img, y_bleed + 480 - 1, BleedDir.DOWN, ext)
+        extend(stickerprint_img, geom, y_bleed + 480 - 1, BleedDir.DOWN, ext)
         if should_delineate:
             draw_corners(r, o_x2, y_bleed - o_a, o_x2 + scale_width, y_bleed + 480)
 
         y_bleed += 480 + o_a
         transcribe(sliderule_img, stickerprint_img, x_left, oY + 481, scale_width, 640, o_x2, y_bleed)
-        extend(stickerprint_img, y_bleed + 1, BleedDir.UP, ext)
-        extend(stickerprint_img, y_bleed + 640 - 1, BleedDir.DOWN, ext)
+        extend(stickerprint_img, geom, y_bleed + 1, BleedDir.UP, ext)
+        extend(stickerprint_img, geom, y_bleed + 640 - 1, BleedDir.DOWN, ext)
         if should_delineate:
             draw_corners(r, o_x2, y_bleed, o_x2 + scale_width, y_bleed + 640)
 
         y_bleed += 640 + o_a
         transcribe(sliderule_img, stickerprint_img, x_left, oY + 1120, scale_width, 480, o_x2, y_bleed)
-        extend(stickerprint_img, y_bleed + 1, BleedDir.UP, ext)
-        extend(stickerprint_img, y_bleed + 480 - 1, BleedDir.DOWN, ext)
+        extend(stickerprint_img, geom, y_bleed + 1, BleedDir.UP, ext)
+        extend(stickerprint_img, geom, y_bleed + 480 - 1, BleedDir.DOWN, ext)
         if should_delineate:
             draw_corners(r, o_x2, y_bleed, o_x2 + scale_width, y_bleed + 480 + o_a)
 
@@ -1744,23 +1791,23 @@ def main():
 
         y_bleed += 480 + o_a + o_a + o_a
 
-        y_start = oY + side_height + oY
+        y_start = oY + geom.side_height + oY
         transcribe(sliderule_img, stickerprint_img, x_left, y_start, scale_width, 480, o_x2, y_bleed)
-        extend(stickerprint_img, y_bleed + 480 - 1, BleedDir.DOWN, ext)
+        extend(stickerprint_img, geom, y_bleed + 480 - 1, BleedDir.DOWN, ext)
         if should_delineate:
             draw_corners(r, o_x2, y_bleed - o_a, o_x2 + scale_width, y_bleed + 480)
 
         y_bleed += 480 + o_a
         transcribe(sliderule_img, stickerprint_img, x_left, y_start + 481 - 3, scale_width, 640, o_x2, y_bleed)
-        extend(stickerprint_img, y_bleed + 1, BleedDir.UP, ext)
-        extend(stickerprint_img, y_bleed + 640 - 1, BleedDir.DOWN, ext)
+        extend(stickerprint_img, geom, y_bleed + 1, BleedDir.UP, ext)
+        extend(stickerprint_img, geom, y_bleed + 640 - 1, BleedDir.DOWN, ext)
         if should_delineate:
             draw_corners(r, o_x2, y_bleed, o_x2 + scale_width, y_bleed + 640)
 
         y_bleed += 640 + o_a
         transcribe(sliderule_img, stickerprint_img, x_left, y_start + 1120, scale_width, 480, o_x2, y_bleed)
-        extend(stickerprint_img, y_bleed + 1, BleedDir.UP, ext)
-        extend(stickerprint_img, y_bleed + 480 - 1, BleedDir.DOWN, ext)
+        extend(stickerprint_img, geom, y_bleed + 1, BleedDir.UP, ext)
+        extend(stickerprint_img, geom, y_bleed + 480 - 1, BleedDir.DOWN, ext)
         if should_delineate:
             draw_corners(r, o_x2, y_bleed, o_x2 + scale_width, y_bleed + 480 + o_a)
 
