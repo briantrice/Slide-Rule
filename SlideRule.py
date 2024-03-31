@@ -51,6 +51,19 @@ RGB_CUTOFF = (230, 230, 230)
 RGB_CUTOFF2 = (234, 36, 98)
 RED = 'red'
 GREEN = '#228B1E'  # Override PIL for green for slide rule symbol conventions
+
+
+class ColorScheme:
+    def __init__(self, fg_color: str, bg_color: str, dec_color: str = RED):
+        self.fg = fg_color
+        self.bg = bg_color
+        self.decreasing = dec_color
+
+
+black_on_white = ColorScheme(BLACK, WHITE)
+
+picket_eye_saver = ColorScheme(BLACK, 'yellow')
+
 BG = WHITE
 """background color white"""
 FG = BLACK
@@ -1534,7 +1547,7 @@ def draw_borders(r, geom, y0, side, color=RGB_BLACK):
     total_width = geom.total_width
     side_height = geom.side_height
     for horizontal_y in [y0 + y_off for y_off in y_offsets]:
-        r.rectangle((geom.oX, horizontal_y, total_width - geom.oX, horizontal_y + 2), fill=color)
+        r.rectangle((geom.oX, horizontal_y, total_width - geom.oX, horizontal_y + 2), outline=color)
     for vertical_x in [geom.oX, total_width - geom.oX]:
         r.rectangle((vertical_x, y0, vertical_x + 2, y0 + side_height), fill=color)
 
@@ -1542,10 +1555,10 @@ def draw_borders(r, geom, y0, side, color=RGB_BLACK):
     # if side == SlideSide.FRONT:
     y_start = y0
     if side == Side.REAR:
-        y_start = y_start + 1120
+        y_start += 1120
     y_end = 480 + y_start
     for horizontal_x in [240 + geom.oX, (total_width - 240) - geom.oX]:
-        r.rectangle((horizontal_x, y_start, horizontal_x + 2, y_end), color)
+        r.rectangle((horizontal_x, y_start, horizontal_x + 2, y_end), fill=color)
 
 
 def draw_metal_cutoffs(r, geom, y0, side):
@@ -1651,9 +1664,9 @@ def draw_box(img_renderer, x0, y0, dx, dy):
     img_renderer.rectangle((x0, y0, x0 + dx, y0 + dy), outline=CUT_COLOR)
 
 
-def draw_corners(img_renderer, x1, y1, x2, y2, arm_width=20):
+def draw_corners(r, x1, y1, x2, y2, arm_width=20):
     """
-    :type img_renderer: ImageDraw.ImageDraw
+    :param ImageDraw.ImageDraw r:
     :param int x1: First corner of box
     :param int y1: First corner of box
     :param int x2: Second corner of box
@@ -1662,15 +1675,15 @@ def draw_corners(img_renderer, x1, y1, x2, y2, arm_width=20):
     """
 
     # horizontal cross arms at 4 corners:
-    img_renderer.line((x1 - arm_width, y1, x1 + arm_width, y1), CUT_COLOR)
-    img_renderer.line((x1 - arm_width, y2, x1 + arm_width, y2), CUT_COLOR)
-    img_renderer.line((x2 - arm_width, y1, x2 + arm_width, y1), CUT_COLOR)
-    img_renderer.line((x2 - arm_width, y2, x2 + arm_width, y2), CUT_COLOR)
+    r.line((x1 - arm_width, y1, x1 + arm_width, y1), CUT_COLOR)
+    r.line((x1 - arm_width, y2, x1 + arm_width, y2), CUT_COLOR)
+    r.line((x2 - arm_width, y1, x2 + arm_width, y1), CUT_COLOR)
+    r.line((x2 - arm_width, y2, x2 + arm_width, y2), CUT_COLOR)
     # vertical cross arms at 4 corners:
-    img_renderer.line((x1, y1 - arm_width, x1, y1 + arm_width), CUT_COLOR)
-    img_renderer.line((x1, y2 - arm_width, x1, y2 + arm_width), CUT_COLOR)
-    img_renderer.line((x2, y1 - arm_width, x2, y1 + arm_width), CUT_COLOR)
-    img_renderer.line((x2, y2 - arm_width, x2, y2 + arm_width), CUT_COLOR)
+    r.line((x1, y1 - arm_width, x1, y1 + arm_width), CUT_COLOR)
+    r.line((x1, y2 - arm_width, x1, y2 + arm_width), CUT_COLOR)
+    r.line((x2, y1 - arm_width, x2, y1 + arm_width), CUT_COLOR)
+    r.line((x2, y2 - arm_width, x2, y2 + arm_width), CUT_COLOR)
 
 
 def transcribe(src_img, dst_img, src_x, src_y, size_x, size_y, target_x, target_y):
@@ -1724,9 +1737,9 @@ def main():
     render_mode = next(mode for mode in Mode if mode.value == (cli_args.mode or prompt_for_mode()))
     output_suffix = cli_args.suffix or ('test' if cli_args.test else None)
     render_cutoffs = cli_args.cutoffs
-    should_delineate = cli_args.debug
+    should_delineate = True
     global DEBUG
-    DEBUG = should_delineate
+    # DEBUG = cli_args.debug
 
     start_time = time.time()
 
@@ -1737,11 +1750,12 @@ def main():
     lower = Align.LOWER
     geom = Geometry(
         (8000, 1600),
-        (100, 100),
+        (0, 0) if render_mode == Mode.STICKERPRINT else (100, 100),
         (5600, 160),
         (4, 70)
     )
-    sliderule_img = Image.new('RGB', (geom.total_width, geom.print_height), BG)
+    cols = black_on_white
+    sliderule_img = Image.new('RGB', (geom.total_width, geom.print_height), cols.bg)
     r = ImageDraw.Draw(sliderule_img)
     if render_mode == Mode.RENDER or render_mode == Mode.STICKERPRINT:
         y_front_end = geom.side_height + 2 * geom.oY
@@ -1756,11 +1770,12 @@ def main():
         # Front Scale
         gen_scale(r, geom, 110 + geom.oY, Scales.L, lower)
         gen_scale(r, geom, 320 + geom.oY, Scales.DF, lower)
-        gen_scale(r, geom, 800 + geom.oY, Scales.CI, lower)
-        gen_scale(r, geom, 960 + geom.oY, Scales.C, lower)
 
         gen_scale(r, geom, 480 + geom.oY, Scales.CF, upper)
         gen_scale(r, geom, 640 + geom.oY, Scales.CIF, upper)
+        gen_scale(r, geom, 800 + geom.oY, Scales.CI, lower)
+        gen_scale(r, geom, 960 + geom.oY, Scales.C, lower)
+
         gen_scale(r, geom, 1120 + geom.oY, Scales.D, upper)
         gen_scale(r, geom, 1280 + geom.oY, Scales.R1, upper)
         gen_scale(r, geom, 1435 + geom.oY, Scales.R2, upper)
@@ -1768,19 +1783,23 @@ def main():
         # These are my weirdo alternative universe "brand names", "model name", etc.
         # Feel free to comment them out
         fs_lbl = FontSize.ScaleLBL
-        draw_symbol(r, geom, RED, 25 + geom.oY, 'BOGELEX 1000', (geom.total_width - 2 * geom.oX) * 1 / 4 - geom.li, 0, fs_lbl, reg, upper)
-        draw_symbol(r, geom, RED, 25 + geom.oY, 'LEFT HANDED LIMAÇON 2020', (geom.total_width - 2 * geom.oX) * 2 / 4 - geom.li + geom.oX, 0, fs_lbl, reg,
+        side_width = geom.side_width
+        li = geom.li
+        y_off = 25 + geom.oY
+        draw_symbol(r, geom, RED, y_off, 'BOGELEX 1000', side_width * 1 / 4 - li, 0, fs_lbl, reg, upper)
+        draw_symbol(r, geom, RED, y_off, 'LEFT HANDED LIMAÇON 2020', side_width * 2 / 4 - li + geom.oX, 0, fs_lbl, reg,
                     upper)
-        draw_symbol(r, geom, RED, 25 + geom.oY, 'KWENA & TOOR CO.', (geom.total_width - 2 * geom.oX) * 3 / 4 - geom.li, 0, fs_lbl, reg, upper)
+        draw_symbol(r, geom, RED, y_off, 'KWENA & TOOR CO.', side_width * 3 / 4 - li, 0, fs_lbl, reg, upper)
 
         # Back Scale
         gen_scale(r, geom, 110 + y_front_end, Scales.K, lower)
         gen_scale(r, geom, 320 + y_front_end, Scales.A, lower)
+
+        gen_scale(r, geom, 480 + y_front_end, Scales.B, upper)
         gen_scale(r, geom, 640 + y_front_end, Scales.T, lower)
         gen_scale(r, geom, 800 + y_front_end, Scales.ST, lower)
         gen_scale(r, geom, 960 + y_front_end, Scales.S, lower)
 
-        gen_scale(r, geom, 480 + y_front_end, Scales.B, upper)
         gen_scale(r, geom, 1120 + y_front_end, Scales.D, upper)
         gen_scale(r, geom, 1360 + y_front_end, Scales.DI, upper)
 
@@ -1804,8 +1823,10 @@ def main():
         r = ImageDraw.Draw(diagnostic_img)
 
         title_x = geom.midpoint_x - geom.li
-        draw_symbol(r, geom, FG, 50, 'Diagnostic Test Print of Available Scales', title_x, 0, FontSize.Title, reg, upper)
-        draw_symbol(r, geom, FG, 200, 'A B C D K R1 R2 CI DI CF DF CIF L S T ST', title_x, 0, FontSize.Subtitle, reg, upper)
+        draw_symbol(r, geom, FG, 50, 'Diagnostic Test Print of Available Scales', title_x, 0,
+                    FontSize.Title, reg, upper)
+        draw_symbol(r, geom, FG, 200, 'A B C D K R1 R2 CI DI CF DF CIF L S T ST', title_x, 0,
+                    FontSize.Subtitle, reg, upper)
 
         for n, sc_name in enumerate(SCALE_NAMES):
             overhang = 0.06 if n > 18 else 0.02
@@ -1829,6 +1850,12 @@ def main():
         o_y2 = 50  # y dir margins
         o_a = 50  # overhang amount
         ext = 20  # extension amount
+        geom = Geometry(
+            (scale_width, 5075),
+            (0, 0),
+            (scale_width, 160),
+            (4, 70)
+        )
         total_width = scale_width + 2 * o_x2
         total_height = 5075
 
