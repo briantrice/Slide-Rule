@@ -1117,13 +1117,12 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
             draw_numeral(r, geom, sym_col, y_off, last_digit_of(x), sc.pos_of(x / 10, geom), geom.tick_h(HMod.SM), fs_lgn, reg, al)
 
         # Gauge Points
-        mark_color = RED if sc.gen_fn == scale_inverse else FG
+        mark_color = black_on_white.color_of_scale(sc)
         Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al, col=mark_color)
 
-    if is_cd:
         if y_off < geom.side_height + geom.oY:
-            Marks.deg_per_rad.draw(r, geom, y_off, sc, fs_lbl, al)
-            Marks.tau.draw(r, geom, y_off, sc, fs_lbl, al)
+            Marks.deg_per_rad.draw(r, geom, y_off, sc, fs_lbl, al, col=mark_color)
+            Marks.tau.draw(r, geom, y_off, sc, fs_lbl, al, col=mark_color)
 
     elif sc.scaler == Scalers.Square:
 
