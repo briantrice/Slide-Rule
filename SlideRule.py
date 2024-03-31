@@ -583,7 +583,6 @@ def scale_inverse(x): return 1 - gen_base(x)
 pi_fold_shift = scale_inverse(PI)
 
 
-def scale_inverse_pi_folded(x): return pi_fold_shift - gen_base(x)
 def scale_log(x): return x / TEN
 def scale_sin(x): return gen_base(TEN * math.sin(math.radians(x)))
 def scale_cos(x): return gen_base(TEN * math.cos(math.radians(x)))
@@ -825,7 +824,7 @@ class Scales:
     C = Scale('C', 'x_y', Scalers.Base, rule_part=RulePart.SLIDE)
     CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, rule_part=RulePart.SLIDE)
     CI = Scale('CI', '1/x_y', Scalers.Inverse, increasing=False, rule_part=RulePart.SLIDE)
-    CIF = Scale('CIF', '1/πx_y', scale_inverse_pi_folded, increasing=False, rule_part=RulePart.SLIDE)
+    CIF = Scale('CIF', '1/πx_y', Scalers.Inverse, shift=pi_fold_shift - 1, increasing=False, rule_part=RulePart.SLIDE)
     D = Scale('D', 'x', Scalers.Base, opp_scale=C)
     DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift, opp_scale=CF)
     DI = Scale('DI', '1/x', Scalers.Inverse, increasing=False)
@@ -1096,7 +1095,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
     is_cd = sc.scaler == Scalers.Base and sc.shift == 0  # C/D
 
     # Tick Placement (the bulk!)
-    if is_cd or sc.scaler == Scalers.Inverse:
+    if is_cd or (sc.scaler == Scalers.Inverse and sc.shift == 0):
 
         # Ticks
         pat(r, geom, y_off, sc, HMod.MED, full_range, (0, 100), None, al)
