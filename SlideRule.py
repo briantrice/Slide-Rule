@@ -1075,7 +1075,7 @@ class Marks:
     hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
 
 
-def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
+def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white):
     """
     :param ImageDraw.Draw r:
     :param Geometry geom:
@@ -1083,6 +1083,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
     :param Scale sc:
     :param Align al: alignment
     :param float overhang: fraction of total width to overhang each side to label
+    :param ColorScheme color_scheme:
     """
 
     # Place Index Symbols (Left and Right)
@@ -1098,7 +1099,6 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
     if DEBUG:
         r.rectangle((li, y_off, li + geom.SL, y_off + geom.SH), outline='grey')
 
-    color_scheme = black_on_white
     sym_col = color_scheme.color_of_scale(sc)
     bg_col = color_scheme.bg_color_of_scale(sc)
     if bg_col:
