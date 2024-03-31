@@ -778,7 +778,7 @@ class Scale:
         """
         return self.shift + shift_adj + self.gen_fn(x)
 
-    def value_at_frac_pos(self, frac_pos, shift_adj=0):
+    def value_at_frac_pos(self, frac_pos, shift_adj=0) -> float:
         return self.pos_fn(frac_pos - self.shift - shift_adj)
 
     def value_at_start(self):
@@ -787,7 +787,10 @@ class Scale:
     def value_at_end(self):
         return self.value_at_frac_pos(1)
 
-    def pos_of(self, x, geom):
+    def value_range(self):
+        return self.value_at_start(), self.value_at_end()
+
+    def pos_of(self, x, geom) -> int:
         return round(geom.SL * self.frac_pos_of(x))
 
     def offset_between(self, x_start, x_end, scale_width):
