@@ -1136,10 +1136,8 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
 
     med_h = geom.tick_h(HMod.MED)
 
-    is_cd = sc.scaler == Scalers.Base and sc.shift == 0  # C/D
-
     # Tick Placement (the bulk!)
-    if is_cd or (sc.scaler == Scalers.Inverse and sc.shift == 0):
+    if (sc.scaler in {Scalers.Base, Scalers.Inverse}) and sc.shift == 0:  # C/D and CI/DI
 
         # Ticks
         pat(r, geom, y_off, sc, HMod.MED, full_range, (0, 100), None, al)
