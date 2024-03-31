@@ -746,7 +746,7 @@ class Scale:
         """positioning function (takes a proportion of output width, returning what value is there)"""
         self.shift = shift
         """scale shift from left index (as a fraction of output width)"""
-        self.increasing = increasing
+        self.increasing = scaler.is_increasing if isinstance(scaler, Scaler) else increasing
         """whether the scale values increase from left to right"""
         self.key = key or left_sym
         """non-unicode name; unused"""  # TODO extend for all alternate namings?
