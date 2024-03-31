@@ -374,6 +374,7 @@ def get_width(s, font_size, font_style):
 
 
 DEBUG = False
+DRAW_RADICALS = True
 
 
 def draw_symbol_inner(r, symbol, color, x_left, y_top, font):
@@ -391,6 +392,14 @@ def draw_symbol_inner(r, symbol, color, x_left, y_top, font):
         r.rectangle((x_left, y_top, x_left + w, y_top + h), outline='grey')
         r.rectangle((x_left, y_top, x_left + 10, y_top + 10), outline='navy', width=4)
     r.text((x_left, y_top), symbol, font=font, fill=color)
+    if DRAW_RADICALS:
+        radicals = re.search(r'[√∛∜]', symbol)
+        if radicals:
+            n_ch = radicals.start() + 1
+            (w_ch, h_ch) = get_font_size('√', font)
+            y_ch = y_top + round(h_ch / 4.4)
+            w, _ = get_font_size(symbol, font)
+            r.line((x_left + w_ch * n_ch - round(w_ch / 10), y_ch, x_left + w, y_ch), width=round(h_ch/14), fill=color)
 
 
 def draw_symbol(r, geom, color, y_off, symbol, x, y, font_size, font_style, al):
