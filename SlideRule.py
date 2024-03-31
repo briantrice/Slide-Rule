@@ -248,6 +248,8 @@ def grad_pat(r, geom, y_off, sc, al, start_value=None, end_value=None):
         start_value = sc.value_at_start()
     if not end_value:
         end_value = sc.value_at_end()
+    if start_value > end_value:
+        start_value, end_value = end_value, start_value
     min_tick_offset = geom.min_tick_offset
     log_diff = abs(math.log10(abs((end_value - start_value) / max(start_value, end_value))))
     num_digits = math.ceil(log_diff) + 3
