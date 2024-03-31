@@ -102,6 +102,8 @@ class Geometry:
     """standard tick height"""
     STT: int = 4
     """standard tick thickness"""
+    PixelsPerCM = 1600 / 6
+    PixelsPerIN = PixelsPerCM * 2.54
 
     def __init__(self, side_wh: (int, int), margins_xy: (int, int), scale_wh: (int, int), tick_wh: (int, int)):
         (self.side_width, self.side_height) = side_wh
@@ -186,12 +188,6 @@ def draw_tick(r, geom, col, y_off, x, height, al):
     r.rectangle((x0, y0, x0 + geom.STT, y1), fill=col)
 
 
-PPI = 677.33
-INDEX_PER_TENTH = 100
-LEFT_INDEX = INDEX_PER_TENTH
-RIGHT_INDEX = INDEX_PER_TENTH * 10 + 1
-
-
 def i_range(first: int, last: int, include_last: bool):
     return range(first, last + (1 if include_last else 0))
 
@@ -204,8 +200,8 @@ def range_mul(first: int, last: int, scale_factor: int, include_last: bool):
     return (x * scale_factor for x in i_range(first, last, include_last))
 
 
-def i_range_tenths(first: int, last: int, include_last=True) -> range:
-    return i_range(first * INDEX_PER_TENTH, last * INDEX_PER_TENTH, include_last)
+def i_range_tenths(first: int, last: int, include_last=True, sf=100) -> range:
+    return i_range(first * sf, last * sf, include_last)
 
 
 def pat(r, geom, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_adj=0):
@@ -681,6 +677,7 @@ def unit(x): return x
 class Invertibles:
     Unit = InvertibleFn(unit, unit)
     F_to_C = InvertibleFn(lambda f: (f - 32) * 5 / 9, lambda c: (c * 9 / 5) + 32)
+    cm_to_in = InvertibleFn(lambda x_mm: x_mm / 2.54, lambda x_in: x_in * 2.54)
     mm_to_in = InvertibleFn(lambda x_mm: x_mm / 25.4, lambda x_in: x_in * 25.4)
 
 
@@ -1242,12 +1239,12 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
         pat(r, geom, y_off, sc, HMod.XL, i_range_tenths(2, 3), (50, 100), None, al)
         pat(r, geom, y_off, sc, HMod.SM, i_range_tenths(1, 2), (0, 5), None, al)
         pat(r, geom, y_off, sc, HMod.SM, i_range(200, 310, True), (0, 10), None, al)
-        pat(r, geom, y_off, sc, HMod.XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=-1)
-        pat(r, geom, y_off, sc, HMod.SM, i_range(320, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=-1)
-        pat(r, geom, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, True), (0, 1), (0, 5), al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(320, 1000, True), (50, 100), None, al, shift_adj=-1)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(320, 1000, True), (0, 10), (150, 100), al, shift_adj=-1)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(100, 200, True), (0, 1), (0, 5), al)
         pat(r, geom, y_off, sc, HMod.XS, i_range(200, 314, False), (0, 2), (0, 10), al)
         pat(r, geom, y_off, sc, HMod.XS, i_range(316, 400, True), (0, 2), (0, 10), al, shift_adj=-1)
-        pat(r, geom, y_off, sc, HMod.XS, i_range(400, RIGHT_INDEX, False), (0, 5), (0, 10), al, shift_adj=-1)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(400, 1000, True), (0, 5), (0, 10), al, shift_adj=-1)
 
         # 1-10 Labels
         for x in range(1, 4):
@@ -1267,18 +1264,18 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
     elif sc == Scales.CIF:
 
         # Ticks
-        pat(r, geom, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 300, True), (0, 100), None, al)
-        pat(r, geom, y_off, sc, HMod.MED, i_range(400, RIGHT_INDEX, False), (0, 100), None, al, shift_adj=1)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(100, 300, True), (0, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(400, 1000, True), (0, 100), None, al, shift_adj=1)
 
         pat(r, geom, y_off, sc, HMod.XL, i_range(200, 300, True), (50, 100), None, al)
-        pat(r, geom, y_off, sc, HMod.SM, i_range(LEFT_INDEX, 200, True), (0, 5), None, al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(100, 200, True), (0, 5), None, al)
         pat(r, geom, y_off, sc, HMod.SM, i_range(200, 320, True), (0, 10), None, al)
-        pat(r, geom, y_off, sc, HMod.XL, i_range(320, RIGHT_INDEX, False), (50, 100), None, al, shift_adj=1)
-        pat(r, geom, y_off, sc, HMod.SM, i_range(310, RIGHT_INDEX, False), (0, 10), (150, 100), al, shift_adj=1)
-        pat(r, geom, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, True), (0, 1), (0, 5), al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(320, 1000, True), (50, 100), None, al, shift_adj=1)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(310, 1000, True), (0, 10), (150, 100), al, shift_adj=1)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(100, 200, True), (0, 1), (0, 5), al)
         pat(r, geom, y_off, sc, HMod.XS, i_range(200, 320, True), (0, 2), (0, 10), al)
         pat(r, geom, y_off, sc, HMod.XS, i_range(310, 400, True), (0, 2), (0, 10), al, shift_adj=1)
-        pat(r, geom, y_off, sc, HMod.XS, i_range(400, RIGHT_INDEX, False), (0, 5), (0, 10), al, shift_adj=1)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(400, 1000, True), (0, 5), (0, 10), al, shift_adj=1)
 
         # 1-10 Labels
         for x in range(4, 10):
@@ -1287,15 +1284,15 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
             draw_numeral(r, geom, RED, y_off, x, sc.pos_of(x, geom), med_h, fs_lbl, reg, al)
 
         # 0.1-0.9 Labels
+        small_h = geom.tick_h(HMod.SM)
         for x in range(11, 20):
-            draw_numeral(r, geom, RED, y_off, last_digit_of(x), sc.pos_of(x / 10, geom), geom.tick_h(HMod.SM),
-                         fs_lgn, reg, al)
+            draw_numeral(r, geom, RED, y_off, last_digit_of(x), sc.pos_of(x / 10, geom), small_h, fs_lgn, reg, al)
 
     elif sc == Scales.L:
 
         # Ticks
-        range1 = i_range(0, RIGHT_INDEX, True)
-        range2 = i_range(1, RIGHT_INDEX, True)
+        range1 = i_range(0, 1000, True)
+        range2 = i_range(1, 1000, True)
         pat(r, geom, y_off, sc, HMod.MED, range1, (0, 10), (50, 50), al)
         pat(r, geom, y_off, sc, HMod.XL, range2, (50, 100), None, al)
         pat(r, geom, y_off, sc, HMod.LG, range1, (0, 100), None, al)
@@ -1360,14 +1357,14 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
 
         # Ticks
         pat(r, geom, y_off, sc, HMod.XL, i_range(600, 2500, True), (0, 100), None, al)
-        pat(r, geom, y_off, sc, HMod.XL, i_range(600, RIGHT_INDEX, False), (50, 100), None, al)
+        pat(r, geom, y_off, sc, HMod.XL, i_range(600, 1000, True), (50, 100), None, al)
         pat(r, geom, y_off, sc, HMod.XL, i_range(2500, 4500, True), (0, 500), None, al)
         pat(r, geom, y_off, sc, HMod.MED, i_range(2500, 4500, True), (0, 100), None, al)
         draw_tick(r, geom, sc.col, y_off, geom.SL, round(med_h), al)
         pat(r, geom, y_off, sc, HMod.MED, i_range(600, 950, True), (50, 100), None, al)
-        pat(r, geom, y_off, sc, HMod.SM, i_range(570, RIGHT_INDEX, False), (0, 10), (0, 50), al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(570, 1000, True), (0, 10), (0, 50), al)
         pat(r, geom, y_off, sc, HMod.SM, i_range(1000, 2500, False), (50, 100), None, al)
-        pat(r, geom, y_off, sc, HMod.XS, i_range(570, RIGHT_INDEX, False), (5, 10), (0, 10), al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(570, 1000, True), (5, 10), (0, 10), al)
         pat(r, geom, y_off, sc, HMod.XS, i_range(1000, 2500, False), (0, 10), (0, 50), al)
         pat(r, geom, y_off, sc, HMod.XS, i_range(2500, 4500, True), (0, 20), (0, 100), al)
 
@@ -1415,14 +1412,14 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
     elif sc == Scales.ST:
 
         # Ticks
-        pat(r, geom, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 550, True), (0, 50), None, al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(100, 550, True), (0, 50), None, al)
         pat(r, geom, y_off, sc, HMod.LG2, i_range(60, 100, False), (0, 10), None, al)
         pat(r, geom, y_off, sc, HMod.XL, i_range(60, 100, False), (5, 10), None, al)
-        pat(r, geom, y_off, sc, HMod.MED, i_range(LEFT_INDEX, 200, False), (0, 10), (0, 50), al)
+        pat(r, geom, y_off, sc, HMod.MED, i_range(100, 200, False), (0, 10), (0, 50), al)
         pat(r, geom, y_off, sc, HMod.SM, i_range(200, 590, False), (0, 10), None, al)
         pat(r, geom, y_off, sc, HMod.SM, i_range(57, 100, False), (0, 1), None, al)
-        pat(r, geom, y_off, sc, HMod.SM, i_range(LEFT_INDEX, 200, False), (0, 5), None, al)
-        pat(r, geom, y_off, sc, HMod.XS, i_range(LEFT_INDEX, 200, False), (0, 1), (0, 5), al)
+        pat(r, geom, y_off, sc, HMod.SM, i_range(100, 200, False), (0, 5), None, al)
+        pat(r, geom, y_off, sc, HMod.XS, i_range(100, 200, False), (0, 1), (0, 5), al)
         pat(r, geom, y_off, sc, HMod.XS, i_range(200, 400, False), (0, 2), (0, 10), al)
         pat(r, geom, y_off, sc, HMod.XS, i_range(400, 585, False), (5, 10), None, al)
 
