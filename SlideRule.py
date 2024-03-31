@@ -1520,6 +1520,9 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
         sc.grad_pat_divided(r, geom, y_off, al, [0.998],
                             start_value=0.989, end_value=0.9991)
 
+    else:
+        sc.grad_pat_divided(r, geom, y_off, al, None)
+
 
 def leading_digit_of(x: int) -> str:
     return str(x)[0]
