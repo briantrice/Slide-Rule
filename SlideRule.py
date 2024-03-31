@@ -991,6 +991,10 @@ class Models:
         'K T1 T2 DF/CF CIF CI C/D S ST P',
         'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3'
     ))
+    FaberCastell283N = Model('Faber-Castell', '2/83', Layout(
+        'K T1 T2 DF/CF CIF CI C/D S ST P',
+        'LL03 LL02 LL01 LL00 W2/W2Prime L C W1Prime/W1 LL0 LL1 LL2 LL3'
+    ))
 
 
 class GaugeMark:
