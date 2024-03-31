@@ -795,6 +795,14 @@ class Scale:
     def value_range(self):
         return self.value_at_start(), self.value_at_end()
 
+    def powers_of_ten_in_range(self):
+        start_value, end_value = self.value_range()
+        start_log = math.log10(start_value)
+        end_log = math.log10(end_value)
+        low_log = min(start_log, end_log)
+        high_log = max(start_log, end_log)
+        return range(math.ceil(low_log), math.ceil(high_log))
+
     def pos_of(self, x, geom) -> int:
         return round(geom.SL * self.frac_pos_of(x))
 
@@ -818,6 +826,8 @@ class Scale:
         return round(scale_width * self.frac_pos_of(x, shift_adj=shift_adj))
 
     def grad_pat_divided(self, r, geom, y_off, al, dividers, start_value=None, end_value=None):
+        if dividers is None:
+            dividers = [10**n for n in self.powers_of_ten_in_range()]
         if dividers:
             grad_pat(r, geom, y_off, self, al, start_value=start_value, end_value=dividers[0])
             last_i = len(dividers) - 1
