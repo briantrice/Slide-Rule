@@ -1074,7 +1074,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
     w2, h2 = get_font_size(right_sym, font)
     y2 = (geom.SH - h2) / 2
     x_right = (1 + overhang) * geom.SL + w2 / 2
-    sym_col = sc.col
+    sym_col = black_on_white.color_of_scale(sc)
     draw_symbol(r, geom, sym_col, y_off, sc.right_sym, x_right, y2, fs_lbl, reg, al)
 
     # Left
@@ -1096,7 +1096,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
                     y2, fs_lbl, reg, al)
         draw_symbol(r, geom, sc_alt.col, y_off, sc_alt.right_sym, x_right, y2 - h2 * 0.8, fs_lbl, reg, al)
     elif sc == Scales.ST:
-        draw_symbol(r, geom, sc.col, y_off, 'sin 0.01x°', x_right, y2 - h2 * 0.8, fs_lbl, reg, al)
+        draw_symbol(r, geom, sym_col, y_off, 'sin 0.01x°', x_right, y2 - h2 * 0.8, fs_lbl, reg, al)
 
     full_range = i_range_tenths(1, 10)
 
@@ -1126,12 +1126,11 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
             draw_numeral(r, geom, sym_col, y_off, last_digit_of(x), sc.pos_of(x / 10, geom), geom.tick_h(HMod.SM), fs_lgn, reg, al)
 
         # Gauge Points
-        mark_color = black_on_white.color_of_scale(sc)
-        Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al, col=mark_color)
+        Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al, col=sym_col)
 
         if y_off < geom.side_height + geom.oY:
-            Marks.deg_per_rad.draw(r, geom, y_off, sc, fs_lbl, al, col=mark_color)
-            Marks.tau.draw(r, geom, y_off, sc, fs_lbl, al, col=mark_color)
+            Marks.deg_per_rad.draw(r, geom, y_off, sc, fs_lbl, al, col=sym_col)
+            Marks.tau.draw(r, geom, y_off, sc, fs_lbl, al, col=sym_col)
 
     elif sc.scaler == Scalers.Square:
 
@@ -1198,15 +1197,15 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
         for x in range(21, 30):
             draw_numeral(r, geom, sym_col, y_off, last_digit_of(x), sc.pos_of(x / 10, geom), med_h, fs_lgn, reg, al)
         draw_numeral(r, geom, sym_col, y_off, last_digit_of(31), sc.pos_of(31 / 10, geom), med_h, fs_lgn, reg, al)
-        # Marks.sqrt_ten.draw(r, geom, y_off, sc, fs_lgn, al, sc.col)
+        # Marks.sqrt_ten.draw(r, geom, y_off, sc, fs_lgn, al, sym_col)
 
     elif sc in {Scales.W1, Scales.W1Prime}:
         sc.grad_pat_divided(r, geom, y_off, al, [2])
-        Marks.sqrt_ten.draw(r, geom, y_off, sc, fs_lgn, al, sc.col)
+        Marks.sqrt_ten.draw(r, geom, y_off, sc, fs_lgn, al, sym_col)
 
     elif sc in {Scales.W2, Scales.W2Prime}:
         sc.grad_pat_divided(r, geom, y_off, al, [5])
-        Marks.sqrt_ten.draw(r, geom, y_off, sc, fs_lgn, al, sc.col)
+        Marks.sqrt_ten.draw(r, geom, y_off, sc, fs_lgn, al, sym_col)
 
     elif sc == Scales.R2:
 
@@ -1219,7 +1218,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
         pat(r, geom, y_off, sc, HMod.XS, i_range(3160, 5000, False), (0, 10), (0, 50), al, sf=sf)
         pat(r, geom, y_off, sc, HMod.XS, i_range(5000, 10000, False), (0, 20), (0, 100), al, sf=sf)
 
-        # Marks.sqrt_ten.draw(r, geom, y_off, sc, fs_lgn, al, sc.col)
+        # Marks.sqrt_ten.draw(r, geom, y_off, sc, fs_lgn, al, sym_col)
         # 4-10 Labels
         for x in range(4, 10):
             draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom), med_h, fs_lbl, reg, al)
@@ -1368,7 +1367,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
         pat(r, geom, y_off, sc, HMod.XL, i_range(600, 1000, True), (50, 100), None, al)
         pat(r, geom, y_off, sc, HMod.XL, i_range(2500, 4500, True), (0, 500), None, al)
         pat(r, geom, y_off, sc, HMod.MED, i_range(2500, 4500, True), (0, 100), None, al)
-        draw_tick(r, geom, sc.col, y_off, geom.SL, round(med_h), al)
+        draw_tick(r, geom, sym_col, y_off, geom.SL, round(med_h), al)
         pat(r, geom, y_off, sc, HMod.MED, i_range(600, 950, True), (50, 100), None, al)
         pat(r, geom, y_off, sc, HMod.SM, i_range(570, 1000, True), (0, 10), (0, 50), al)
         pat(r, geom, y_off, sc, HMod.SM, i_range(1000, 2500, False), (50, 100), None, al)
@@ -1433,7 +1432,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
 
         for x in range(570, 1000):
             if x % 5 == 0 and last_digit_of(x) != 0:
-                draw_tick(r, geom, sc.col, y_off, sc.pos_of(x / 1000, geom), geom.tick_h(HMod.XS), al)
+                draw_tick(r, geom, sym_col, y_off, sc.pos_of(x / 1000, geom), geom.tick_h(HMod.XS), al)
 
         # Degree Labels
         draw_symbol(r, geom, sym_col, y_off, '1°', sc.pos_of(1, geom), med_h, fs_lbl, reg, al)
@@ -1515,7 +1514,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
     elif sc == Scales.LL02:
         sc.grad_pat_divided(r, geom, y_off, al, [0.75],
                             start_value=0.35, end_value=0.91)
-        Marks.inv_e.draw(r, geom, y_off, sc, fs_smn, al, sc.col)
+        Marks.inv_e.draw(r, geom, y_off, sc, fs_smn, al, sym_col)
 
     elif sc == Scales.LL01:
         sc.grad_pat_divided(r, geom, y_off, al, [0.95, 0.98],
