@@ -54,14 +54,21 @@ GREEN = '#228B1E'  # Override PIL for green for slide rule symbol conventions
 
 
 class ColorScheme:
-    def __init__(self, fg_color: str, bg_color: str, dec_color: str = RED):
+    def __init__(self, fg_color: str, bg_color: str,
+                 dec_color: str = RED,
+                 sc_bg_colors: dict = None):
         self.fg = fg_color
         self.bg = bg_color
-        self.decreasing = dec_color
+        self.dec_color = dec_color
+        self.sc_bg_colors = sc_bg_colors or dict()
 
     def color_of_scale(self, sc):
         """:type sc: Scale"""
-        return self.fg if sc.increasing else self.decreasing
+        return self.fg if sc.increasing else self.dec_color
+
+    def bg_color_of_scale(self, sc):
+        """:type sc: Scale"""
+        return self.sc_bg_colors.get(sc.key)
 
 
 black_on_white = ColorScheme(BLACK, WHITE)
@@ -985,10 +992,11 @@ class Layouts:
 
 
 class Model:
-    def __init__(self, brand: str, model_name: str, layout: Layout):
+    def __init__(self, brand: str, model_name: str, layout: Layout, color_scheme: ColorScheme = black_on_white):
         self.brand = brand
         self.name = model_name
         self.layout = layout
+        self.color_scheme = color_scheme
 
     def __repr__(self):
         return f'Model({self.brand}, {self.name}, {self.layout})'
@@ -1006,11 +1014,21 @@ class Models:
     FaberCastell283 = Model('Faber-Castell', '2/83', Layout(
         'K T1 T2 DF/CF CIF CI C/D S ST P',
         'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3'
-    ))
+    ),
+                            ColorScheme(BLACK, WHITE, sc_bg_colors={
+                                'C': (203, 243, 225),
+                                'CF': (203, 243, 225)
+                            }))
     FaberCastell283N = Model('Faber-Castell', '2/83', Layout(
         'K T1 T2 DF/CF CIF CI C/D S ST P',
         'LL03 LL02 LL01 LL00 W2/W2Prime L C W1Prime/W1 LL0 LL1 LL2 LL3'
-    ))
+    ),
+                             ColorScheme(BLACK, WHITE, sc_bg_colors={
+                                 'C': (203, 243, 225),
+                                 'CF': (203, 243, 225),
+                                 'A': (194, 235, 247),
+                                 'B': (194, 235, 247)
+                             }))
 
 
 class GaugeMark:
@@ -1076,15 +1094,21 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02):
     italic = FontStyle.ITALIC
     font = font_for_family(reg, fs_lbl)
 
+    li = geom.li
     if DEBUG:
-        r.rectangle((geom.li, y_off, geom.li + geom.SL, y_off + geom.SH), outline='grey')
+        r.rectangle((li, y_off, li + geom.SL, y_off + geom.SH), outline='grey')
+
+    color_scheme = black_on_white
+    sym_col = color_scheme.color_of_scale(sc)
+    bg_col = color_scheme.bg_color_of_scale(sc)
+    if bg_col:
+        r.rectangle((li, y_off, li + geom.SL, y_off + geom.SH), fill=bg_col)
 
     # Right
     (right_sym, _, _) = symbol_parts(sc.right_sym)
     w2, h2 = get_font_size(right_sym, font)
     y2 = (geom.SH - h2) / 2
     x_right = (1 + overhang) * geom.SL + w2 / 2
-    sym_col = black_on_white.color_of_scale(sc)
     draw_symbol(r, geom, sym_col, y_off, sc.right_sym, x_right, y2, fs_lbl, reg, al)
 
     # Left
