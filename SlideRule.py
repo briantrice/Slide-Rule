@@ -59,6 +59,10 @@ class ColorScheme:
         self.bg = bg_color
         self.decreasing = dec_color
 
+    def color_of_scale(self, sc):
+        """:type sc: Scale"""
+        return self.fg if sc.increasing else self.decreasing
+
 
 black_on_white = ColorScheme(BLACK, WHITE)
 
@@ -763,10 +767,7 @@ class Scale:
 
     @property
     def col(self):
-        """symbol color"""
-        if not self.increasing:
-            return RED
-        return BLACK
+        return black_on_white.color_of_scale(self)
 
     def frac_pos_of(self, x, shift_adj=0):
         """
