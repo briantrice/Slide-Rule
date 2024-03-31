@@ -573,6 +573,7 @@ def extend(image, geom, y, direction, amplitude):
 
 
 TEN = 10
+HUNDRED = TEN * TEN
 
 
 def gen_base(x): return math.log10(x)
@@ -594,9 +595,12 @@ def scale_tan(x): return gen_base(TEN * math.tan(math.radians(x)))
 def scale_cot(x): return gen_base(TEN * math.tan(math.radians(DEG_RIGHT_ANGLE - x)))
 
 
+def scale_sin_tan_radians(x):
+    return gen_base(HUNDRED * (math.sin(x) + math.tan(x)) / 2)
+
+
 def scale_sin_tan(x):
-    x_rad = math.radians(x)
-    return gen_base(TEN * TEN * (math.sin(x_rad) + math.tan(x_rad)) / 2)
+    return scale_sin_tan_radians(math.radians(x))
 
 
 def scale_sinh(x): return gen_base(math.sinh(x))
@@ -723,6 +727,7 @@ class Scalers:
     Sin = Scaler(scale_sin, lambda p: math.asin(p))
     CoSin = Scaler(scale_cos, lambda p: math.asin(p), increasing=False)
     Tan = Scaler(scale_tan, lambda p: math.atan(pos_base(p)))
+    SinTan = Scaler(scale_sin_tan, lambda p: math.atan(pos_base(p)))
     CoTan = Scaler(scale_cot, lambda p: math.atan(DEG_RIGHT_ANGLE - p), increasing=False)
     SinH = Scaler(scale_sinh, lambda p: math.asinh(pos_base(p)))
     CosH = Scaler(scale_cosh, lambda p: math.acosh(pos_base(p)))
@@ -848,7 +853,8 @@ class Scales:
     R2 = Scale('R₂', '√10x', Scalers.SquareRoot, key='R2', shift=-1)
     S = Scale('S', 'sin x°', Scalers.Sin)
     CoS = Scale('C', 'cos x°', Scalers.CoSin, increasing=False)
-    ST = Scale('ST', 'tan 0.01x°', scale_sin_tan)
+    SRT = Scale('SRT', 'tan 0.01x', scale_sin_tan_radians)
+    ST = Scale('ST', 'tan 0.01x°', Scalers.SinTan)
     T = Scale('T', 'tan x°', Scalers.Tan)
     CoT = Scale('T', 'cot x°', Scalers.CoTan, increasing=False)
     T1 = Scale('T₁', 'tan x°', Scalers.Tan, key='T1')
