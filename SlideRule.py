@@ -249,7 +249,7 @@ def pat(r, geom, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, 
                 draw_tick(r, geom, tick_col, y_off, x_scaled, h, al)
 
 
-def grad_pat(r, geom, y_off, sc, al, start_value=None, end_value=None):
+def grad_pat(r, geom, y_off, sc, al, start_value=None, end_value=None, include_last=False):
     """
     Draw a graduated pattern of tick marks across the scale range.
     Determine the lowest digit tick mark spacing and work upwards from there.
@@ -310,7 +310,8 @@ def grad_pat(r, geom, y_off, sc, al, start_value=None, end_value=None):
     if max_num_chars < 4:
         font_s = FontSize.NumSM
     single_digit = max_num_chars < 2
-    for i in range(i_start, int(end_value * sf), step_last):
+    i_end = int(end_value * sf + (1 if include_last else 0))
+    for i in range(i_start, i_end, step_last):
         num = i / sf
         x = sc.scale_to(num, scale_width)
         h_mod = HMod.DOT
@@ -1155,7 +1156,8 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white
 
         # 0.1-0.9 Labels
         for x in range(11, 20):
-            draw_numeral(r, geom, sym_col, y_off, last_digit_of(x), sc.pos_of(x / 10, geom), geom.tick_h(HMod.SM), fs_lgn, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, last_digit_of(x), sc.pos_of(x / 10, geom), geom.tick_h(HMod.SM),
+                         fs_lgn, reg, al)
 
         # Gauge Points
         Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al, col=sym_col)
@@ -1347,7 +1349,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white
                 draw_numeral(r, geom, sym_col, y_off, x / 10, sc.pos_of(x, geom), med_h, fs_lbl, reg, al)
 
     elif sc == Scales.Ln:
-        grad_pat(r, geom, y_off, sc, al)
+        grad_pat(r, geom, y_off, sc, al, include_last=True)
 
     elif sc.scaler == Scalers.Sin:
 
@@ -1422,14 +1424,13 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white
             draw_numeral(r, geom, sym_col, y_off, x, x_coord, f, fs_mdn, reg, al)
 
         for x in range(25, 41, 5):
-            if x % 5 == 0:
-                x_coord = sc.pos_of(x, geom) + 1.2 / 2 * get_width(x, fs_mdn, italic)
-                draw_numeral(r, geom, sym_col, y_off, x, x_coord, f, fs_mdn,
-                             reg, al)
-                xi = angle_opp(x)
-                x_coord_opp = sc.pos_of(x, geom) - 1.4 / 2 * get_width(xi, fs_mdn, italic)
-                draw_numeral(r, geom, opp_col, y_off, xi, x_coord_opp,
-                             f, fs_mdn, italic, al)
+            x_coord = sc.pos_of(x, geom) + 1.2 / 2 * get_width(x, fs_mdn, italic)
+            draw_numeral(r, geom, sym_col, y_off, x, x_coord, f, fs_mdn,
+                         reg, al)
+            xi = angle_opp(x)
+            x_coord_opp = sc.pos_of(x, geom) - 1.4 / 2 * get_width(xi, fs_mdn, italic)
+            draw_numeral(r, geom, opp_col, y_off, xi, x_coord_opp,
+                         f, fs_mdn, italic, al)
 
         draw_numeral(r, geom, sym_col, y_off, 45, geom.SL, f, fs_lgn, reg, al)
 
@@ -1490,7 +1491,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white
         sc.grad_pat_divided(r, geom, y_off, al, [0.2, 0.4])
 
     elif sc == Scales.Sh2:
-        grad_pat(r, geom, y_off, sc, al)
+        grad_pat(r, geom, y_off, sc, al, include_last=True)
 
     elif sc == Scales.Th:
         sf = 1000
@@ -1508,17 +1509,17 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white
             draw_numeral(r, geom, sym_col, y_off, x, sc.pos_of(x, geom), label_h, fs_smn, reg, al)
 
     elif sc == Scales.Chi:
-        grad_pat(r, geom, y_off, sc, al)
+        grad_pat(r, geom, y_off, sc, al, include_last=True)
         Marks.pi_half.draw(r, geom, y_off, sc, fs_lbl, al, sym_col)
 
     elif sc == Scales.Theta:
-        grad_pat(r, geom, y_off, sc, al)
+        grad_pat(r, geom, y_off, sc, al, include_last=True)
 
     elif sc == Scales.f_x:
         sc.grad_pat_divided(r, geom, y_off, al, [0.2, 0.5, 1])
 
     elif sc == Scales.L_r:
-        pass  # grad_pat(r, geom, y_off, sc, al)
+        sc.grad_pat_divided(r, geom, y_off, al, None)
 
     elif sc == Scales.LL0:
         sc.grad_pat_divided(r, geom, y_off, al, [1.002, 1.005],
