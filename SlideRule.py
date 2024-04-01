@@ -64,7 +64,7 @@ class ColorScheme:
 
     def color_of_scale(self, sc):
         """:type sc: Scale"""
-        return self.fg if sc.increasing else self.dec_color
+        return self.fg if sc.is_increasing else self.dec_color
 
     def bg_color_of_scale(self, sc):
         """:type sc: Scale"""
@@ -742,11 +742,11 @@ class Scalers:
     SinH = Scaler(scale_sinh, lambda p: math.asinh(pos_base(p)))
     CosH = Scaler(scale_cosh, lambda p: math.acosh(pos_base(p)))
     TanH = Scaler(scale_tanh, lambda p: math.atanh(pos_base(p)))
-    Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2))
+    Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2), increasing=False)
     Chi = Scaler(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
     Theta = Scaler(lambda x: x / DEG_RIGHT_ANGLE, lambda p: p * DEG_RIGHT_ANGLE)
     LogLog = Scaler(scale_log_log, lambda p: math.exp(pos_base(p)))
-    LogLogNeg = Scaler(scale_neg_log_log, lambda p: math.exp(pos_base(-p)))
+    LogLogNeg = Scaler(scale_neg_log_log, lambda p: math.exp(pos_base(-p)), increasing=False)
     Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.sqrt(1 + math.pow(pos_base(p), 2)))
 
 
@@ -765,7 +765,7 @@ class Scale:
         """positioning function (takes a proportion of output width, returning what value is there)"""
         self.shift = shift
         """scale shift from left index (as a fraction of output width)"""
-        self.increasing = scaler.is_increasing if isinstance(scaler, Scaler) else increasing
+        self.is_increasing = scaler.is_increasing if isinstance(scaler, Scaler) else increasing
         """whether the scale values increase from left to right"""
         self.key = key or left_sym
         """non-unicode name; unused"""  # TODO extend for all alternate namings?
@@ -854,11 +854,11 @@ class Scales:
     B = Scale('B', 'x²_y', Scalers.Square, rule_part=RulePart.SLIDE, opp_scale=A)
     C = Scale('C', 'x_y', Scalers.Base, rule_part=RulePart.SLIDE)
     CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, rule_part=RulePart.SLIDE)
-    CI = Scale('CI', '1/x_y', Scalers.Inverse, increasing=False, rule_part=RulePart.SLIDE)
-    CIF = Scale('CIF', '1/πx_y', Scalers.Inverse, shift=pi_fold_shift - 1, increasing=False, rule_part=RulePart.SLIDE)
+    CI = Scale('CI', '1/x_y', Scalers.Inverse, rule_part=RulePart.SLIDE)
+    CIF = Scale('CIF', '1/πx_y', Scalers.Inverse, shift=pi_fold_shift - 1, rule_part=RulePart.SLIDE)
     D = Scale('D', 'x', Scalers.Base, opp_scale=C)
     DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift, opp_scale=CF)
-    DI = Scale('DI', '1/x', Scalers.Inverse, increasing=False)
+    DI = Scale('DI', '1/x', Scalers.Inverse)
     K = Scale('K', 'x³', Scalers.Cube)
     L = Scale('L', 'log x', Scalers.Log10)
     Ln = Scale('Ln', 'ln x', Scalers.Ln)
@@ -866,19 +866,19 @@ class Scales:
     LL1 = Scale('LL₁', 'e^0.01x', Scalers.LogLog, shift=2)
     LL2 = Scale('LL₂', 'e^0.1x', Scalers.LogLog, shift=1)
     LL3 = Scale('LL₃', 'e^x', Scalers.LogLog)
-    LL00 = Scale('LL₀₀', 'e^-0.001x', Scalers.LogLogNeg, increasing=False, shift=3)
-    LL01 = Scale('LL₀₁', 'e^-0.01x', Scalers.LogLogNeg, increasing=False, shift=2)
-    LL02 = Scale('LL₀₂', 'e^-0.1x', Scalers.LogLogNeg, increasing=False, shift=1)
-    LL03 = Scale('LL₀₃', 'e^-x', Scalers.LogLogNeg, increasing=False)
-    P = Scale('P', '√1-x²', Scalers.Pythagorean, key='P', increasing=False)
+    LL00 = Scale('LL₀₀', 'e^-0.001x', Scalers.LogLogNeg, shift=3)
+    LL01 = Scale('LL₀₁', 'e^-0.01x', Scalers.LogLogNeg, shift=2)
+    LL02 = Scale('LL₀₂', 'e^-0.1x', Scalers.LogLogNeg, shift=1)
+    LL03 = Scale('LL₀₃', 'e^-x', Scalers.LogLogNeg)
+    P = Scale('P', '√1-x²', Scalers.Pythagorean, key='P')
     R1 = Scale('R₁', '√x', Scalers.SquareRoot, key='R1')
     R2 = Scale('R₂', '√10x', Scalers.SquareRoot, key='R2', shift=-1)
     S = Scale('S', 'sin x°', Scalers.Sin)
-    CoS = Scale('C', 'cos x°', Scalers.CoSin, increasing=False)
+    CoS = Scale('C', 'cos x°', Scalers.CoSin)
     SRT = Scale('SRT', 'tan 0.01x', scale_sin_tan_radians)
     ST = Scale('ST', 'tan 0.01x°', Scalers.SinTan)
     T = Scale('T', 'tan x°', Scalers.Tan)
-    CoT = Scale('T', 'cot x°', Scalers.CoTan, increasing=False)
+    CoT = Scale('T', 'cot x°', Scalers.CoTan)
     T1 = Scale('T₁', 'tan x°', Scalers.Tan, key='T1')
     T2 = Scale('T₂', 'tan 0.1x°', Scalers.Tan, key='T2', shift=-1)
     W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1')
