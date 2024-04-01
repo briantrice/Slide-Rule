@@ -1153,7 +1153,7 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white
 
         # 1-10 Labels
         for x in range(1, 11):
-            draw_symbol(r, geom, sym_col, y_off, leading_digit_of(x), sc.pos_of(x, geom), med_h, fs_lbl, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, first_digit_of(x), sc.pos_of(x, geom), med_h, fs_lbl, reg, al)
 
         # 0.1-0.9 Labels
         for x in range(11, 20):
@@ -1185,9 +1185,9 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white
 
         # 1-10 Labels
         for x in range(1, 11):
-            sym = leading_digit_of(x)
-            draw_symbol(r, geom, sym_col, y_off, sym, sc.pos_of(x, geom), med_h, fs_lbl, reg, al)
-            draw_symbol(r, geom, sym_col, y_off, sym, sc.pos_of(x * 10, geom), med_h, fs_lbl, reg, al)
+            sym = first_digit_of(x)
+            draw_numeral(r, geom, sym_col, y_off, sym, sc.pos_of(x, geom), med_h, fs_lbl, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, sym, sc.pos_of(x * 10, geom), med_h, fs_lbl, reg, al)
 
         # Gauge Points
         Marks.pi.draw(r, geom, y_off, sc, fs_lbl, al)
@@ -1206,10 +1206,10 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white
         # 1-10 Labels
         f = FontSize.NumXL
         for x in range(1, 11):
-            sym = leading_digit_of(x)
-            draw_symbol(r, geom, sym_col, y_off, sym, sc.pos_of(x, geom), med_h, f, reg, al)
-            draw_symbol(r, geom, sym_col, y_off, sym, sc.pos_of(x * 10, geom), med_h, f, reg, al)
-            draw_symbol(r, geom, sym_col, y_off, sym, sc.pos_of(x * 100, geom), med_h, f, reg, al)
+            sym = first_digit_of(x)
+            draw_numeral(r, geom, sym_col, y_off, sym, sc.pos_of(x, geom), med_h, f, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, sym, sc.pos_of(x * 10, geom), med_h, f, reg, al)
+            draw_numeral(r, geom, sym_col, y_off, sym, sc.pos_of(x * 100, geom), med_h, f, reg, al)
 
     elif sc == Scales.R1:
 
@@ -1563,12 +1563,12 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white
         sc.grad_pat_divided(r, geom, y_off, al, None)
 
 
-def leading_digit_of(x: int) -> str:
-    return str(x)[0]
+def first_digit_of(x: int) -> int:
+    return int(str(x)[0])
 
 
 def last_digit_of(x: int) -> int:
-    return x % TEN
+    return int(str(x)[-1])
 
 
 # ----------------------4. Line Drawing Functions----------------------------
