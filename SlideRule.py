@@ -54,12 +54,14 @@ GREEN = '#228B1E'  # Override PIL for green for slide rule symbol conventions
 
 
 class ColorScheme:
-    def __init__(self, fg_color: str, bg_color: str,
-                 dec_color: str = RED,
+    def __init__(self, fg_color, bg_color,
+                 decreasing_color=RED,
+                 decimal_color=None,
                  sc_bg_colors: dict = None):
         self.fg = fg_color
         self.bg = bg_color
-        self.dec_color = dec_color
+        self.dec_color = decreasing_color
+        self.decimal_color = decimal_color
         self.sc_bg_colors = sc_bg_colors or dict()
 
     def color_of_scale(self, sc):
@@ -70,10 +72,17 @@ class ColorScheme:
         """:type sc: Scale"""
         return self.sc_bg_colors.get(sc.key)
 
+    def numeral_decimal_color(self):
+        return self.decimal_color
 
-black_on_white = ColorScheme(BLACK, WHITE)
 
-picket_eye_saver = ColorScheme(BLACK, 'yellow')
+class ColorSchemes:
+    Default = ColorScheme(BLACK, WHITE)
+
+    PickettEyeSaver = ColorScheme(BLACK, 'yellow')
+
+    Graphoplex = ColorScheme(BLACK, WHITE, decimal_color='lightblue')
+
 
 BG = WHITE
 """background color white"""
@@ -782,7 +791,7 @@ class Scale:
 
     @property
     def col(self):
-        return black_on_white.color_of_scale(self)
+        return ColorSchemes.Default.color_of_scale(self)
 
     def frac_pos_of(self, x, shift_adj=0):
         """
@@ -994,7 +1003,7 @@ class Layouts:
 
 
 class Model:
-    def __init__(self, brand: str, model_name: str, layout: Layout, color_scheme: ColorScheme = black_on_white):
+    def __init__(self, brand: str, model_name: str, layout: Layout, color_scheme: ColorScheme = ColorSchemes.Default):
         self.brand = brand
         self.name = model_name
         self.layout = layout
@@ -1031,6 +1040,10 @@ class Models:
                                  'A': (194, 235, 247),
                                  'B': (194, 235, 247)
                              }))
+
+    Graphoplex621 = Model('Graphoplex', '621', Layout(
+        'P SRT A [ B T1 S CI C ] D K L'
+    ), ColorSchemes.Graphoplex)
 
 
 class GaugeMark:
@@ -1077,7 +1090,7 @@ class Marks:
     hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
 
 
-def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white):
+def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=ColorSchemes.Default):
     """
     :param ImageDraw.Draw r:
     :param Geometry geom:
@@ -1800,7 +1813,7 @@ def main():
         (5600, 160),
         (4, 70)
     )
-    cols = black_on_white
+    cols = ColorSchemes.Default
     sliderule_img = Image.new('RGB', (geom.total_width, geom.print_height), cols.bg)
     r = ImageDraw.Draw(sliderule_img)
     if render_mode == Mode.RENDER or render_mode == Mode.STICKERPRINT:
@@ -1858,7 +1871,11 @@ def main():
         scale_height = 160
         k = 120 + scale_height
         sh_with_margins = scale_height + 40
-        total_height = k + (len(SCALE_NAMES) + 1) * sh_with_margins
+        diag_scale_names = ['A', 'B', 'C', 'D',
+                            'K', 'R1', 'R2', 'CI',
+                            'DI', 'CF', 'DF', 'CIF', 'L',
+                            'S', 'T', 'ST']
+        total_height = k + (len(diag_scale_names) + 1) * sh_with_margins + 160
         geom = Geometry(
             (6500, total_height),
             (250, 250),  # remove y-margin to stack scales
@@ -1874,10 +1891,9 @@ def main():
         draw_symbol(r, geom, FG, 200, 'A B C D K R1 R2 CI DI CF DF CIF L S T ST', title_x, 0,
                     FontSize.Subtitle, reg, upper)
 
-        for n, sc_name in enumerate(SCALE_NAMES):
-            overhang = 0.06 if n > 18 else 0.02
+        for n, sc_name in enumerate(diag_scale_names):
             sc = getattr(Scales, sc_name)
-            gen_scale(r, geom, k + (n + 1) * sh_with_margins, sc, sc.al, overhang=overhang)
+            gen_scale(r, geom, k + (n + 1) * sh_with_margins, sc, Align.LOWER)
 
         save_png(diagnostic_img, 'Diagnostic', output_suffix)
 
