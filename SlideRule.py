@@ -591,6 +591,7 @@ def scale_cube(x): return gen_base(x) / 3
 def scale_sqrt(x): return gen_base(x) * 2
 def scale_sqrt_ten(x): return gen_base(x) * 2
 def scale_inverse(x): return 1 - gen_base(x)
+def scale_inverse_square(x): return 1 - gen_base(x) / 2
 
 
 pi_fold_shift = scale_inverse(PI)
@@ -729,6 +730,7 @@ class Scalers:
     Square = Scaler(scale_square, lambda p: pos_base(p * 2))
     Cube = Scaler(scale_cube, lambda p: pos_base(p * 3))
     Inverse = Scaler(scale_inverse, lambda p: pos_base(1 - p), increasing=False)
+    InverseSquare = Scaler(scale_inverse_square, lambda p: pos_base(1 - p * 2), increasing=False)
     SquareRoot = Scaler(scale_sqrt, lambda p: pos_base(p / 2))
     Log10 = Scaler(scale_log, lambda p: p * TEN)
     Ln = Scaler(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
@@ -897,10 +899,7 @@ class Scales:
     Theta = Scale('θ', '°', Scalers.Theta, key='Theta')
     # Pickett N-515-T:
     f_x = Scale('f_x', 'x/2π', Scalers.Base, shift=gen_base(TAU))
-    L_r = Scale('(L_r) H', '1/(2πx)²', Scaler(
-        lambda x: gen_base(TAU * x) / -2,
-        lambda p: 1/(TAU * pos_base(p))**2
-    ), increasing=False)
+    L_r = Scale('L_r', '1/(2πx)²', Scalers.InverseSquare, shift=gen_base(1/TAU))
 
 
 # TODO scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest
@@ -1521,7 +1520,8 @@ def gen_scale(r, geom, y_off, sc, al, overhang=0.02, color_scheme=black_on_white
         sc.grad_pat_divided(r, geom, y_off, al, [0.2, 0.5, 1])
 
     elif sc == Scales.L_r:
-        sc.grad_pat_divided(r, geom, y_off, al, None)
+        sc.grad_pat_divided(r, geom, y_off, al, [0.05, 0.1, 0.2, 0.5, 1, 2],
+                            start_value=0.025, end_value=2.55)
 
     elif sc == Scales.LL0:
         sc.grad_pat_divided(r, geom, y_off, al, [1.002, 1.005],
