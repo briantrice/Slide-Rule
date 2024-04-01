@@ -1021,8 +1021,8 @@ class Models:
                                 'CF': (203, 243, 225)
                             }))
     FaberCastell283N = Model('Faber-Castell', '2/83', Layout(
-        'K T1 T2 DF/CF CIF CI C/D S ST P',
-        'LL03 LL02 LL01 LL00 W2/W2Prime L C W1Prime/W1 LL0 LL1 LL2 LL3'
+        'T1 T2 K A DF [CF B CIF CI C] D DI S ST P',
+        'LL03 LL02 LL01 LL00 W2 [W2Prime CI L C W1Prime] W1 D LL0 LL1 LL2 LL3'
     ),
                              ColorScheme(BLACK, WHITE, sc_bg_colors={
                                  'C': (203, 243, 225),
