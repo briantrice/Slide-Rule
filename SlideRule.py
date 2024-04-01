@@ -840,10 +840,12 @@ class Scale:
             grad_pat(r, geom, y_off, self, al, start_value=start_value, end_value=dividers[0])
             last_i = len(dividers) - 1
             for i, di in enumerate(dividers):
-                dj = dividers[i + 1] if i < last_i else end_value
-                grad_pat(r, geom, y_off, self, al, start_value=di, end_value=dj)
+                is_last = i >= last_i
+                dj = end_value if is_last else dividers[i + 1]
+                grad_pat(r, geom, y_off, self, al, start_value=di, end_value=dj, include_last=is_last)
         else:
-            grad_pat(r, geom, y_off, self, al, start_value=start_value, end_value=end_value)
+            grad_pat(r, geom, y_off, self, al, start_value=start_value, end_value=end_value, include_last=True)
+
 
 class Scales:
     A = Scale('A', 'x²', Scalers.Square)
