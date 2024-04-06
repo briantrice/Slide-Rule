@@ -221,8 +221,13 @@ class UtilsTestCase(unittest.TestCase):
         self.assertEqual(('10', '-4'), symbol_with_expon('10⁻⁴'))
         self.assertEqual(('10', '04'), symbol_with_expon('10⁰⁴'))
 
+    def test_symbol_with_expon_prime(self):
+        self.assertEqual(('W', "'"), symbol_with_expon("W'"))
+        self.assertEqual(('x', "'"), symbol_with_expon("x'"))
+
     def test_symbol_with_expon_subscript(self):
         self.assertEqual(('x', 'y', 'z'), symbol_parts('x^y_z'))
+        self.assertEqual(('W', "'", '2'), symbol_parts("W'₂"))
 
 
 class SlideRuleLayoutTestCase(unittest.TestCase):
@@ -246,10 +251,10 @@ class SlideRuleLayoutTestCase(unittest.TestCase):
 class ModelTestCase(unittest.TestCase):
     def test_pickett_n515t_lr(self):
         lr = Scales.L_r
-        start_value = 0.025330295910584444
-        self.assertEqual(lr.value_at_start(), start_value)
-        self.assertEqual(lr.value_at_frac_pos(0.5), start_value / 10)
-        self.assertEqual(lr.value_at_end(), start_value / 100)
+        start_value = 0.25330295910584444
+        self.assertAlmostEqual(lr.value_at_start(), start_value)
+        self.assertAlmostEqual(lr.value_at_frac_pos(0.5), start_value / 10)
+        self.assertAlmostEqual(lr.value_at_end(), start_value / 100)
 
     def test_pickett_n515t_fx(self):
         fx = Scales.f_x
