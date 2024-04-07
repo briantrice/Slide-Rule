@@ -41,6 +41,9 @@ DEG_SEMI = 180
 DEG_RIGHT_ANGLE = 90
 
 
+LOG_ZERO = -math.inf
+
+
 class BleedDir(Enum):
     UP = 'up'
     DOWN = 'down'
