@@ -133,19 +133,21 @@ class Style:
         """:type sc: Scale"""
         return self.sc_bg_colors.get(sc.key)
 
-    def scale_al(self, sc):
+    def overrides_for(self, sc) -> dict:
         """
         :type sc: Scale
         """
-        sc_overrides = self.overrides_by_sc_key.get(sc.key)
-        return sc_overrides.get('al', sc.al) if sc_overrides else sc.al
+        return self.overrides_by_sc_key.get(sc.key)
 
-    def scale_h(self, sc):
-        """
-        :type sc: Scale
-        """
-        sc_overrides = self.overrides_by_sc_key.get(sc.key)
-        return sc_overrides.get('h', Geometry.SH) if sc_overrides else Geometry.SH
+    def override_for(self, sc, key, default):
+        sc_overrides = self.overrides_for(sc)
+        return sc_overrides.get(key, default) if sc_overrides else default
+
+    def scale_al(self, sc):
+        return self.override_for(sc, 'al', sc.al)
+
+    def scale_h(self, sc, default=None):
+        return self.override_for(sc, 'h', default or Geometry.SH)
 
     def numeral_decimal_color(self):
         return self.decimal_color
