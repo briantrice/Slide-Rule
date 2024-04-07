@@ -140,11 +140,11 @@ class ScaleLogLogTestCase(unittest.TestCase):
         self.assertAlmostEqual(Scalers.LogLog.position_of(1.105171), -1, 5)
         self.assertAlmostEqual(Scalers.LogLog.position_of(1.0100501), -2, 5)
         self.assertAlmostEqual(Scalers.LogLog.position_of(1.105171), -1, 5)
-        # self.assertAlmostEqual(Scalers.LogLog.position_of(1/math.e), 0)
-        # self.assertAlmostEqual(Scalers.LogLog.position_of(0.0000454), 1, 5)
-        # self.assertAlmostEqual(Scalers.LogLog.position_of(0.904837), 0, 5)
-        # self.assertAlmostEqual(Scalers.LogLog.position_of(0.9900498), 0, 5)
-        # self.assertAlmostEqual(Scalers.LogLog.position_of(0.904837), 1, 5)
+        self.assertAlmostEqual(Scalers.LogLogNeg.position_of(1/math.e), 0)
+        self.assertAlmostEqual(Scalers.LogLogNeg.position_of(0.0000454), 1, 5)
+        self.assertAlmostEqual(Scalers.LogLogNeg.position_of(0.904837), -1, 5)
+        self.assertAlmostEqual(Scalers.LogLogNeg.position_of(0.9900498), -2, 5)
+        self.assertAlmostEqual(Scalers.LogLogNeg.position_of(0.904837), -1, 5)
 
 
 class ScaleCubeTestCase(unittest.TestCase):
