@@ -1,9 +1,9 @@
 import math
 import unittest
 
-from SlideRule import (Scales, Scalers, Layout,
+from SlideRule import (Scales, Scalers, Layout, Models,
                        symbol_parts, symbol_with_expon,
-                       scale_hyperbolic, Models)
+                       last_digit_of, first_digit_of)
 
 scale_base = Scalers.Base
 
@@ -120,8 +120,8 @@ class ScaleSqrtTestCase(unittest.TestCase):
 
 class ScaleHyperbolicTestCase(unittest.TestCase):
     def test_fenceposts(self):
-        self.assertAlmostEqual(scale_hyperbolic(1.4142135), scale_base(1))
-        self.assertAlmostEqual(scale_hyperbolic(10.049875), scale_base(10))
+        self.assertAlmostEqual(Scalers.Hyperbolic(1.4142135), scale_base(1))
+        self.assertAlmostEqual(Scalers.Hyperbolic(10.049875), scale_base(10))
 
 
 class ScaleThetaTestCase(unittest.TestCase):
@@ -228,6 +228,23 @@ class UtilsTestCase(unittest.TestCase):
     def test_symbol_with_expon_subscript(self):
         self.assertEqual(('x', 'y', 'z'), symbol_parts('x^y_z'))
         self.assertEqual(('W', "'", '2'), symbol_parts("W'₂"))
+
+    def test_last_digit_of(self):
+        self.assertEqual(5, last_digit_of(5))
+        self.assertEqual(5, last_digit_of(15))
+        self.assertEqual(5, last_digit_of(65))
+        self.assertEqual(5, last_digit_of(105))
+        self.assertEqual(5, last_digit_of(0.5))
+        self.assertEqual(5, last_digit_of(0.15))
+        self.assertEqual(5, last_digit_of(0.65))
+        self.assertEqual(5, last_digit_of(10.5))
+        self.assertEqual(1, last_digit_of(11.0))
+
+    def test_first_digit_of(self):
+        self.assertEqual(5, first_digit_of(5))
+        self.assertEqual(1, first_digit_of(15))
+        self.assertEqual(6, first_digit_of(65))
+        self.assertEqual(1, first_digit_of(105))
 
 
 class SlideRuleLayoutTestCase(unittest.TestCase):

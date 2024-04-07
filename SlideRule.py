@@ -1780,11 +1780,15 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
         sc.grad_pat_divided(r, geom, style, y_off, al, None)
 
 
-def first_digit_of(x: int) -> int:
+def first_digit_of(x) -> int:
+    """First numeral in the digital representation of a number."""
     return int(str(x)[0])
 
 
-def last_digit_of(x: int) -> int:
+def last_digit_of(x) -> int:
+    """Last numeral in the digital representation of a number."""
+    if int(x) == x:
+        x = int(x)
     return int(str(x)[-1])
 
 
