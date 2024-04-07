@@ -1294,6 +1294,9 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
     :param Style color_scheme:
     """
 
+    if style.override_for(sc, 'hide', False):
+        return
+
     if not overhang:
         overhang = 0.08 if sc.can_spiral() else 0.02
 
