@@ -417,7 +417,7 @@ def grad_pat(r, geom, style, y_off, sc, al, start_value=None, end_value=None, in
     # Ensure between 6 and 15 numerals will display? Target log10 in 0.8..1.17
     frac_width = sc.offset_between(start_value, end_value, 1)
     step_numeral = 10 ** (math.floor(math.log10(abs(end_value - start_value)) - 0.5 * frac_width) + num_digits)
-    step_half = step_numeral >> 1
+    step_half = round(step_numeral / 2)
     step_tenth = int(step_numeral / 10)  # second level
     tenth_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_tenth / sf, scale_width)
     if tenth_tick_offset < min_tick_offset:
@@ -455,7 +455,7 @@ def grad_pat(r, geom, style, y_off, sc, al, start_value=None, end_value=None, in
         h_mod = HMod.DOT
         if i % step_numeral == 0:  # Numeral marks
             h_mod = num_tick
-            if single_digit and not math.log10(num).is_integer():
+            if single_digit and not (num > 0 and math.log10(num).is_integer()):
                 num_sym = str(num)
                 if num_sym.endswith('0'):
                     num = int(num_sym[:1])
@@ -898,8 +898,8 @@ class Scale:
 
     def powers_of_ten_in_range(self):
         start_value, end_value = self.value_range()
-        start_log = math.log10(start_value)
-        end_log = math.log10(end_value)
+        start_log = math.log10(start_value) if start_value > 0 else LOG_ZERO
+        end_log = math.log10(end_value) if end_value > 0 else LOG_ZERO
         low_log = min(start_log, end_log)
         high_log = max(start_log, end_log)
         return range(math.ceil(low_log), math.ceil(high_log))
