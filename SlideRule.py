@@ -582,8 +582,8 @@ def draw_numeral(r, geom, style, color, y_off, num, x, y, font, al):
     draw_symbol(r, geom, style, color, y_off, num_sym, x, y, font, al)
 
 
-RE_EXPON_CARET = re.compile(r'^(.+)\^([-0-9.a-z]+)$')
-RE_SUB_UNDERSCORE = re.compile(r'^(.+)_([-0-9.a-z]+)$')
+RE_EXPON_CARET = re.compile(r'^(.+)\^([-0-9.A-Za-z]+)$')
+RE_SUB_UNDERSCORE = re.compile(r'^(.+)_([-0-9.A-Za-z]+)$')
 RE_EXPON_UNICODE = re.compile(r'^([^⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)$')
 RE_SUB_UNICODE = re.compile(r'^([^₀₁₂₃]+)([₀₁₂₃]+)$')
 
