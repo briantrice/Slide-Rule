@@ -1269,6 +1269,17 @@ class Marks:
     hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
 
 
+def gen_scale_band_bg(r, geom, y_off, sc, color, start_value=None, end_value=None):
+    li = geom.li
+    if start_value is None:
+        start_value = sc.value_at_start()
+    if end_value is None:
+        end_value = sc.value_at_end()
+    r.rectangle((li + sc.pos_of(start_value, geom), y_off,
+                 li + sc.pos_of(end_value, geom), y_off + geom.SH),
+                fill=color)
+
+
 def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=Styles.Default):
     """
     :param ImageDraw.Draw r:
@@ -1304,7 +1315,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
     bg_col = color_scheme.scale_bg_col(sc)
     dec_col = style.dec_color
     if bg_col:
-        r.rectangle((li, y_off, li + geom.SL, y_off + geom.SH), fill=bg_col)
+        gen_scale_band_bg(r, geom, y_off, sc, bg_col)
 
     # Right
     (right_sym, _, _) = symbol_parts(sc.right_sym)
