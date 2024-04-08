@@ -452,7 +452,8 @@ def grad_pat(r, geom, style, y_off, sc, al, start_value=None, end_value=None, in
     single_digit = max_num_chars < 2
     tenth_font = style.font_for(FontSize.NumXS)
     tenth_col = Styles.Graphoplex.decimal_color
-    draw_tenth = step_last < step_tenth < step_numeral
+    # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
+    draw_tenth = (step_last < step_tenth < step_numeral) and max_num_chars > 8
     i_end = int(end_value * sf + (1 if include_last else 0))
     for i in range(i_start, i_end, step_last):
         num = i / sf
