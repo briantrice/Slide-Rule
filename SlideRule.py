@@ -1168,31 +1168,31 @@ class Models:
                         rear_heights={'K': 210, 'D': 240}))
 
     Aristo868 = Model('Aristo', '', '868',
-                      Geometry((8000, 1600),
+                      Geometry((8000, 2140),
                                (100, 100),
-                               (5600, 160),
+                               (5600, Geometry.SH),
                                Geometry.DEFAULT_TICK_WH,
-                               640),
+                               Geometry.SH * 4),
                       Layout(
                           'ST T1 T2 DF/CF CIF CI C/D P S',
                           'LL01 LL02 LL03 A/B L K C/D LL3 LL2 LL1'
                       ))
     PickettN515T = Model('Pickett', '', 'N-515-T',
-                         Geometry((8000, 1900),
+                         Geometry((8000, 2000),
                                   (100, 100),
-                                  (5600, 160),
+                                  (5600, Geometry.SH),
                                   Geometry.DEFAULT_TICK_WH,
-                                  900),
+                                  Geometry.SH * 5),
                          Layout(
                              'L_r f_x A/B S T CI C/D L Ln', ''
                          ),
                          Styles.PickettEyeSaver)
     FaberCastell283 = Model('Faber-Castell', '', '2/83',
-                            Geometry((8000, 2160),
+                            Geometry((8000, 2150),
                                      (100, 100),
-                                     (5600, 160),
+                                     (5600, Geometry.SH),
                                      Geometry.DEFAULT_TICK_WH,
-                                     640),
+                                     Geometry.SH * 4),
                             Layout(
                                 'K T1 T2 DF/CF CIF CI C/D S ST P',
                                 'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3',
@@ -1214,11 +1214,11 @@ class Models:
                                   }
                                 ))
     FaberCastell283N = Model('Faber-Castell', '', '2/83N',
-                             Geometry((8000, 2700),
+                             Geometry((8000, 2625),
                                       (0, 0),
-                                      (5600, 160),
+                                      (5600, Geometry.SH),
                                       (3, 50),
-                                      640),
+                                      Geometry.SH * 5),
                              Layout(
                                  'T1 T2 K A DF [CF B CIF CI C] D DI S ST P',
                                  'LL03 LL02 LL01 LL00 W2 [W2Prime CI L C W1Prime] W1 D LL0 LL1 LL2 LL3',
@@ -1248,11 +1248,11 @@ class Models:
                              }, font_family=FontFamilies.CMUBright))
 
     Graphoplex621 = Model('Graphoplex', '', '621',
-                          Geometry((8000, 1600),
+                          Geometry((8000, 2000),
                                    (100, 100),
-                                   (5600, 160),
+                                   (5600, Geometry.SH),
                                    Geometry.DEFAULT_TICK_WH,
-                                   640),
+                                   Geometry.SH * 5),
                           Layout(
                               'P ST A [ B T1 S CI C ] D K L',  # 'P SRT A [ B T1 S CI C ] D K L'
                               ''
