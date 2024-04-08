@@ -2112,7 +2112,7 @@ def main():
 
         for n, sc_name in enumerate(scale_names):
             sc = getattr(Scales, sc_name)
-            al = Align.LOWER if is_demo else None
+            al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, RulePart.SLIDE, True)
             gen_scale(r, geom_d, style, k + (n + 1) * sh_with_margins, sc, al=al)
 
         save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
