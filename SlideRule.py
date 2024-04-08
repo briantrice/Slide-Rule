@@ -59,15 +59,17 @@ class Colors:
     GREEN = (0, MAX, 0)
     BLUE = (0, 0, MAX)
     BLACK = (0, 0, 0)
+
+    CUT = BLUE  # color which indicates CUT
     CUTOFF = (230, 230, 230)
     CUTOFF2 = (234, 36, 98)
     SYM_GREEN = (34, 139, 30)  # Override PIL for green for slide rule symbol conventions
     FC_LIGHT_BLUE_BG = (194, 235, 247)  # Faber-Castell scale background
     FC_LIGHT_GREEN_BG = (203, 243, 225)  # Faber-Castell scale background
 
-    RED_BG_1 = (MAX, 224, 224)
-    RED_BG_2 = (MAX, 192, 192)
-    RED_BG_3 = (MAX, 160, 160)
+    RED_WHITE_1 = (MAX, 224, 224)
+    RED_WHITE_2 = (MAX, 192, 192)
+    RED_WHITE_3 = (MAX, 160, 160)
 
 
 class FontStyle(Enum):
@@ -205,9 +207,6 @@ class Styles:
         font_family=FontFamilies.CMUBright,
         decimal_color='lightblue'
     )
-
-
-CUT_COLOR = Colors.BLUE  # color which indicates CUT
 
 
 class HMod(Enum):
@@ -491,7 +490,7 @@ def draw_symbol_inner(r, style, symbol, color, x_left, y_top, font):
     :param ImageDraw.Draw r:
     :param Style style:
     :param str symbol:
-    :param str color:
+    :param str|tuple[int] color:
     :param Number x_left:
     :param Number y_top:
     :param FreeTypeFont font:
@@ -521,7 +520,7 @@ def draw_symbol(r, geom, style, color, y_off, symbol, x, y, font, al):
     :param ImageDraw.Draw r:
     :param Geometry geom:
     :param Style style:
-    :param str color: color name that PIL recognizes
+    :param str|tuple[int] color: color name that PIL recognizes
     :param int y_off: y pos
     :param str symbol: content (text or number)
     :param x: offset of centerline from left index (li)
@@ -558,7 +557,7 @@ def draw_numeral(r, geom, style, color, y_off, num, x, y, font, al):
     :param ImageDraw.Draw r:
     :param Geometry geom:
     :param Style style:
-    :param str color: color name that PIL recognizes
+    :param str|tuple[int] color: color name that PIL recognizes
     :param int y_off: y pos
     :param Number num: number
     :param x: offset of centerline from left index (li)
@@ -1927,7 +1926,7 @@ def draw_box(img_renderer, x0, y0, dx, dy):
     :param int dy: height extension of box in positive direction
     :return:
     """
-    img_renderer.rectangle((x0, y0, x0 + dx, y0 + dy), outline=CUT_COLOR)
+    img_renderer.rectangle((x0, y0, x0 + dx, y0 + dy), outline=Colors.CUT)
 
 
 def draw_corners(r, x1, y1, x2, y2, arm_width=20):
@@ -1941,15 +1940,16 @@ def draw_corners(r, x1, y1, x2, y2, arm_width=20):
     """
 
     # horizontal cross arms at 4 corners:
-    r.line((x1 - arm_width, y1, x1 + arm_width, y1), CUT_COLOR)
-    r.line((x1 - arm_width, y2, x1 + arm_width, y2), CUT_COLOR)
-    r.line((x2 - arm_width, y1, x2 + arm_width, y1), CUT_COLOR)
-    r.line((x2 - arm_width, y2, x2 + arm_width, y2), CUT_COLOR)
+    col = Colors.CUT
+    r.line((x1 - arm_width, y1, x1 + arm_width, y1), col)
+    r.line((x1 - arm_width, y2, x1 + arm_width, y2), col)
+    r.line((x2 - arm_width, y1, x2 + arm_width, y1), col)
+    r.line((x2 - arm_width, y2, x2 + arm_width, y2), col)
     # vertical cross arms at 4 corners:
-    r.line((x1, y1 - arm_width, x1, y1 + arm_width), CUT_COLOR)
-    r.line((x1, y2 - arm_width, x1, y2 + arm_width), CUT_COLOR)
-    r.line((x2, y1 - arm_width, x2, y1 + arm_width), CUT_COLOR)
-    r.line((x2, y2 - arm_width, x2, y2 + arm_width), CUT_COLOR)
+    r.line((x1, y1 - arm_width, x1, y1 + arm_width), col)
+    r.line((x1, y2 - arm_width, x1, y2 + arm_width), col)
+    r.line((x2, y1 - arm_width, x2, y1 + arm_width), col)
+    r.line((x2, y2 - arm_width, x2, y2 + arm_width), col)
 
 
 def transcribe(src_img, dst_img, src_x, src_y, size_x, size_y, target_x, target_y):
@@ -2241,14 +2241,14 @@ def main():
             r.ellipse((p_x - hole_r, p_y - hole_r,
                        p_x + hole_r, p_y + hole_r),
                       fill=style.bg,
-                      outline=CUT_COLOR)
+                      outline=Colors.CUT)
 
             p_x = round(2 * (6.5 * o_a + box_w + 2 * x_off) - p_x)
 
             r.ellipse((p_x - hole_r, p_y - hole_r,
                        p_x + hole_r, p_y + hole_r),
                       fill=style.bg,
-                      outline=CUT_COLOR)
+                      outline=Colors.CUT)
 
         save_png(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
 
