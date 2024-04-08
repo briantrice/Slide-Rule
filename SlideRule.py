@@ -1088,7 +1088,9 @@ class Layout:
                     yield scale_name
 
     def scale_names(self):
-        return sorted(set(self.scale_names_in_order()))
+        seen = set()
+        all_names = self.scale_names_in_order()
+        return [sc_name for sc_name in all_names if not (sc_name in seen or seen.add(sc_name))]
 
     def scales_at(self, side: Side, part: RulePart, top: bool):
         layout = self.front_sc_keys if side == Side.FRONT else self.rear_sc_keys
