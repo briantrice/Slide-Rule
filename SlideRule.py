@@ -195,7 +195,7 @@ class Styles:
 
     PickettEyeSaver = Style(
         font_family=FontFamilies.CMUBright,
-        bg_color=(253,253,150)  # pastel yellow
+        bg_color=(253, 253, 150)  # pastel yellow
     )
 
     Graphoplex = Style(
@@ -1212,7 +1212,7 @@ class Models:
                                       'C': Colors.FC_LIGHT_GREEN_BG,
                                       'CF': Colors.FC_LIGHT_GREEN_BG
                                   }
-                                ))
+                                  ))
     FaberCastell283N = Model('Faber-Castell', '', '2/83N',
                              Geometry((8000, 2625),
                                       (0, 0),
@@ -2071,12 +2071,12 @@ def main():
         # Scales
         y_off_scales = y_off_titling + f_lbl.size
         y_off_scale_i = y_off_scales
-            for side in [Side.FRONT, Side.REAR]:
+        for side in [Side.FRONT, Side.REAR]:
             for part, top in [(RulePart.STATOR, True), (RulePart.SLIDE, True), (RulePart.STATOR, False)]:
                 for sc in layout.scales_at(side, part, top):
                     scale_al = layout.scale_al(sc, side, part, top)
                     gen_scale(r, geom, style, y_off_scale_i, sc, al=scale_al)
-                y_off_scale_i += layout.scale_h(sc, side, geom.SH)
+                    y_off_scale_i += layout.scale_h(sc, side, geom.SH)
 
             y_off_scale_i = y_front_end
             y_off_scale_i += layout.top_margin
