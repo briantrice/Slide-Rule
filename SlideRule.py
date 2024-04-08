@@ -227,9 +227,9 @@ class Geometry:
 
     SH: int = 160
     """scale height"""
-
     SL: int = 5600
     """scale length"""
+    DEFAULT_SCALE_WH = (SL, SH)
 
     # Ticks, Labels, are referenced from li as to be consistent
     STH: int = 70
@@ -1141,15 +1141,15 @@ class Model:
         part = RulePart.STATOR
         for side in [Side.FRONT, Side.REAR]:
             result = max(result,
-                         160 * len(self.layout.scales_at(side, part, True)),
-                         160 * len(self.layout.scales_at(side, part, False)))
+                         Geometry.SH * len(self.layout.scales_at(side, part, True)),
+                         Geometry.SH * len(self.layout.scales_at(side, part, False)))
         return result
 
     def auto_slide_h(self):
         result = 0
         part = RulePart.SLIDE
         for side in [Side.FRONT, Side.REAR]:
-            result = max(result, 160 * len(self.layout.scales_at(side, part, True)))
+            result = max(result, Geometry.SH * len(self.layout.scales_at(side, part, True)))
         return result
 
 
@@ -1157,7 +1157,7 @@ class Models:
     Demo = Model('KWENA & TOOR CO.', 'LEFT HANDED LIMAÇON 2020', 'BOGELEX 1000',
                  Geometry((8000, 1600),
                           (100, 100),
-                          (5600, 160),
+                          Geometry.DEFAULT_SCALE_WH,
                           Geometry.DEFAULT_TICK_WH,
                           640),
                  Layout('|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |',
@@ -1170,7 +1170,7 @@ class Models:
     Aristo868 = Model('Aristo', '', '868',
                       Geometry((8000, 2140),
                                (100, 100),
-                               (5600, Geometry.SH),
+                               Geometry.DEFAULT_SCALE_WH,
                                Geometry.DEFAULT_TICK_WH,
                                Geometry.SH * 4),
                       Layout(
@@ -1180,7 +1180,7 @@ class Models:
     PickettN515T = Model('Pickett', '', 'N-515-T',
                          Geometry((8000, 2000),
                                   (100, 100),
-                                  (5600, Geometry.SH),
+                                  Geometry.DEFAULT_SCALE_WH,
                                   Geometry.DEFAULT_TICK_WH,
                                   Geometry.SH * 5),
                          Layout(
@@ -1190,7 +1190,7 @@ class Models:
     FaberCastell283 = Model('Faber-Castell', '', '2/83',
                             Geometry((8000, 2150),
                                      (100, 100),
-                                     (5600, Geometry.SH),
+                                     Geometry.DEFAULT_SCALE_WH,
                                      Geometry.DEFAULT_TICK_WH,
                                      Geometry.SH * 4),
                             Layout(
@@ -1216,7 +1216,7 @@ class Models:
     FaberCastell283N = Model('Faber-Castell', '', '2/83N',
                              Geometry((8000, 2625),
                                       (0, 0),
-                                      (5600, Geometry.SH),
+                                      Geometry.DEFAULT_SCALE_WH,
                                       (3, 50),
                                       Geometry.SH * 5),
                              Layout(
@@ -1250,7 +1250,7 @@ class Models:
     Graphoplex621 = Model('Graphoplex', '', '621',
                           Geometry((8000, 2000),
                                    (100, 100),
-                                   (5600, Geometry.SH),
+                                   Geometry.DEFAULT_SCALE_WH,
                                    Geometry.DEFAULT_TICK_WH,
                                    Geometry.SH * 5),
                           Layout(
@@ -2087,7 +2087,7 @@ def main():
     if render_mode == Mode.DIAGNOSTIC:
         # If you're reading this, you're a real one
         # +5 brownie points to you
-        scale_h = 160
+        scale_h = Geometry.SH
         k = 120 + scale_h
         sh_with_margins = scale_h + (40 if is_demo else 10)
         scale_names = ['A', 'B', 'C', 'D',
@@ -2098,7 +2098,7 @@ def main():
         geom_d = Geometry(
             (6500, total_h),
             (250, 250),  # remove y-margin to stack scales
-            (5600, scale_h),
+            (Geometry.SL, scale_h),
             Geometry.DEFAULT_TICK_WH,
             480
         )
@@ -2134,7 +2134,7 @@ def main():
         geom_s = Geometry(
             (scale_w, 1600),
             Geometry.NO_MARGINS,
-            (scale_w, 160),
+            (scale_w, Geometry.SH),
             Geometry.DEFAULT_TICK_WH,
             640
         )
