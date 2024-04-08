@@ -434,10 +434,10 @@ def grad_pat(r, geom, style, y_off, sc, al, start_value=None, end_value=None, in
             step_last = max(round(step_tenth / tick_div), 1)
             break
     sym_col = sc.col
-    num_tick = HMod.MED
-    half_tick = HMod.XL if step_tenth < step_numeral else HMod.XS
-    tenth_tick = HMod.XS if step_last < step_tenth else HMod.DOT
-    h = geom.tick_h(num_tick)
+    num_th = geom.tick_h(HMod.MED)
+    half_th = geom.tick_h(HMod.XL if step_tenth < step_numeral else HMod.XS)
+    dot_th = geom.tick_h(HMod.DOT)
+    tenth_th = geom.tick_h(HMod.XS) if step_last < step_tenth else dot_th
     # Ticks and Labels
     i_start = int(start_value * sf)
     i_offset = i_start % step_last
@@ -457,23 +457,23 @@ def grad_pat(r, geom, style, y_off, sc, al, start_value=None, end_value=None, in
     for i in range(i_start, i_end, step_last):
         num = i / sf
         x = sc.scale_to(num, scale_width)
-        h_mod = HMod.DOT
+        tick_h = dot_th
         if i % step_numeral == 0:  # Numeral marks
-            h_mod = num_tick
+            tick_h = num_th
             if single_digit and not (num > 0 and math.log10(num).is_integer()):
                 num_sym = str(num)
                 if num_sym.endswith('0'):
                     num = int(num_sym[:1])
                 elif num_sym.startswith('0.'):
                     num = int(num_sym[-1])
-            draw_numeral(r, geom, style, sym_col, y_off, num, x, h, num_font, al)
+            draw_numeral(r, geom, style, sym_col, y_off, num, x, num_th, num_font, al)
         elif i % step_half == 0:  # Half marks
-            h_mod = half_tick
+            tick_h = half_th
         elif i % step_tenth == 0:  # Tenth marks
-            h_mod = tenth_tick
+            tick_h = tenth_th
             if draw_tenth:
-                draw_numeral(r, geom, style, tenth_col, y_off, last_digit_of(num), x, h, tenth_font, al)
-        draw_tick(r, geom, sym_col, y_off, x, geom.tick_h(h_mod), al)
+                draw_numeral(r, geom, style, tenth_col, y_off, last_digit_of(num), x, tenth_th, tenth_font, al)
+        draw_tick(r, geom, sym_col, y_off, x, tick_h, al)
 
 
 DEBUG = False
