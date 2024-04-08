@@ -243,12 +243,16 @@ class Geometry:
     DEFAULT_TICK_WH = (STT, STH)
 
     def __init__(self, side_wh: (int, int), margins_xy: (int, int), scale_wh: (int, int), tick_wh: (int, int),
-                 slide_h: int):
+                 slide_h: int,
+                 scale_h_front: dict[str, int] = None,
+                 scale_h_rear: dict[str, int] = None):
         (self.side_w, self.side_h) = side_wh
         (self.oX, self.oY) = margins_xy
         (self.SL, self.SH) = scale_wh
         (self.STT, self.STH) = tick_wh
         self.slide_h = slide_h
+        self.scale_h_front_by_key = scale_h_front or {}
+        self.scale_h_rear_by_key = scale_h_rear or {}
 
     @property
     def total_w(self):
@@ -283,6 +287,17 @@ class Geometry:
 
     def tick_h(self, h_mod: HMod = None) -> int:
         return round(self.STH * h_mod.value) if h_mod else self.STH
+
+    def scale_h(self, sc, side, default=None) -> int:
+        """
+        :param Scale sc:
+        :param Side side:
+        :param int default:
+        """
+        if side == Side.FRONT:
+            return self.scale_h_front_by_key.get(sc.key, default or self.SH)
+        elif side == Side.REAR:
+            return self.scale_h_rear_by_key.get(sc.key, default or self.SH)
 
 
 class FontSize(Enum):
@@ -1011,7 +1026,6 @@ SCALE_NAMES = set(keys_of(Scales))
 
 class Layout:
     def __init__(self, front_sc_keys: str, rear_sc_keys: str,
-                 front_heights: dict[str, int] = None, rear_heights: dict[str, int] = None,
                  front_aligns: dict[str, Align] = None, rear_aligns: dict[str, Align] = None,
                  top_margin: int = None):
         if not rear_sc_keys and '\n' in front_sc_keys:
@@ -1019,8 +1033,6 @@ class Layout:
         self.front_sc_keys: list[list[str]] = self.parse_side_layout(front_sc_keys)
         self.rear_sc_keys: list[list[str]] = self.parse_side_layout(rear_sc_keys)
         self.check_scales()
-        self.front_heights_by_sc_key = front_heights or {}
-        self.rear_heights_by_sc_key = rear_heights or {}
         self.front_aligns_by_sc_key = front_aligns or {}
         self.rear_aligns_by_sc_key = rear_aligns or {}
         self.top_margin = top_margin or 110
@@ -1108,12 +1120,6 @@ class Layout:
         elif side == Side.REAR:
             return self.rear_aligns_by_sc_key.get(sc.key, default_al)
 
-    def scale_h(self, sc: Scale, side: Side, default=None):
-        if side == Side.FRONT:
-            return self.front_heights_by_sc_key.get(sc.key, default or Geometry.SH)
-        elif side == Side.REAR:
-            return self.rear_heights_by_sc_key.get(sc.key, default or Geometry.SH)
-
 
 class Layouts:
     MannheimOriginal = Layout('A/B C/D', '')
@@ -1159,13 +1165,13 @@ class Models:
                           (100, 100),
                           Geometry.DEFAULT_SCALE_WH,
                           Geometry.DEFAULT_TICK_WH,
-                          640),
+                          640,
+                          scale_h_front={'L': 205, 'R1': 155},
+                          scale_h_rear={'K': 210, 'D': 240}),
                  Layout('|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |',
                         '|  K,  A  [ B, T, ST, S ] D,  DI    |',
                         top_margin=109,
-                        front_aligns={'CIF': Align.UPPER},
-                        front_heights={'L': 205, 'R1': 155},
-                        rear_heights={'K': 210, 'D': 240}))
+                        front_aligns={'CIF': Align.UPPER}))
 
     Aristo868 = Model('Aristo', '', '868',
                       Geometry((8000, 2140),
@@ -2076,7 +2082,7 @@ def main():
                 for sc in layout.scales_at(side, part, top):
                     scale_al = layout.scale_al(sc, side, part, top)
                     gen_scale(r, geom, style, y_off_scale_i, sc, al=scale_al)
-                    y_off_scale_i += layout.scale_h(sc, side, geom.SH)
+                    y_off_scale_i += geom.scale_h(sc, side, geom.SH)
 
             y_off_scale_i = y_front_end
             y_off_scale_i += layout.top_margin
