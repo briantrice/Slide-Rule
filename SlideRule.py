@@ -53,16 +53,21 @@ class BleedDir(Enum):
 
 
 class Colors:
-    WHITE = 'white'
-    BLACK = 'black'
-    RGB_BLACK = (0, 0, 0)
-    RGB_BLUE = (0, 0, 255)  # (0,0,255 = blue)
-    RGB_CUTOFF = (230, 230, 230)
-    RGB_CUTOFF2 = (234, 36, 98)
-    RED = 'red'
-    GREEN = '#228B1E'  # Override PIL for green for slide rule symbol conventions
-    FC_LIGHT_BLUE_BG = (194, 235, 247)
-    FC_LIGHT_GREEN_BG = (203, 243, 225)
+    MAX = 255
+    WHITE = (MAX, MAX, MAX)
+    RED = (MAX, 0, 0)
+    GREEN = (0, MAX, 0)
+    BLUE = (0, 0, MAX)
+    BLACK = (0, 0, 0)
+    CUTOFF = (230, 230, 230)
+    CUTOFF2 = (234, 36, 98)
+    SYM_GREEN = (34, 139, 30)  # Override PIL for green for slide rule symbol conventions
+    FC_LIGHT_BLUE_BG = (194, 235, 247)  # Faber-Castell scale background
+    FC_LIGHT_GREEN_BG = (203, 243, 225)  # Faber-Castell scale background
+
+    RED_BG_1 = (MAX, 224, 224)
+    RED_BG_2 = (MAX, 192, 192)
+    RED_BG_3 = (MAX, 160, 160)
 
 
 class FontStyle(Enum):
@@ -202,7 +207,7 @@ class Styles:
     )
 
 
-CUT_COLOR = Colors.RGB_BLUE  # color which indicates CUT
+CUT_COLOR = Colors.BLUE  # color which indicates CUT
 
 
 class HMod(Enum):
@@ -1802,7 +1807,7 @@ def last_digit_of(x) -> int:
 # since I built them with specific numbers rather than variables
 
 
-def draw_borders(r, geom, y0, side, color=Colors.RGB_BLACK):
+def draw_borders(r, geom, y0, side, color=Colors.BLACK):
     """
     Place initial borders around scales
     :param ImageDraw.Draw r:
@@ -1847,7 +1852,7 @@ def draw_metal_cutoffs(r, geom, y0, side):
     cutoff_w = geom.cutoff_w
     verticals = [cutoff_w + geom.oX, geom.total_w - cutoff_w - geom.oX]
     for i, start in enumerate(verticals):
-        r.rectangle((start - 1, y0, start + 1, y0 + i), Colors.RGB_CUTOFF)
+        r.rectangle((start - 1, y0, start + 1, y0 + i), Colors.CUTOFF)
 
         # ~Cute~little~visualization~
         #
@@ -1901,7 +1906,7 @@ def draw_metal_cutoffs(r, geom, y0, side):
             points.append([x1, x2, mid_y - y2, mid_y - y1])
     for i in range(0, 12):
         (x1, x2, y1, y2) = points[i]
-        r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Colors.RGB_CUTOFF2)
+        r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Colors.CUTOFF2)
 
 
 class Mode(Enum):
