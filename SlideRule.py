@@ -1980,22 +1980,15 @@ def draw_corners(r, x1, y1, x2, y2, arm_width=20):
 
 def transcribe(src_img, dst_img, src_x, src_y, size_x, size_y, target_x, target_y):
     """
-    (x0,y0) First corner of SOURCE (rendering)
-    (dx,dy) Width and Length of SOURCE chunk to transcribe
-    (xT,yT) Target corner of DESTINATION; where to in-plop (into stickerprint)
-
-    Note to self: this is such a bad way to do this, instead of
-    transcribing over literally thousands of pixels I should have
-    just generated the scales in the place where they are needed
-
+    Transfer a pixel rectangle from a SOURCE (for rendering) to DESTINATION (for stickerprint)
     :param src_img: SOURCE of pixels
     :param dst_img: DESTINATION of pixels
-    :param src_x: First corner of SOURCE (rendering)
-    :param src_y: First corner of SOURCE (rendering)
+    :param src_x: First corner of SOURCE
+    :param src_y: First corner of SOURCE
     :param size_x: Width of SOURCE chunk to transcribe
     :param size_y: Length of SOURCE chunk to transcribe
-    :param target_x: Target corner of DESTINATION; where to in-plop (into stickerprint)
-    :param target_y: Target corner of DESTINATION; where to in-plop (into stickerprint)
+    :param target_x: Target corner of DESTINATION
+    :param target_y: Target corner of DESTINATION
     """
 
     src_box = src_img.crop((src_x, src_y, src_x + size_x, src_y + size_y))
