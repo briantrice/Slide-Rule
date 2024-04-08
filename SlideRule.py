@@ -114,6 +114,7 @@ class Style:
     """foreground color black"""
     bg = Colors.WHITE
     """background color white"""
+    overrides_by_sc_key: dict[str, dict] = {}
 
     def __init__(self, fg_color=fg, bg_color=bg,
                  decreasing_color=Colors.RED,
@@ -152,12 +153,6 @@ class Style:
     def override_for(self, sc, key, default):
         sc_overrides = self.overrides_for(sc)
         return sc_overrides.get(key, default) if sc_overrides else default
-
-    def scale_al(self, sc):
-        return self.override_for(sc, 'al', sc.al)
-
-    def scale_h(self, sc, default=None):
-        return self.override_for(sc, 'h', default or Geometry.SH)
 
     def numeral_decimal_color(self):
         return self.decimal_color
@@ -1012,15 +1007,21 @@ SCALE_NAMES = set(keys_of(Scales))
 
 
 class Layout:
-    def __init__(self, front_layout: str, rear_layout: str = None):
-        if not rear_layout and '\n' in front_layout:
-            (front_layout, rear_layout) = front_layout.splitlines()
-        self.front_layout: list[list[str]] = self.parse_side_layout(front_layout)
-        self.rear_layout: list[list[str]] = self.parse_side_layout(rear_layout)
+    def __init__(self, front_sc_keys: str, rear_sc_keys: str,
+                 front_heights: dict[str, int] = None, rear_heights: dict[str, int] = None,
+                 front_aligns: dict[str, Align] = None, rear_aligns: dict[str, Align] = None):
+        if not rear_sc_keys and '\n' in front_sc_keys:
+            (front_sc_keys, rear_sc_keys) = front_sc_keys.splitlines()
+        self.front_sc_keys: list[list[str]] = self.parse_side_layout(front_sc_keys)
+        self.rear_sc_keys: list[list[str]] = self.parse_side_layout(rear_sc_keys)
         self.check_scales()
+        self.front_heights_by_sc_key = front_heights or {}
+        self.rear_heights_by_sc_key = rear_heights or {}
+        self.front_aligns_by_sc_key = front_aligns or {}
+        self.rear_aligns_by_sc_key = rear_aligns or {}
 
     def __repr__(self):
-        return f'Layout({self.front_layout}, {self.rear_layout})'
+        return f'Layout({self.front_sc_keys}, {self.rear_sc_keys})'
 
     @classmethod
     def parse_segment_layout(cls, segment_layout: str) -> [str]:
@@ -1058,13 +1059,13 @@ class Layout:
         return [upper_frame_scales, slide_scales, lower_frame_scales]
 
     def check_scales(self):
-        for front_part in self.front_layout:
+        for front_part in self.front_sc_keys:
             if not front_part:
                 continue
             for scale_name in front_part:
                 if scale_name not in SCALE_NAMES:
                     raise Exception(f'Unrecognized front scale name: {scale_name}')
-        for rear_part in self.front_layout:
+        for rear_part in self.front_sc_keys:
             if not rear_part:
                 continue
             for scale_name in rear_part:
@@ -1072,11 +1073,11 @@ class Layout:
                     raise Exception(f'Unrecognized rear scale name: {scale_name}')
 
     def scale_names_in_order(self):
-        for part in self.front_layout:
+        for part in self.front_sc_keys:
             if part:
                 for scale_name in part:
                     yield scale_name
-        for part in self.rear_layout:
+        for part in self.rear_sc_keys:
             if part:
                 for scale_name in part:
                     yield scale_name
@@ -1085,7 +1086,7 @@ class Layout:
         return sorted(set(self.scale_names_in_order()))
 
     def scales_at(self, side: Side, part: RulePart, top: bool):
-        layout = self.front_layout if side == Side.FRONT else self.rear_layout
+        layout = self.front_sc_keys if side == Side.FRONT else self.rear_sc_keys
         layout_i = 0
         if part == RulePart.SLIDE:
             layout_i = 1
@@ -1093,10 +1094,22 @@ class Layout:
             layout_i = 0 if top else 2
         return [getattr(Scales, sc_name) for sc_name in layout[layout_i] or []]
 
+    def scale_al(self, sc: Scale, side: Side):
+        if side == Side.FRONT:
+            return self.front_aligns_by_sc_key.get(sc.key, sc.al)
+        elif side == Side.REAR:
+            return self.rear_aligns_by_sc_key.get(sc.key, sc.al)
+
+    def scale_h(self, sc: Scale, side: Side, default=None):
+        if side == Side.FRONT:
+            return self.front_heights_by_sc_key.get(sc.key, default or Geometry.SH)
+        elif side == Side.REAR:
+            return self.rear_heights_by_sc_key.get(sc.key, default or Geometry.SH)
+
 
 class Layouts:
-    MannheimOriginal = Layout('A/B C/D')
-    RegleDesEcoles = Layout('DF/CF C/D')
+    MannheimOriginal = Layout('A/B C/D', '')
+    RegleDesEcoles = Layout('DF/CF C/D', '')
     Mannheim = Layout('A/B CI C/D K', 'S L T')
     Rietz = Layout('K A/B CI C/D L', 'S ST T')
     Darmstadt = Layout('S T A/B K CI C/D P', 'L LL1 LL2 LL3')
@@ -1158,7 +1171,7 @@ class Models:
                                   Geometry.DEFAULT_TICK_WH,
                                   900),
                          Layout(
-                             'L_r f_x A/B S T CI C/D L Ln'
+                             'L_r f_x A/B S T CI C/D L Ln', ''
                          ),
                          Styles.PickettEyeSaver)
     FaberCastell283 = Model('Faber-Castell', '', '2/83',
@@ -1169,7 +1182,20 @@ class Models:
                                      640),
                             Layout(
                                 'K T1 T2 DF/CF CIF CI C/D S ST P',
-                                'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3'
+                                'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3',
+                                front_aligns={
+                                    'T2': Align.UPPER,
+                                    'CF': Align.UPPER,
+                                    'CI': Align.UPPER,
+                                    'DF': Align.LOWER,
+                                    'ST': Align.UPPER,
+                                    'P': Align.UPPER,
+                                },
+                                rear_aligns={
+                                    'LL1': Align.UPPER,
+                                    'LL2': Align.UPPER,
+                                    'LL3': Align.UPPER,
+                                }
                             ),
                             Style(Colors.BLACK, Colors.WHITE,
                                   font_family=FontFamilies.CMUBright,
@@ -1177,17 +1203,7 @@ class Models:
                                       'C': Colors.FC_LIGHT_GREEN_BG,
                                       'CF': Colors.FC_LIGHT_GREEN_BG
                                   },
-                                  overrides_by_sc_key={
-                                      'T2': {'al': Align.UPPER},
-                                      'CF': {'al': Align.UPPER},
-                                      'CI': {'al': Align.UPPER},
-                                      'DF': {'al': Align.LOWER},
-                                      'ST': {'al': Align.UPPER},
-                                      'P': {'al': Align.UPPER},
-                                      'LL1': {'al': Align.UPPER},
-                                      'LL2': {'al': Align.UPPER},
-                                      'LL3': {'al': Align.UPPER},
-                                  }))
+                                ))
     FaberCastell283N = Model('Faber-Castell', '', '2/83N',
                              Geometry((8000, 2700),
                                       (0, 0),
@@ -1196,7 +1212,25 @@ class Models:
                                       640),
                              Layout(
                                  'T1 T2 K A DF [CF B CIF CI C] D DI S ST P',
-                                 'LL03 LL02 LL01 LL00 W2 [W2Prime CI L C W1Prime] W1 D LL0 LL1 LL2 LL3'
+                                 'LL03 LL02 LL01 LL00 W2 [W2Prime CI L C W1Prime] W1 D LL0 LL1 LL2 LL3',
+                                 front_aligns={
+                                     'DF': Align.LOWER,
+                                     'CF': Align.UPPER,
+                                     'CI': Align.UPPER,
+                                     'DI': Align.UPPER,
+                                     'ST': Align.UPPER,
+                                 },
+                                 rear_aligns={
+                                     'LL03': Align.LOWER,
+                                     'LL02': Align.UPPER,
+                                     'LL01': Align.LOWER,
+                                     'LL00': Align.UPPER,
+                                     'C': Align.UPPER,
+                                     'LL0': Align.LOWER,
+                                     'LL1': Align.UPPER,
+                                     'LL2': Align.LOWER,
+                                     'LL3': Align.UPPER,
+                                 }
                              ),
                              Style(Colors.BLACK, Colors.WHITE, sc_bg_colors={
                                  'C': Colors.FC_LIGHT_GREEN_BG,
@@ -1204,22 +1238,7 @@ class Models:
                                  'A': Colors.FC_LIGHT_BLUE_BG,
                                  'B': Colors.FC_LIGHT_BLUE_BG,
                                  'LL0': Colors.FC_LIGHT_GREEN_BG
-                             }, font_family=FontFamilies.CMUBright,
-                                   overrides_by_sc_key={
-                                       'DF': {'al': Align.LOWER},
-                                       'CF': {'al': Align.UPPER},
-                                       'CI': {'al': Align.UPPER},
-                                       'DI': {'al': Align.UPPER},
-                                       'ST': {'al': Align.UPPER},
-                                       'LL03': {'al': Align.LOWER},
-                                       'LL02': {'al': Align.UPPER},
-                                       'LL01': {'al': Align.LOWER},
-                                       'LL00': {'al': Align.UPPER},
-                                       'LL0': {'al': Align.LOWER},
-                                       'LL1': {'al': Align.UPPER},
-                                       'LL2': {'al': Align.LOWER},
-                                       'LL3': {'al': Align.UPPER},
-                                   }))
+                             }, font_family=FontFamilies.CMUBright))
 
     Graphoplex621 = Model('Graphoplex', '', '621',
                           Geometry((8000, 1600),
@@ -1228,7 +1247,8 @@ class Models:
                                    Geometry.DEFAULT_TICK_WH,
                                    640),
                           Layout(
-                              'P ST A [ B T1 S CI C ] D K L'  # 'P SRT A [ B T1 S CI C ] D K L'
+                              'P ST A [ B T1 S CI C ] D K L',  # 'P SRT A [ B T1 S CI C ] D K L'
+                              ''
                           ), Styles.Graphoplex)
 
 
@@ -2079,16 +2099,16 @@ def main():
         else:
             for side in [Side.FRONT, Side.REAR]:
                 for sc in layout.scales_at(side, RulePart.STATOR, True):
-                    gen_scale(r, geom, style, y_off_scale_i, sc, al=style.scale_al(sc), color_scheme=style)
-                    y_off_scale_i += style.scale_h(sc)
+                    gen_scale(r, geom, style, y_off_scale_i, sc, al=layout.scale_al(sc, side), color_scheme=style)
+                    y_off_scale_i += layout.scale_h(sc, side)
 
                 for sc in layout.scales_at(side, RulePart.SLIDE, True):
-                    gen_scale(r, geom, style, y_off_scale_i, sc, al=style.scale_al(sc), color_scheme=style)
-                    y_off_scale_i += style.scale_h(sc)
+                    gen_scale(r, geom, style, y_off_scale_i, sc, al=layout.scale_al(sc, side), color_scheme=style)
+                    y_off_scale_i += layout.scale_h(sc, side)
 
                 for sc in layout.scales_at(side, RulePart.STATOR, False):
-                    gen_scale(r, geom, style, y_off_scale_i, sc, al=style.scale_al(sc), color_scheme=style)
-                    y_off_scale_i += style.scale_h(sc)
+                    gen_scale(r, geom, style, y_off_scale_i, sc, al=layout.scale_al(sc, side), color_scheme=style)
+                    y_off_scale_i += layout.scale_h(sc, side)
 
                 y_off_scale_i = 110 + y_front_end
 

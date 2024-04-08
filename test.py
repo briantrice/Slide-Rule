@@ -251,18 +251,18 @@ class SlideRuleLayoutTestCase(unittest.TestCase):
     def test_demo(self):
         actual = Layout('|  K,  A  [ B, T, ST, S ] D,  DI    |',
                                  '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |')
-        self.assertEqual(actual.front_layout, [['K', 'A'], ['B', 'T', 'ST', 'S'], ['D', 'DI']])
-        self.assertEqual(actual.rear_layout, [['L', 'DF'], ['CF', 'CIF', 'CI', 'C'], ['D', 'R1', 'R2']])
+        self.assertEqual(actual.front_sc_keys, [['K', 'A'], ['B', 'T', 'ST', 'S'], ['D', 'DI']])
+        self.assertEqual(actual.rear_sc_keys, [['L', 'DF'], ['CF', 'CIF', 'CI', 'C'], ['D', 'R1', 'R2']])
 
     def test_single_side_slide(self):
         actual = Layout('A/B C/D')
-        self.assertEqual(actual.front_layout, [['A'], ['B', 'C'], ['D']])
-        self.assertEqual(actual.rear_layout, [None, None, None])
+        self.assertEqual(actual.front_sc_keys, [['A'], ['B', 'C'], ['D']])
+        self.assertEqual(actual.rear_sc_keys, [None, None, None])
 
     def test_no_slide(self):
         actual = Layout('A B C D')
-        self.assertEqual(actual.front_layout, [['A', 'B', 'C', 'D'], None, None])
-        self.assertEqual(actual.rear_layout, [None, None, None])
+        self.assertEqual(actual.front_sc_keys, [['A', 'B', 'C', 'D'], None, None])
+        self.assertEqual(actual.rear_sc_keys, [None, None, None])
 
 
 class ModelTestCase(unittest.TestCase):
@@ -280,11 +280,11 @@ class ModelTestCase(unittest.TestCase):
 
     def test_faber_castell_283(self):
         fc283 = Models.FaberCastell283
-        self.assertEqual(fc283.layout.front_layout, [
+        self.assertEqual(fc283.layout.front_sc_keys, [
             ['K', 'T1', 'T2', 'DF'],
             ['CF', 'CIF', 'CI', 'C'],
             ['D', 'S', 'ST', 'P']])
-        self.assertEqual(fc283.layout.rear_layout, [
+        self.assertEqual(fc283.layout.rear_sc_keys, [
             ['LL03', 'LL02', 'LL01', 'W2'],
             ['W2Prime', 'L', 'C', 'W1Prime'],
             ['W1', 'LL1', 'LL2', 'LL3']])
