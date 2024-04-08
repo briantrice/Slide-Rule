@@ -841,6 +841,8 @@ class Scalers:
 
 
 class Scale:
+    al: Align = None
+    """If a scale has an alignment its label or relationship to another scale implies."""
 
     def __init__(self, left_sym: str, right_sym: str, scaler: callable, shift: float = 0,
                  increasing=True, key=None, rule_part=RulePart.STATOR, opp_scale=None):
@@ -848,7 +850,7 @@ class Scale:
         """left scale symbol"""
         self.right_sym = right_sym
         """right scale symbol"""
-        self.scaler = scaler
+        self.scaler: Scaler = scaler
         self.gen_fn = scaler.fn if isinstance(scaler, Scaler) else scaler
         """generating function (producing a fraction of output width)"""
         self.pos_fn = scaler.inverse if isinstance(scaler, Scaler) else None
@@ -865,7 +867,8 @@ class Scale:
         """which scale, if on an edge, it's aligned with"""
         if opp_scale:
             opp_scale.opp_scale = self
-        self.al = Align.UPPER if opp_scale else Align.LOWER
+            self.al = Align.UPPER
+            opp_scale.al = Align.LOWER
 
     def displays_cyclic(self):
         return self.scaler in {Scalers.Base, Scalers.Inverse, Scalers.Square, Scalers.Cube}
@@ -949,11 +952,11 @@ class Scales:
     A = Scale('A', 'x²', Scalers.Square)
     B = Scale('B', 'x²_y', Scalers.Square, rule_part=RulePart.SLIDE, opp_scale=A)
     C = Scale('C', 'x_y', Scalers.Base, rule_part=RulePart.SLIDE)
-    CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, rule_part=RulePart.SLIDE)
+    DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift)
+    CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, rule_part=RulePart.SLIDE, opp_scale=DF)
     CI = Scale('CI', '1/x_y', Scalers.Inverse, rule_part=RulePart.SLIDE)
     CIF = Scale('CIF', '1/πx_y', Scalers.Inverse, shift=pi_fold_shift - 1, rule_part=RulePart.SLIDE)
     D = Scale('D', 'x', Scalers.Base, opp_scale=C)
-    DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift, opp_scale=CF)
     DI = Scale('DI', '1/x', Scalers.Inverse)
     K = Scale('K', 'x³', Scalers.Cube)
     L = Scale('L', 'log x', Scalers.Log10)
@@ -1009,7 +1012,8 @@ SCALE_NAMES = set(keys_of(Scales))
 class Layout:
     def __init__(self, front_sc_keys: str, rear_sc_keys: str,
                  front_heights: dict[str, int] = None, rear_heights: dict[str, int] = None,
-                 front_aligns: dict[str, Align] = None, rear_aligns: dict[str, Align] = None):
+                 front_aligns: dict[str, Align] = None, rear_aligns: dict[str, Align] = None,
+                 top_margin: int = None):
         if not rear_sc_keys and '\n' in front_sc_keys:
             (front_sc_keys, rear_sc_keys) = front_sc_keys.splitlines()
         self.front_sc_keys: list[list[str]] = self.parse_side_layout(front_sc_keys)
@@ -1019,6 +1023,7 @@ class Layout:
         self.rear_heights_by_sc_key = rear_heights or {}
         self.front_aligns_by_sc_key = front_aligns or {}
         self.rear_aligns_by_sc_key = rear_aligns or {}
+        self.top_margin = top_margin or 110
 
     def __repr__(self):
         return f'Layout({self.front_sc_keys}, {self.rear_sc_keys})'
@@ -1094,11 +1099,12 @@ class Layout:
             layout_i = 0 if top else 2
         return [getattr(Scales, sc_name) for sc_name in layout[layout_i] or []]
 
-    def scale_al(self, sc: Scale, side: Side):
+    def scale_al(self, sc: Scale, side: Side, part: RulePart, top: bool):
+        default_al = sc.al or (top and Align.LOWER or Align.UPPER)
         if side == Side.FRONT:
-            return self.front_aligns_by_sc_key.get(sc.key, sc.al)
+            return self.front_aligns_by_sc_key.get(sc.key, default_al)
         elif side == Side.REAR:
-            return self.rear_aligns_by_sc_key.get(sc.key, sc.al)
+            return self.rear_aligns_by_sc_key.get(sc.key, default_al)
 
     def scale_h(self, sc: Scale, side: Side, default=None):
         if side == Side.FRONT:
@@ -1152,8 +1158,13 @@ class Models:
                           (5600, 160),
                           Geometry.DEFAULT_TICK_WH,
                           640),
-                 Layout('|  K,  A  [ B, T, ST, S ] D,  DI    |',
-                        '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |'))
+                 Layout('|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |',
+                        '|  K,  A  [ B, T, ST, S ] D,  DI    |',
+                        top_margin=109,
+                        front_aligns={'CIF': Align.UPPER},
+                        front_heights={'L': 205, 'R1': 155},
+                        rear_heights={'K': 210, 'D': 240}))
+
     Aristo868 = Model('Aristo', '', '868',
                       Geometry((8000, 1600),
                                (100, 100),
@@ -1185,16 +1196,12 @@ class Models:
                                 'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3',
                                 front_aligns={
                                     'T2': Align.UPPER,
-                                    'CF': Align.UPPER,
                                     'CI': Align.UPPER,
                                     'DF': Align.LOWER,
-                                    'ST': Align.UPPER,
-                                    'P': Align.UPPER,
+                                    'S': Align.LOWER,
                                 },
                                 rear_aligns={
-                                    'LL1': Align.UPPER,
-                                    'LL2': Align.UPPER,
-                                    'LL3': Align.UPPER,
+                                    'C': Align.UPPER
                                 }
                             ),
                             Style(Colors.BLACK, Colors.WHITE,
@@ -1202,7 +1209,7 @@ class Models:
                                   sc_bg_colors={
                                       'C': Colors.FC_LIGHT_GREEN_BG,
                                       'CF': Colors.FC_LIGHT_GREEN_BG
-                                  },
+                                  }
                                 ))
     FaberCastell283N = Model('Faber-Castell', '', '2/83N',
                              Geometry((8000, 2700),
@@ -1214,11 +1221,9 @@ class Models:
                                  'T1 T2 K A DF [CF B CIF CI C] D DI S ST P',
                                  'LL03 LL02 LL01 LL00 W2 [W2Prime CI L C W1Prime] W1 D LL0 LL1 LL2 LL3',
                                  front_aligns={
-                                     'DF': Align.LOWER,
-                                     'CF': Align.UPPER,
+                                     'T2': Align.UPPER,
                                      'CI': Align.UPPER,
-                                     'DI': Align.UPPER,
-                                     'ST': Align.UPPER,
+                                     'S': Align.LOWER,
                                  },
                                  rear_aligns={
                                      'LL03': Align.LOWER,
@@ -1310,7 +1315,7 @@ def gen_scale_band_bg(r, geom, y_off, sc, color, start_value=None, end_value=Non
                 fill=color)
 
 
-def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=Styles.Default):
+def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
     """
     :param ImageDraw.Draw r:
     :param Geometry geom:
@@ -1319,7 +1324,6 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
     :param Scale sc:
     :param Align al: alignment
     :param float overhang: fraction of total width to overhang each side to label
-    :param Style color_scheme:
     """
 
     if style.override_for(sc, 'hide', False):
@@ -1341,11 +1345,13 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
     if not al:
         al = sc.al
     li = geom.li
+    scale_w = geom.SL
+    scale_h = geom.SH
     if DEBUG:
-        r.rectangle((li, y_off, li + geom.SL, y_off + geom.SH), outline='grey')
+        r.rectangle((li, y_off, li + scale_w, y_off + scale_h), outline='grey')
 
-    sym_col = color_scheme.scale_fg_col(sc)
-    bg_col = color_scheme.scale_bg_col(sc)
+    sym_col = style.scale_fg_col(sc)
+    bg_col = style.scale_bg_col(sc)
     dec_col = style.dec_color
     if bg_col:
         gen_scale_band_bg(r, geom, y_off, sc, bg_col)
@@ -1353,15 +1359,15 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
     # Right
     (right_sym, _, _) = symbol_parts(sc.right_sym)
     w2, h2 = style.sym_dims(right_sym, f_lbl)
-    y2 = (geom.SH - h2) / 2
-    x_right = (1 + overhang) * geom.SL + w2 / 2
+    y2 = (scale_h - h2) / 2
+    x_right = (1 + overhang) * scale_w + w2 / 2
     draw_symbol(r, geom, style, sym_col, y_off, sc.right_sym, x_right, y2, f_lbl, al)
 
     # Left
     (left_sym, _, _) = symbol_parts(sc.left_sym)
     w1, h1 = style.sym_dims(left_sym, f_lbl)
-    y1 = (geom.SH - h1) / 2
-    x_left = (0 - overhang) * geom.SL - w1 / 2
+    y1 = (scale_h - h1) / 2
+    x_left = (0 - overhang) * scale_w - w1 / 2
     draw_symbol(r, geom, style, sym_col, y_off, sc.left_sym, x_left, y1, f_lbl, al)
 
     # Special Symbols for S, and T
@@ -1505,7 +1511,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
         # 4-10 Labels
         for x in range(4, 10):
             draw_numeral(r, geom, style, sym_col, y_off, x, sc.pos_of(x, geom), med_h, f_lbl, al)
-        draw_symbol(r, geom, style, sym_col, y_off, '1', geom.SL, med_h, f_lbl, al)
+        draw_symbol(r, geom, style, sym_col, y_off, '1', scale_w, med_h, f_lbl, al)
 
         # 3.1-4.9 Labels
         for x in range(32, 40):
@@ -1540,7 +1546,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
         for x in range(1, 4):
             draw_numeral(r, geom, style, sym_col, y_off, x, sc.pos_of(x, geom), med_h, f_lbl, al)
         for x in range(4, 10):
-            draw_numeral(r, geom, style, sym_col, y_off, x, sc.pos_of(x, geom) - geom.SL, med_h, f_lbl, al)
+            draw_numeral(r, geom, style, sym_col, y_off, x, sc.pos_of(x, geom) - scale_w, med_h, f_lbl, al)
 
         # 0.1-0.9 Labels
         for x in range(11, 20):
@@ -1569,7 +1575,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
 
         # 1-10 Labels
         for x in range(4, 10):
-            draw_numeral(r, geom, style, dec_col, y_off, x, sc.pos_of(x, geom) + geom.SL, med_h, f_lbl, al)
+            draw_numeral(r, geom, style, dec_col, y_off, x, sc.pos_of(x, geom) + scale_w, med_h, f_lbl, al)
         for x in range(1, 4):
             draw_numeral(r, geom, style, dec_col, y_off, x, sc.pos_of(x, geom), med_h, f_lbl, al)
 
@@ -1640,7 +1646,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
                     elif xi == 40:
                         draw_numeral(r, geom, style, dec_col, y_off + 11, 40, x_coord, med_h, f_mdn_i, al)
 
-        draw_numeral(r, geom, style, sym_col, y_off, DEG_RIGHT_ANGLE, geom.SL, med_h, f_lgn, al)
+        draw_numeral(r, geom, style, sym_col, y_off, DEG_RIGHT_ANGLE, scale_w, med_h, f_lgn, al)
 
     elif sc == Scales.T or sc == Scales.T1:
 
@@ -1649,7 +1655,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
         pat(r, geom, y_off, sc, HMod.XL, i_range(600, 1000, True), (50, 100), None, al)
         pat(r, geom, y_off, sc, HMod.XL, i_range(2500, 4500, True), (0, 500), None, al)
         pat(r, geom, y_off, sc, HMod.MED, i_range(2500, 4500, True), (0, 100), None, al)
-        draw_tick(r, geom, sym_col, y_off, geom.SL, round(med_h), al)
+        draw_tick(r, geom, sym_col, y_off, scale_w, round(med_h), al)
         pat(r, geom, y_off, sc, HMod.MED, i_range(600, 950, True), (50, 100), None, al)
         pat(r, geom, y_off, sc, HMod.SM, i_range(570, 1000, True), (0, 10), (0, 50), al)
         pat(r, geom, y_off, sc, HMod.SM, i_range(1000, 2500, False), (50, 100), None, al)
@@ -1678,7 +1684,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, color_scheme=St
             draw_numeral(r, geom, style, dec_col, y_off, xi, x_coord_opp,
                          f, f_mdn_i, al)
 
-        draw_numeral(r, geom, style, sym_col, y_off, 45, geom.SL, f, f_lgn, al)
+        draw_numeral(r, geom, style, sym_col, y_off, 45, scale_w, f, f_lgn, al)
 
     elif sc == Scales.T2:
         f = geom.tick_h(HMod.LG)
@@ -2040,7 +2046,6 @@ def main():
     scale_w = 6500
 
     upper = Align.UPPER
-    lower = Align.LOWER
     geom = model.geometry
     sliderule_img = Image.new('RGB', (geom.total_w, geom.print_height), model.style.bg)
     r = ImageDraw.Draw(sliderule_img)
@@ -2071,46 +2076,15 @@ def main():
         # Scales
         y_off_scales = y_off_titling + f_lbl.size
         y_off_scale_i = y_off_scales
-        if model == Models.Demo:
-            # Front Scales
-            gen_scale(r, geom, style, 110 + geom.oY, Scales.L, lower)
-            gen_scale(r, geom, style, 320 + geom.oY, Scales.DF, lower)
-
-            gen_scale(r, geom, style, 480 + geom.oY, Scales.CF, upper)
-            gen_scale(r, geom, style, 640 + geom.oY, Scales.CIF, upper)
-            gen_scale(r, geom, style, 800 + geom.oY, Scales.CI, lower)
-            gen_scale(r, geom, style, 960 + geom.oY, Scales.C, lower)
-
-            gen_scale(r, geom, style, 1120 + geom.oY, Scales.D, upper)
-            gen_scale(r, geom, style, 1280 + geom.oY, Scales.R1, upper)
-            gen_scale(r, geom, style, 1435 + geom.oY, Scales.R2, upper)
-
-            # Back Scales
-            gen_scale(r, geom, style, 110 + y_front_end, Scales.K, lower)
-            gen_scale(r, geom, style, 320 + y_front_end, Scales.A, lower)
-
-            gen_scale(r, geom, style, 480 + y_front_end, Scales.B, upper)
-            gen_scale(r, geom, style, 640 + y_front_end, Scales.T, lower)
-            gen_scale(r, geom, style, 800 + y_front_end, Scales.ST, lower)
-            gen_scale(r, geom, style, 960 + y_front_end, Scales.S, lower)
-
-            gen_scale(r, geom, style, 1120 + y_front_end, Scales.D, upper)
-            gen_scale(r, geom, style, 1360 + y_front_end, Scales.DI, upper)
-        else:
             for side in [Side.FRONT, Side.REAR]:
-                for sc in layout.scales_at(side, RulePart.STATOR, True):
-                    gen_scale(r, geom, style, y_off_scale_i, sc, al=layout.scale_al(sc, side), color_scheme=style)
-                    y_off_scale_i += layout.scale_h(sc, side)
+            for part, top in [(RulePart.STATOR, True), (RulePart.SLIDE, True), (RulePart.STATOR, False)]:
+                for sc in layout.scales_at(side, part, top):
+                    scale_al = layout.scale_al(sc, side, part, top)
+                    gen_scale(r, geom, style, y_off_scale_i, sc, al=scale_al)
+                y_off_scale_i += layout.scale_h(sc, side, geom.SH)
 
-                for sc in layout.scales_at(side, RulePart.SLIDE, True):
-                    gen_scale(r, geom, style, y_off_scale_i, sc, al=layout.scale_al(sc, side), color_scheme=style)
-                    y_off_scale_i += layout.scale_h(sc, side)
-
-                for sc in layout.scales_at(side, RulePart.STATOR, False):
-                    gen_scale(r, geom, style, y_off_scale_i, sc, al=layout.scale_al(sc, side), color_scheme=style)
-                    y_off_scale_i += layout.scale_h(sc, side)
-
-                y_off_scale_i = 110 + y_front_end
+            y_off_scale_i = y_front_end
+            y_off_scale_i += layout.top_margin
 
     if render_mode == Mode.RENDER:
         save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
