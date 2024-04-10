@@ -580,7 +580,7 @@ def draw_sym_al(r, geom, style, color, y_off, al_h, symbol, x, y, font, al):
 
     if exponent or subscript:
         sub_font_size = FontSize.NumLG if font.size == FontSize.ScaleLBL else font.size
-        sub_font = style.font_for(sub_font_size)
+        sub_font = style.font_for(sub_font_size, h_ratio=0.75)
         x_right = round(x_left + w)
         if exponent:
             draw_symbol_sup(r, style, exponent, color, h, x_right, y_top, sub_font)
