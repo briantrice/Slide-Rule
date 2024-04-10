@@ -1196,11 +1196,9 @@ class Models:
                           640,
                           top_margin=109,
                           scale_h_front={
-                              'DF': 205,
                               'R1': 155
                           },
                           scale_h_rear={
-                              'A': 210,
                               'D': 240
                           }),
                  Layout('|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |',
@@ -1490,17 +1488,17 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, first_digit_of(x), sc.pos_of(x, geom), med_h, f_lbl,
                          al)
 
-        # 0.1-0.9 Labels
+        # 1.1-1.9 Labels
         for x in range(11, 20):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, last_digit_of(x), sc.pos_of(x / 10, geom),
-                         geom.tick_h(HMod.SM), f_lgn, al)
+                         geom.tick_h(HMod.SM), f_mdn, al)
 
         # Gauge Points
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lgn, al, col=sym_col)
+        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col)
 
         if y_off < geom.side_h + geom.oY:
-            Marks.deg_per_rad.draw(r, geom, style, y_off, sc, f_lgn, al, col=sym_col)
-            Marks.tau.draw(r, geom, style, y_off, sc, f_lgn, al, col=sym_col)
+            Marks.deg_per_rad.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col)
+            Marks.tau.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col)
 
     elif sc.scaler == Scalers.Square:
 
@@ -1525,8 +1523,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, sym, sc.pos_of(x * 10, geom), med_h, f_lbl, al)
 
         # Gauge Points
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lgn, al)
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lgn, al, shift_adj=0.5)
+        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al)
+        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, shift_adj=0.5)
 
     elif sc == Scales.K:
         # Ticks per power of 10
@@ -1636,14 +1634,14 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
         for x in range(4, 10):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, sc.pos_of(x, geom) - scale_w, med_h, f_lbl, al)
 
-        # 0.1-0.9 Labels
+        # 1.1-1.9 Labels
         for x in range(11, 20):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, last_digit_of(x), sc.pos_of(x / 10, geom),
                          geom.tick_h(HMod.SM), f_lgn, al)
 
         # Gauge Points
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lgn, al)
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lgn, al, shift_adj=-1)
+        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al)
+        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, shift_adj=-1)
 
     elif sc == Scales.CIF:
 
@@ -1667,7 +1665,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
         for x in range(1, 4):
             draw_numeral(r, geom, style, dec_col, y_off, scale_h, x, sc.pos_of(x, geom), med_h, f_lbl, al)
 
-        # 0.1-0.9 Labels
+        # 1.1-1.9 Labels
         small_h = geom.tick_h(HMod.SM)
         for x in range(11, 20):
             draw_numeral(r, geom, style, dec_col, y_off, scale_h, last_digit_of(x), sc.pos_of(x / 10, geom), small_h,
@@ -1713,11 +1711,11 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
         # Degree Labels
 
         for x in range(6, 16):
-            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_smn_i)
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, med_h, f_smn, al)
+            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
+            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, med_h, f_mdn, al)
             xi = angle_opp(x)
-            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_smn_i)
-            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, med_h, f_lgn_i, al)
+            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_mdn_i)
+            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, med_h, f_mdn_i, al)
 
         for x in range(16, 20):
             x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
@@ -1755,11 +1753,11 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
         # Degree Labels
         f = geom.tick_h(HMod.LG)
         for x in range(6, 16):
-            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_smn_i)
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, f, f_smn, al)
+            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
+            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, f, f_mdn, al)
             xi = angle_opp(x)
-            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_smn_i)
-            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, f, f_smn_i, al)
+            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_mdn_i)
+            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, f, f_mdn_i, al)
 
         for x in range(16, 21):
             x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
