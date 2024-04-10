@@ -2117,21 +2117,21 @@ def main():
     style = model.style
     layout = model.layout
     if render_mode == Mode.RENDER or render_mode == Mode.STICKERPRINT:
-        y_front_end = geom.side_h + 2 * geom.oY
+        y_rear_start = geom.side_h + 2 * geom.oY
         if render_mode == Mode.RENDER:
             draw_borders(r, geom, geom.oY, Side.FRONT)
             if render_cutoffs:
                 draw_metal_cutoffs(r, geom, geom.oY, Side.FRONT)
-            draw_borders(r, geom, y_front_end, Side.REAR)
+            draw_borders(r, geom, y_rear_start, Side.REAR)
             if render_cutoffs:
-                draw_metal_cutoffs(r, geom, y_front_end, Side.REAR)
+                draw_metal_cutoffs(r, geom, y_rear_start, Side.REAR)
 
         # Front Scale
         # Titling
         f_lbl = style.font_for(FontSize.ScaleLBL)
         side_w = geom.side_w
         li = geom.li
-        y_off = y_front_start = geom.oY
+        y_off = y_side_start = geom.oY
         if is_demo:
             y_off_titling = 25 + y_off
             title_col = Colors.RED
@@ -2145,14 +2145,20 @@ def main():
         for side in [Side.FRONT, Side.REAR]:
             for part, top in [(RulePart.STATOR, True), (RulePart.SLIDE, True), (RulePart.STATOR, False)]:
                 part_scales = layout.scales_at(side, part, top)
+                last_i = len(part_scales) - 1
                 for i, sc in enumerate(part_scales):
                     scale_h = geom.scale_h(sc, side)
-                    if top and i == len(part_scales):  # Last scale per top part, align to bottom of part
-                        y_off = geom.stator_h + (geom.slide_h if part == RulePart.SLIDE else 0) - scale_h
-                    gen_scale(r, geom, style, y_off, sc, al=layout.scale_al(sc, side, top))
+                    scale_al = layout.scale_al(sc, side, top)
+                    # Last scale per top part, align to bottom of part:
+                    if top and i == last_i and scale_al == Align.LOWER:
+                        y_off = y_side_start + geom.stator_h + (geom.slide_h if part == RulePart.SLIDE else 0) - scale_h
+                    if i == 0 and scale_al == Align.UPPER:  # First scale, aligned to top edge
+                        y_off = y_side_start + geom.stator_h + (geom.slide_h if part == RulePart.STATOR else 0)
+                    gen_scale(r, geom, style, y_off, sc, al=scale_al)
                     y_off += scale_h
 
-            y_off = y_front_end
+            y_off = y_rear_start
+            y_side_start = y_rear_start
             y_off += geom.top_margin
 
     if render_mode == Mode.RENDER:
