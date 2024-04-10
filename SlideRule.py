@@ -1217,15 +1217,17 @@ class Models:
                              Layouts.MannheimOriginal)
 
     Aristo868 = Model('Aristo', '', '868',
-                      Geometry((8000, 2140),
+                      Geometry((8000, 1860),
                                (100, 100),
-                               Geometry.DEFAULT_SCALE_WH,
+                               (Geometry.SL, 120),
                                Geometry.DEFAULT_TICK_WH,
-                               Geometry.SH * 4),
+                               590,
+                               top_margin=0),
                       Layout(
                           'ST T1 T2 DF/CF CIF CI C/D P S',
                           'LL01 LL02 LL03 A/B L K C/D LL3 LL2 LL1'
-                      ))
+                      ),
+                      Style(font_family=FontFamilies.CMUBright))
     PickettN515T = Model('Pickett', '', 'N-515-T',
                          Geometry((8000, 2000),
                                   (100, 100),
@@ -1311,11 +1313,17 @@ class Models:
                              }, font_family=FontFamilies.CMUBright))
 
     Graphoplex621 = Model('Graphoplex', '', '621',
-                          Geometry((8000, 2000),
+                          Geometry((7740, 1070),  # 29cm (7733px) x 40cm (1066px)
                                    (100, 100),
-                                   Geometry.DEFAULT_SCALE_WH,
+                                   (6666, 80),  # 25cm (6666.7px) x 3.5mm (93px)
                                    Geometry.DEFAULT_TICK_WH,
-                                   Geometry.SH * 5),
+                                   480,  # 1.8cm
+                                   scale_h_front={
+                                       'P': 70,
+                                       'ST': 70,
+                                       'K': 70,
+                                       'L': 70,
+                                   }),
                           Layout(
                               'P ST A [ B T1 S CI C ] D K L',  # 'P SRT A [ B T1 S CI C ] D K L'
                               ''
