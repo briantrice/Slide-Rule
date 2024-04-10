@@ -1207,6 +1207,15 @@ class Models:
                         '|  K,  A  [ B, T, ST, S ] D,  DI    |',
                         front_aligns={'CIF': Align.UPPER}))
 
+    MannheimOriginal = Model('Mannheim', 'Demo', 'Original',
+                             Geometry((8000, 1000),
+                                      (100, 100),
+                                      Geometry.DEFAULT_SCALE_WH,
+                                      Geometry.DEFAULT_TICK_WH,
+                                      round(Geometry.SH * 2.5),
+                                      top_margin=109),
+                             Layouts.MannheimOriginal)
+
     Aristo868 = Model('Aristo', '', '868',
                       Geometry((8000, 2140),
                                (100, 100),
