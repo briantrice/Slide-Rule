@@ -1334,7 +1334,7 @@ class GaugeMark:
         self.value = value
         self.comment = comment
 
-    def draw(self, r, geom, style, y_off, sc, font, al, col=None, shift_adj=0):
+    def draw(self, r, geom, style, y_off, sc, font, al, col=None, shift_adj=0, side=None):
         """
         :param ImageDraw.Draw r:
         :param Geometry geom:
@@ -1345,12 +1345,13 @@ class GaugeMark:
         :param Align al: alignment
         :param str col: color
         :param Number shift_adj:
+        :param Side side:
         """
         if not col:
             col = style.fg
         x = sc.scale_to(self.value, geom.SL, shift_adj=shift_adj)
-        scale_h = geom.scale_h(sc)
-        scale_h_ratio = geom.scale_h_ratio(sc)
+        scale_h = geom.scale_h(sc, side=side)
+        scale_h_ratio = geom.scale_h_ratio(sc, side=side)
         tick_h = geom.tick_h(HMod.MED, h_ratio=scale_h_ratio)
         draw_tick(r, geom, col, y_off, scale_h, x, tick_h, al)
         sym_h = geom.tick_h(HMod.XL if al == Align.LOWER else HMod.MED, h_ratio=scale_h_ratio)
@@ -1389,7 +1390,7 @@ def gen_scale_band_bg(r, geom, y_off, sc, color, start_value=None, end_value=Non
                 fill=color)
 
 
-def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
+def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     """
     :param ImageDraw.Draw r:
     :param Geometry geom:
@@ -1398,6 +1399,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
     :param Scale sc:
     :param Align al: alignment
     :param float overhang: fraction of total width to overhang each side to label
+    :param Side side:
     """
 
     if style.override_for(sc, 'hide', False):
@@ -1406,8 +1408,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
     if not overhang:
         overhang = 0.08 if sc.can_spiral() else 0.02
 
-    scale_h = geom.scale_h(sc)
-    scale_h_ratio = geom.scale_h_ratio(sc)
+    scale_h = geom.scale_h(sc, side=side)
+    scale_h_ratio = geom.scale_h_ratio(sc, side=side)
 
     # Place Index Symbols (Left and Right)
     italic = FontStyle.ITALIC
@@ -1494,11 +1496,11 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
                          geom.tick_h(HMod.SM), f_mdn, al)
 
         # Gauge Points
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col)
+        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col, side=side)
 
         if y_off < geom.side_h + geom.oY:
-            Marks.deg_per_rad.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col)
-            Marks.tau.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col)
+            Marks.deg_per_rad.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col, side=side)
+            Marks.tau.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col, side=side)
 
     elif sc.scaler == Scalers.Square:
 
@@ -1523,8 +1525,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, sym, sc.pos_of(x * 10, geom), med_h, f_lbl, al)
 
         # Gauge Points
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al)
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, shift_adj=0.5)
+        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, side=side)
+        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, shift_adj=0.5, side=side)
 
     elif sc == Scales.K:
         # Ticks per power of 10
@@ -1568,15 +1570,15 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
                          f_lgn, al)
         draw_numeral(r, geom, style, sym_col, y_off, scale_h, last_digit_of(31), sc.pos_of(31 / 10, geom), med_h, f_lgn,
                      al)
-        # Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col)
+        # Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc in {Scales.W1, Scales.W1Prime}:
         sc.grad_pat_divided(r, geom, style, y_off, al, [2])
-        Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col)
+        Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc in {Scales.W2, Scales.W2Prime}:
         sc.grad_pat_divided(r, geom, style, y_off, al, [5])
-        Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col)
+        Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.R2:
 
@@ -1589,7 +1591,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
         pat(r, geom, y_off, sc, HMod.XS, i_range(3160, 5000, False), (0, 10), (0, 50), al, sf=sf)
         pat(r, geom, y_off, sc, HMod.XS, i_range(5000, 10000, False), (0, 20), (0, 100), al, sf=sf)
 
-        # Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col)
+        # Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
         # 4-10 Labels
         for x in range(4, 10):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, sc.pos_of(x, geom), med_h, f_lbl, al)
@@ -1640,8 +1642,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
                          geom.tick_h(HMod.SM), f_lgn, al)
 
         # Gauge Points
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al)
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, shift_adj=-1)
+        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, side=side)
+        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, shift_adj=-1, side=side)
 
     elif sc == Scales.CIF:
 
@@ -1849,7 +1851,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
 
     elif sc == Scales.Chi:
         grad_pat(r, geom, style, y_off, sc, al, include_last=True)
-        Marks.pi_half.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col)
+        Marks.pi_half.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.Theta:
         grad_pat(r, geom, style, y_off, sc, al, include_last=True)
@@ -1872,22 +1874,22 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None):
     elif sc == Scales.LL2:
         sc.grad_pat_divided(r, geom, style, y_off, al, [1.2, 2],
                             start_value=1.1, end_value=3)
-        Marks.e.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col)
+        Marks.e.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.LL3:
         sc.grad_pat_divided(r, geom, style, y_off, al, [10, 50, 100, 1000, 10000],
                             start_value=2.5, end_value=60000)
-        Marks.e.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col)
+        Marks.e.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.LL03:
         sc.grad_pat_divided(r, geom, style, y_off, al, [0.001, 0.01, 0.1],
                             start_value=0.0001, end_value=0.39)
-        Marks.inv_e.draw(r, geom, style, y_off, sc, f_smn, al, sym_col)
+        Marks.inv_e.draw(r, geom, style, y_off, sc, f_smn, al, sym_col, side=side)
 
     elif sc == Scales.LL02:
         sc.grad_pat_divided(r, geom, style, y_off, al, [0.75],
                             start_value=0.35, end_value=0.91)
-        Marks.inv_e.draw(r, geom, style, y_off, sc, f_smn, al, sym_col)
+        Marks.inv_e.draw(r, geom, style, y_off, sc, f_smn, al, sym_col, side=side)
 
     elif sc == Scales.LL01:
         sc.grad_pat_divided(r, geom, style, y_off, al, [0.95, 0.98],
@@ -2169,7 +2171,7 @@ def main():
                         y_off = y_side_start + geom.stator_h + (geom.slide_h if part == RulePart.SLIDE else 0) - scale_h
                     if i == 0 and scale_al == Align.UPPER:  # First scale, aligned to top edge
                         y_off = y_side_start + geom.stator_h + (geom.slide_h if part == RulePart.STATOR else 0)
-                    gen_scale(r, geom, style, y_off, sc, al=scale_al)
+                    gen_scale(r, geom, style, y_off, sc, al=scale_al, side=side)
                     y_off += scale_h
 
             y_off = y_rear_start
