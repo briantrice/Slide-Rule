@@ -18,7 +18,7 @@ python3 -m pip install -r requirements.txt
 An installation of two fonts: `cmuntt.ttf` and `cmunit.ttf` (part of the infamous LaTeX fonts)
   - These can be found at: https://www.freebestfonts.com/computer-modern-font
 
-```shell
+```wp-cli
 usage: SlideRule.py [-h] [--mode {render,diagnostic,stickerprint}] [--model {Aristo868,Demo,EV,FaberCastell283,FaberCastell283N,Graphoplex621,MannheimOriginal,PickettN515T}] [--suffix SUFFIX] [--test]
                     [--cutoffs] [--debug]
 
