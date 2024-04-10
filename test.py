@@ -255,12 +255,12 @@ class SlideRuleLayoutTestCase(unittest.TestCase):
         self.assertEqual(actual.rear_sc_keys, [['L', 'DF'], ['CF', 'CIF', 'CI', 'C'], ['D', 'R1', 'R2']])
 
     def test_single_side_slide(self):
-        actual = Layout('A/B C/D')
+        actual = Layout('A/B C/D', '')
         self.assertEqual(actual.front_sc_keys, [['A'], ['B', 'C'], ['D']])
         self.assertEqual(actual.rear_sc_keys, [None, None, None])
 
     def test_no_slide(self):
-        actual = Layout('A B C D')
+        actual = Layout('A B C D', '')
         self.assertEqual(actual.front_sc_keys, [['A', 'B', 'C', 'D'], None, None])
         self.assertEqual(actual.rear_sc_keys, [None, None, None])
 
