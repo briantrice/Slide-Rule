@@ -1,16 +1,1 @@
-cffi==1.16.0
-cryptography @ file:///private/tmp/python-cryptography-20230802-6609-hza959/cryptography-41.0.3
-docutils @ file:///private/tmp/docutils-20230831-6109-1yofpc0/docutils-0.20.1
-gpg==1.10.0
-meson==1.4.0
-numpy==1.26.4
-packaging @ file:///private/tmp/python-packaging-20230827-10514-1xhf2ww/packaging-23.1
 Pillow==10.3.0
-protobuf==5.26.1
-pycparser @ file:///private/tmp/pycparser-20230831-6050-10bkury/pycparser-2.21
-pygit2 @ file:///private/tmp/pygit2-20230908-6297-1rhqiyf/pygit2-1.13.0
-Pygments @ file:///private/tmp/pygments-20230806-6216-4zajry/Pygments-2.16.1
-PyYAML @ file:///private/tmp/pyyaml-20230718-6387-cxgeib/PyYAML-6.0.1
-six==1.16.0
-tabulate @ file:///private/tmp/python-tabulate-20230101-6678-tifgz3/tabulate-0.9.0
-typing_extensions @ file:///private/tmp/python-typing-extensions-20230702-5691-pqnny3/typing_extensions-4.7.1/dist/typing_extensions-4.7.1-py3-none-any.whl
