@@ -423,7 +423,7 @@ def pat(r, geom, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, 
                 draw_tick(r, geom, tick_col, y_off, scale_h, x_scaled, h, al)
 
 
-def grad_pat(r, geom, style, y_off, sc, al, start_value=None, end_value=None, include_last=False):
+def auto_grad_pat(r, geom, style, y_off, sc, al, start_value=None, end_value=None, include_last=False):
     """
     Draw a graduated pattern of tick marks across the scale range.
     Determine the lowest digit tick mark spacing and work upwards from there.
@@ -488,10 +488,26 @@ def grad_pat(r, geom, style, y_off, sc, al, start_value=None, end_value=None, in
         num_font = style.font_for(FontSize.NumSM, h_ratio=scale_hf)
     single_digit = max_num_chars < 2
     tenth_font = style.font_for(FontSize.NumXS, h_ratio=scale_hf)
-    tenth_col = Styles.Graphoplex.decimal_color
+    tenth_col = style.decimal_color
     # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
     draw_tenth = (step_last < step_tenth < step_numeral) and max_num_chars > 8
     i_end = int(end_value * sf + (1 if include_last else 0))
+    grad_pat(r, geom, style, y_off, sc, al,
+             i_start, i_end, step_numeral, num_font, tenth_font,
+             step_half, step_tenth, step_last,
+             num_th, half_th, tenth_th, dot_th,
+             sf=sf, draw_tenth=draw_tenth, single_digit=single_digit)
+
+
+def grad_pat(r, geom, style, y_off, sc, al,
+             i_start, i_end, step_numeral, num_font, tenth_font,
+             step_half, step_tenth, step_last,
+             num_th, half_th, tenth_th, dot_th,
+             sf=100, draw_tenth=False, single_digit=False):
+    scale_w = geom.SL
+    scale_h = geom.scale_h(sc)
+    sym_col = sc.col
+    tenth_col = style.decimal_color
     for i in range(i_start, i_end, step_last):
         num = i / sf
         x = sc.scale_to(num, scale_w)
@@ -980,14 +996,14 @@ class Scale:
         if dividers is None:
             dividers = [10 ** n for n in self.powers_of_ten_in_range()]
         if dividers:
-            grad_pat(r, geom, style, y_off, self, al, start_value=start_value, end_value=dividers[0])
+            auto_grad_pat(r, geom, style, y_off, self, al, start_value=start_value, end_value=dividers[0])
             last_i = len(dividers) - 1
             for i, di in enumerate(dividers):
                 is_last = i >= last_i
                 dj = end_value if is_last else dividers[i + 1]
-                grad_pat(r, geom, style, y_off, self, al, start_value=di, end_value=dj, include_last=is_last)
+                auto_grad_pat(r, geom, style, y_off, self, al, start_value=di, end_value=dj, include_last=is_last)
         else:
-            grad_pat(r, geom, style, y_off, self, al, start_value=start_value, end_value=end_value, include_last=True)
+            auto_grad_pat(r, geom, style, y_off, self, al, start_value=start_value, end_value=end_value, include_last=True)
 
 
 class Scales:
@@ -1693,7 +1709,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
                 draw_numeral(r, geom, style, sym_col, y_off, scale_h, x / 10, sc.pos_of(x, geom), med_h, f_lbl, al)
 
     elif sc == Scales.Ln:
-        grad_pat(r, geom, style, y_off, sc, al, include_last=True)
+        auto_grad_pat(r, geom, style, y_off, sc, al, include_last=True)
 
     elif sc.scaler == Scalers.Sin:
 
@@ -1832,7 +1848,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         sc.grad_pat_divided(r, geom, style, y_off, al, [0.2, 0.4])
 
     elif sc == Scales.Sh2:
-        grad_pat(r, geom, style, y_off, sc, al, include_last=True)
+        auto_grad_pat(r, geom, style, y_off, sc, al, include_last=True)
 
     elif sc == Scales.Th:
         sf = 1000
@@ -1850,11 +1866,11 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, sc.pos_of(x, geom), label_h, f_smn, al)
 
     elif sc == Scales.Chi:
-        grad_pat(r, geom, style, y_off, sc, al, include_last=True)
+        auto_grad_pat(r, geom, style, y_off, sc, al, include_last=True)
         Marks.pi_half.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.Theta:
-        grad_pat(r, geom, style, y_off, sc, al, include_last=True)
+        auto_grad_pat(r, geom, style, y_off, sc, al, include_last=True)
 
     elif sc == Scales.f_x:
         sc.grad_pat_divided(r, geom, style, y_off, al, [0.2, 0.5, 1])
