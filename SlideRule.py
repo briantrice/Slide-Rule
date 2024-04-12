@@ -242,7 +242,7 @@ class Geometry:
     # Ticks, Labels, are referenced from li as to be consistent
     STH: int = 70  # 2.62mm
     """standard tick height"""
-    STT: int = 4  # 0.15mm
+    STT: int = 3  # 0.1125mm
     """standard tick thickness"""
     PixelsPerCM = 1600 / 6
     PixelsPerIN = PixelsPerCM * 2.54
@@ -1253,7 +1253,7 @@ class Models:
                              Geometry((9866, 1520),  # 37cm (9866px) x 5.7cm (1520px)
                                       (0, 0),
                                       (6666, 101),  # 25cm (6666.7px) x 3.5mm (93px)
-                                      (3, 50),
+                                      (Geometry.STT, 50),
                                       510,  # 1.9cm (506.6px)
                                       top_margin=0,
                                       scale_h_front={
