@@ -1842,28 +1842,25 @@ def draw_metal_cutoffs(r, geom, y0, side):
     y_top = b + y0
     y_mid = y_top + side_h - geom.stator_h
     y_bottom = side_h - b + y0
-    coords = [[x_mid, x_right, y_top, y_top],  # 1
-              [x_left, x_mid, y_mid, y_mid],  # 2
-              [x_left, x_right, y_bottom, y_bottom],  # 3
-              [x_mid, x_mid, y_top, y_mid],  # 4
-              [x_left, x_left, y_mid, y_bottom],  # 5
-              [x_right, x_right, y_top, y_bottom]]  # 6
+    cutoff_fl = [[x_mid, x_right, y_top, y_top],  # 1
+                 [x_left, x_mid, y_mid, y_mid],  # 2
+                 [x_left, x_right, y_bottom, y_bottom],  # 3
+                 [x_mid, x_mid, y_top, y_mid],  # 4
+                 [x_left, x_left, y_mid, y_bottom],  # 5
+                 [x_right, x_right, y_top, y_bottom]]  # 6
 
     # Symmetrically create the right piece
-    for i in range(0, len(coords)):
-        (x1, x2, y1, y2) = coords[i]
-        coords.append([total_w - x2, total_w - x1, y1, y2])
+    cutoff_fr = [[total_w - x2, total_w - x1, y1, y2] for (x1, x2, y1, y2) in cutoff_fl]
+    coords = cutoff_fl + cutoff_fr
 
     # Transfer coords to points for printing (yeah I know it's dumb)
     points = coords
     # If backside, first apply a vertical reflection
     if side == Side.REAR:
-        for coord in coords:
-            (x1, x2, y1, y2) = coord
-            mid_y = 2 * y0 + side_h
-            points.append([x1, x2, mid_y - y2, mid_y - y1])
-    for i in range(0, 12):
-        (x1, x2, y1, y2) = points[i]
+        mid_y = 2 * y0 + side_h
+        points = [[x1, x2, mid_y - y2, mid_y - y1] for (x1, x2, y1, y2) in coords]
+    for point in points:
+        (x1, x2, y1, y2) = point
         r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Colors.CUTOFF2)
 
 
