@@ -24,6 +24,7 @@ import time
 import unicodedata
 from enum import Enum
 from functools import cache
+from itertools import chain
 
 from PIL import Image, ImageFont, ImageDraw
 
@@ -37,8 +38,8 @@ TAU = math.tau
 PI = math.pi
 PI_HALF = PI / 2
 DEG_FULL = 360
-DEG_SEMI = 180
-DEG_RIGHT_ANGLE = 90
+DEG_SEMI = DEG_FULL // 2
+DEG_RT = DEG_SEMI // 2
 
 
 LOG_ZERO = -math.inf
@@ -720,7 +721,7 @@ def scale_log(x): return x / TEN
 def scale_sin(x): return gen_base(TEN * math.sin(math.radians(x)))
 def scale_cos(x): return gen_base(TEN * math.cos(math.radians(x)))
 def scale_tan(x): return gen_base(TEN * math.tan(math.radians(x)))
-def scale_cot(x): return gen_base(TEN * math.tan(math.radians(DEG_RIGHT_ANGLE - x)))
+def scale_cot(x): return gen_base(TEN * math.tan(math.radians(DEG_RT - x)))
 
 
 def scale_sin_tan_radians(x):
@@ -755,7 +756,7 @@ def scale_neg_log_log(x): return gen_base(-math.log(x))
 
 def angle_opp(x: int) -> int:
     """The opposite angle in degrees across a right triangle."""
-    return DEG_RIGHT_ANGLE - x
+    return DEG_RT - x
 
 
 class RulePart(Enum):
@@ -859,13 +860,13 @@ class Scalers:
     Tan = Scaler(scale_tan, lambda p: math.atan(pos_base(p)))
     SinTan = Scaler(scale_sin_tan, lambda p: math.atan(pos_base(p)))
     SinTanRadians = Scaler(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))))
-    CoTan = Scaler(scale_cot, lambda p: math.atan(DEG_RIGHT_ANGLE - p), increasing=False)
+    CoTan = Scaler(scale_cot, lambda p: math.atan(DEG_RT - p), increasing=False)
     SinH = Scaler(scale_sinh, lambda p: math.asinh(pos_base(p)))
     CosH = Scaler(scale_cosh, lambda p: math.acosh(pos_base(p)))
     TanH = Scaler(scale_tanh, lambda p: math.atanh(pos_base(p)))
     Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2), increasing=False)
     Chi = Scaler(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
-    Theta = Scaler(lambda x: x / DEG_RIGHT_ANGLE, lambda p: p * DEG_RIGHT_ANGLE)
+    Theta = Scaler(lambda x: x / DEG_RT, lambda p: p * DEG_RT)
     LogLog = Scaler(scale_log_log, lambda p: math.exp(pos_base(p)))
     LogLogNeg = Scaler(scale_neg_log_log, lambda p: math.exp(pos_base(-p)), increasing=False)
     Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.hypot(1, pos_base(p)))
@@ -1404,7 +1405,6 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     f_lgn = style.font_for(FontSize.N_LG, h_ratio=scale_h_ratio)
     f_mdn = style.font_for(FontSize.N_MD, h_ratio=scale_h_ratio)
     f_smn = style.font_for(FontSize.N_SM, h_ratio=scale_h_ratio)
-    f_smn_i = style.font_for(FontSize.N_SM, font_style=italic, h_ratio=scale_h_ratio)
     f_mdn_i = style.font_for(FontSize.N_MD, font_style=italic, h_ratio=scale_h_ratio)
     f_md2 = style.font_for(50, h_ratio=scale_h_ratio)
     f_md2_i = style.font_for(50, font_style=italic, h_ratio=scale_h_ratio)
@@ -1459,10 +1459,6 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     th_sm = geom.tick_h(HMod.SM)
     th_xs = geom.tick_h(HMod.XS)
     th_dot = geom.tick_h(HMod.DOT)
-
-    # Numeral offsets for Sin/Cosine and Tan/Cotangent self-folded scales:
-    sym_off_rf = -1.4 / 2
-    sym_off_lf = 1.2 / 2
 
     # Tick Placement (the bulk!)
     fonts_lbl = (f_lbl, None, None)
@@ -1589,70 +1585,42 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.Ln:
         grad_pat_auto(r, geom, style, y_off, sc, al, include_last=True)
 
-    elif sc.scaler in {Scalers.Sin, Scalers.CoSin}:
+    elif sc.scaler in {Scalers.Sin, Scalers.CoSin} or sc in {Scales.T, Scales.T1}:
         sf = 100
-        fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, 90))
-        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 2, sf // 10, sf // 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf * 5, sf, sf // 2, sf // 5), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, (sf * 10, sf * 5, sf, sf // 2), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp4, fp5, sf, (sf * 10, sf * 5, sf, sf), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp5, fpe + 1, sf, (sf * 10, sf * 5, sf * 5, sf * 5), (th_med, th_sm, th_xs, th_xs), fonts_no, True)
+        is_tan = sc.scaler == Scalers.Tan
+        if is_tan:
+            fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
+            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 2, sf // 10, sf // 20), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf, sf // 2, sf // 10, sf // 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp3, fpe + 1, sf, (sf * 5, sf, sf // 5, sf // 5), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
+        else:
+            fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, 90))
+            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 2, sf // 10, sf // 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf * 5, sf, sf // 2, sf // 5), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, (sf * 10, sf * 5, sf, sf // 2), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp4, fp5, sf, (sf * 10, sf * 5, sf, sf), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp5, fpe + 1, sf, (sf * 10, sf * 5, sf * 5, sf * 5), (th_med, th_sm, th_xs, th_xs), fonts_no, True)
 
         # Degree Labels
-        for x in range(6, 16):
-            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_md2_i)
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, th_med, f_md2, al)
-            xi = angle_opp(x)
-            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_md2_i)
-            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, th_med, f_md2_i, al)
+        f = geom.STH * 1.1 if is_tan else th_med
+        first_range = range(6, 16)
+        mid_range = range(16, 21)
+        last_range = range(25, 41, 5)
+        if not is_tan:
+            last_range = chain(last_range, range(50, 80, 10))
+        full_range = chain(first_range, mid_range, last_range)
+        for x in full_range:
+            f_l = f_md2_i if x in first_range else f_mdn_i
+            f_r = f_md2 if x in first_range else f_mdn
+            x_coord = sc.pos_of(x, geom) + 1.2 / 2 * style.sym_width(str(x), f_l)
+            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, f, f_r, al)
+            if x not in mid_range:
+                xi = angle_opp(x)
+                x_coord_opp = sc.pos_of(x, geom) - 1.4 / 2 * style.sym_width(str(xi), f_l)
+                draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, f, f_l, al)
 
-        for x in range(16, 20):
-            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, th_med, f_mdn, al)
-
-        for x in range(20, 71, 5):
-            if (x % 5 == 0 and x < 40) or last_digit_of(x) == 0:
-                x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
-                draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, th_med, f_mdn, al)
-                if x != 20:
-                    xi = angle_opp(x)
-                    x_coord = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_mdn_i)
-                    if xi != 40:
-                        draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord, th_med, f_mdn_i, al)
-                    elif xi == 40:
-                        draw_numeral(r, geom, style, dec_col, y_off + 11, scale_h, 40, x_coord, th_med, f_mdn_i, al)
-
-        draw_numeral(r, geom, style, sym_col, y_off, scale_h, DEG_RIGHT_ANGLE, scale_w, th_med, f_lgn, al)
-
-    elif sc in {Scales.T, Scales.T1}:
-        sf = 100
-        fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
-        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 2, sf // 10, sf // 20), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf, sf // 2, sf // 10, sf // 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp3, fpe + 1, sf, (sf * 5, sf, sf // 5, sf // 5), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
-
-        # Degree Labels
-        f = geom.STH * 1.1
-        for x in range(6, 16):
-            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_md2_i)
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, f, f_md2, al)
-            xi = angle_opp(x)
-            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_md2_i)
-            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, f, f_md2_i, al)
-
-        for x in range(16, 21):
-            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, f, f_mdn, al)
-
-        for x in range(25, 41, 5):
-            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, f, f_mdn, al)
-            xi = angle_opp(x)
-            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_mdn_i)
-            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp,
-                         f, f_mdn_i, al)
-
-        draw_numeral(r, geom, style, sym_col, y_off, scale_h, 45, scale_w, f, f_lgn, al)
+        end_numeral = 45 if is_tan else DEG_RT
+        draw_numeral(r, geom, style, sym_col, y_off, scale_h, end_numeral, scale_w, f, f_lgn, al)
 
     elif sc == Scales.T2:
         # Ticks
