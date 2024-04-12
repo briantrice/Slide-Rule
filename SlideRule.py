@@ -1404,7 +1404,10 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     f_lgn = style.font_for(FontSize.N_LG, h_ratio=scale_h_ratio)
     f_mdn = style.font_for(FontSize.N_MD, h_ratio=scale_h_ratio)
     f_smn = style.font_for(FontSize.N_SM, h_ratio=scale_h_ratio)
+    f_smn_i = style.font_for(FontSize.N_SM, font_style=italic, h_ratio=scale_h_ratio)
     f_mdn_i = style.font_for(FontSize.N_MD, font_style=italic, h_ratio=scale_h_ratio)
+    f_md2 = style.font_for(50, h_ratio=scale_h_ratio)
+    f_md2_i = style.font_for(50, font_style=italic, h_ratio=scale_h_ratio)
 
     if not al:
         al = sc.al
@@ -1597,11 +1600,11 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
         # Degree Labels
         for x in range(6, 16):
-            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, th_med, f_mdn, al)
+            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_md2_i)
+            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, th_med, f_md2, al)
             xi = angle_opp(x)
-            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_mdn_i)
-            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, th_med, f_mdn_i, al)
+            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_md2_i)
+            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, th_med, f_md2_i, al)
 
         for x in range(16, 20):
             x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
@@ -1631,11 +1634,11 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         # Degree Labels
         f = geom.STH * 1.1
         for x in range(6, 16):
-            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, f, f_mdn, al)
+            x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_md2_i)
+            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, f, f_md2, al)
             xi = angle_opp(x)
-            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_mdn_i)
-            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, f, f_mdn_i, al)
+            x_coord_opp = sc.pos_of(x, geom) + sym_off_rf * style.sym_width(str(xi), f_md2_i)
+            draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, f, f_md2_i, al)
 
         for x in range(16, 21):
             x_coord = sc.pos_of(x, geom) + sym_off_lf * style.sym_width(str(x), f_mdn_i)
