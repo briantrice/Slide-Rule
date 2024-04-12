@@ -1491,6 +1491,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     th_lg = geom.tick_h(HMod.LG)
     th_sm = geom.tick_h(HMod.SM)
     th_xs = geom.tick_h(HMod.XS)
+    th_dot = geom.tick_h(HMod.DOT)
 
     # Numeral offsets for Sin/Cosine and Tan/Cotangent self-folded scales:
     sym_off_rf = -1.4 / 2
@@ -1503,6 +1504,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     ths1 = (th_med, th_xl, th_sm, th_xs)
     ths2 = (th_med, th_xl, th_xs, th_xs)
     ths3 = (th_med, th_sm, th_sm, th_xs)
+    ths4 = (th_med, th_xl, th_sm, th_dot)
     fonts_no = (None, None, None)
     if (sc.scaler in {Scalers.Base, Scalers.Inverse}) and sc.shift == 0:  # C/D and CI/DI
         sf = 100
@@ -1690,14 +1692,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         # Ticks
         sf = 100
         fp1, fp2, fpe = map(lambda fp: int(fp * sf), (45, 75, 84.5))
-        pat(r, geom, y_off, sc, HMod.MED, range(fp1, fpe, True), (0, 100), None, al)
-        pat(r, geom, y_off, sc, HMod.XL, range(fp1, fpe, True), (50, 100), None, al)
-        pat(r, geom, y_off, sc, HMod.DOT, range(fp1, fp2, True), (0, 10), (0, 50), al)
-        pat(r, geom, y_off, sc, HMod.XS, range(fp2, fpe, True), (0, 10), (0, 50), al)
-        pat(r, geom, y_off, sc, HMod.DOT, range(fp2, fpe, True), (0, 5), (0, 10), al)
-        # Degree Labels
-        for x in range(45, 85, 5):
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, sc.pos_of(x, geom), f, f_lgn, al)
+        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf * 5, sf, sf // 2, sf // 10), ths4, fonts_xl, False)
+        grad_pat(r, geom, style, y_off, sc, al, fp2, fpe, sf, (sf * 5, sf, sf // 2, sf // 20), ths4, fonts_xl, False)
 
     elif sc == Scales.ST:
         # Ticks
@@ -1747,11 +1743,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.Th:
         sf = 1000
         fp2, fp3, fpe = map(lambda fp: fp * sf, (1, 2, 3))
-        sc.grad_pat_divided(r, geom, style, y_off, al, dividers=[0.2, 0.4], end_value=1)
-        pat(r, geom, y_off, sc, HMod.MED, i_range(fp2, fpe, True), (0, 500), None, al, sf=sf)
-        pat(r, geom, y_off, sc, HMod.XS, i_range(fp2, fp3, True), (0, 100), (0, 500), al, sf=sf)
-        pat(r, geom, y_off, sc, HMod.DOT, i_range(fp2, fp3, True), (0, 50), (0, 100), al, sf=sf)
-        pat(r, geom, y_off, sc, HMod.DOT, i_range(fp3, fpe, True), (0, 100), (0, 500), al, sf=sf)
+        sc.grad_pat_divided(r, geom, style, y_off, al, dividers=[0.2, 0.4, 1], end_value=3)
         # Labels
         label_h = geom.tick_h(HMod.MED)
         for x in [1, 1.5, 2, 3]:
