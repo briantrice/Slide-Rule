@@ -1987,7 +1987,6 @@ def main():
     render_mode: Mode = next(mode for mode in Mode if mode.value == cli_args.mode)
     model_name = cli_args.model
     model: Model = getattr(Models, model_name)
-    is_demo = model == Models.Demo
     output_suffix = cli_args.suffix or ('test' if cli_args.test else None)
     render_cutoffs = cli_args.cutoffs
     global DEBUG
@@ -1995,225 +1994,228 @@ def main():
 
     start_time = time.time()
 
-    scale_w = 6500
-
-    upper = Align.UPPER
     geom = model.geometry
     sliderule_img = Image.new('RGB', (geom.total_w, geom.print_height), model.style.bg)
-    r = ImageDraw.Draw(sliderule_img)
-    style = model.style
-    layout = model.layout
     if render_mode in {Mode.RENDER, Mode.STICKERPRINT}:
-        y_rear_start = geom.side_h + 2 * geom.oY
-        if render_mode == Mode.RENDER:
-            draw_borders(r, geom, geom.oY, Side.FRONT)
-            if render_cutoffs:
-                draw_metal_cutoffs(r, geom, geom.oY, Side.FRONT)
-            draw_borders(r, geom, y_rear_start, Side.REAR)
-            if render_cutoffs:
-                draw_metal_cutoffs(r, geom, y_rear_start, Side.REAR)
-
-        # Front Scale
-        # Titling
-        f_lbl = style.font_for(FontSize.ScaleLBL)
-        side_w = geom.side_w
-        li = geom.li
-        y_off = y_side_start = geom.oY
-        if is_demo:
-            y_off_titling = 25 + y_off
-            title_col = Colors.RED
-            draw_sym_al(r, geom, style, title_col, y_off_titling, 0, model.name, side_w * 1 / 4 - li, 0, f_lbl, upper)
-            draw_sym_al(r, geom, style, title_col, y_off_titling, 0, model.subtitle, side_w * 2 / 4 - li + geom.oX, 0,
-                        f_lbl,
-                        upper)
-            draw_sym_al(r, geom, style, title_col, y_off_titling, 0, model.brand, side_w * 3 / 4 - li, 0, f_lbl, upper)
-            y_off = y_off_titling + f_lbl.size
-        # Scales
-        for side in [Side.FRONT, Side.REAR]:
-            for part, top in [(RulePart.STATOR, True), (RulePart.SLIDE, True), (RulePart.STATOR, False)]:
-                part_scales = layout.scales_at(side, part, top)
-                last_i = len(part_scales) - 1
-                for i, sc in enumerate(part_scales):
-                    scale_h = geom.scale_h(sc, side)
-                    scale_al = layout.scale_al(sc, side, top)
-                    # Last scale per top part, align to bottom of part:
-                    if top and i == last_i and scale_al == Align.LOWER:
-                        y_off = y_side_start + geom.stator_h + (geom.slide_h if part == RulePart.SLIDE else 0) - scale_h
-                    if i == 0 and scale_al == Align.UPPER:  # First scale, aligned to top edge
-                        y_off = y_side_start + geom.stator_h + (geom.slide_h if part == RulePart.STATOR else 0)
-                    gen_scale(r, geom, style, y_off, sc, al=scale_al, side=side)
-                    y_off += scale_h
-
-            y_off = y_rear_start
-            y_side_start = y_rear_start
-            y_off += geom.top_margin
+        render_sliderule_mode(model, sliderule_img, render_mode, render_cutoffs=render_cutoffs)
 
     if render_mode == Mode.RENDER:
         save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
 
     if render_mode == Mode.DIAGNOSTIC:
-        # If you're reading this, you're a real one
-        # +5 brownie points to you
-        scale_h = Geometry.SH
-        k = 120 + scale_h
-        sh_with_margins = scale_h + (40 if is_demo else 10)
-        scale_names = ['A', 'B', 'C', 'D',
-                       'K', 'R1', 'R2', 'CI',
-                       'DI', 'CF', 'DF', 'CIF', 'L',
-                       'S', 'T', 'ST'] if is_demo else layout.scale_names()
-        total_h = k + (len(scale_names) + 1) * sh_with_margins + scale_h
-        geom_d = Geometry(
-            (6500, total_h),
-            (250, 250),  # remove y-margin to stack scales
-            (Geometry.SL, scale_h),
-            Geometry.DEFAULT_TICK_WH,
-            480
-        )
-        diagnostic_img = Image.new('RGB', (geom_d.total_w, total_h), style.bg)
-        r = ImageDraw.Draw(diagnostic_img)
-
-        title_x = round(geom_d.midpoint_x) - geom_d.li
-        title = 'Diagnostic Test Print of Available Scales'
-        draw_sym_al(r, geom_d, style, style.fg, 50, 0, title, title_x, 0,
-                    style.font_for(FontSize.Title), upper)
-        draw_sym_al(r, geom_d, style, style.fg, 200, 0, ' '.join(scale_names), title_x, 0,
-                    style.font_for(FontSize.Subtitle), upper)
-
-        for n, sc_name in enumerate(scale_names):
-            sc = getattr(Scales, sc_name)
-            al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, True)
-            try:
-                gen_scale(r, geom_d, style, k + (n + 1) * sh_with_margins, sc, al=al)
-            except Exception as e:
-                print(f"Error while generating scale {sc.key}: {e}")
-
-        save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
+        render_diagnostic_mode(model, model_name, output_suffix)
 
     if render_mode == Mode.STICKERPRINT:
-        # Code Names
-        # (fs) | UL,UM,UR [ ML,MM,MR ] LL,LM,LR |
-        # (bs) | UL,UM,UR [ ML,MM,MR ] LL,LM,LR |
-        # Front Scale, Back Scale
-        # Upper Middle Lower, Left Middle Right
-        # (18 total stickers)
-
-        o_x2 = 50  # x dir margins
-        o_y2 = 50  # y dir margins
-        o_a = 50  # overhang amount
-        ext = 20  # extension amount
-        geom_s = Geometry(
-            (scale_w, 1600),
-            Geometry.NO_MARGINS,
-            (scale_w, Geometry.SH),
-            Geometry.DEFAULT_TICK_WH,
-            640
-        )
-        scale_h = geom_s.SH
-        total_w = scale_w + 2 * o_x2
-        total_h = 5075
-
-        stickerprint_img = Image.new('RGB', (total_w, total_h), style.bg)
-        r = ImageDraw.Draw(stickerprint_img)
-
-        # fsUM,MM,LM:
-        y = 0
-
-        y += o_y2 + o_a
-        x_off = 750
-        x_left = geom.oX + x_off
-        slide_h = geom_s.slide_h
-        stator_h = geom_s.stator_h
-        transcribe(sliderule_img, stickerprint_img, x_left, geom.oY, scale_w, stator_h, o_x2, y)
-        extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
-        draw_corners(r, o_x2, y - o_a, o_x2 + scale_w, y + stator_h)
-
-        y += stator_h + o_a
-        transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + stator_h + 1, scale_w, slide_h, o_x2, y)
-        extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
-        extend(stickerprint_img, geom_s, y + slide_h - 1, BleedDir.DOWN, ext)
-        draw_corners(r, o_x2, y, o_x2 + scale_w, y + slide_h)
-
-        y += slide_h + o_a
-        transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + geom.side_h - stator_h, scale_w, stator_h, o_x2,
-                   y)
-        extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
-        extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
-        draw_corners(r, o_x2, y, o_x2 + scale_w, y + stator_h + o_a)
-
-        # bsUM,MM,LM:
-
-        y += stator_h + o_a + o_a + o_a
-
-        y_start = geom.oY + geom.side_h + geom.oY
-        transcribe(sliderule_img, stickerprint_img, x_left, y_start, scale_w, stator_h, o_x2, y)
-        extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
-        draw_corners(r, o_x2, y - o_a, o_x2 + scale_w, y + stator_h)
-
-        y += stator_h + o_a
-        transcribe(sliderule_img, stickerprint_img, x_left, y_start + stator_h + 1 - 3, scale_w, slide_h, o_x2, y)
-        extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
-        extend(stickerprint_img, geom_s, y + slide_h - 1, BleedDir.DOWN, ext)
-        draw_corners(r, o_x2, y, o_x2 + scale_w, y + slide_h)
-
-        y += slide_h + o_a
-        transcribe(sliderule_img, stickerprint_img, x_left, y_start + geom_s.side_h - stator_h, scale_w, stator_h, o_x2,
-                   y)
-        extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
-        extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
-        y_bottom = y + stator_h + o_a
-        draw_corners(r, o_x2, y, o_x2 + scale_w, y_bottom)
-
-        y_b = y_bottom + 20
-
-        box_w = 510
-        boxes = [
-            [o_a, y_b,
-             box_w + o_a, stator_h + o_a],
-            [box_w + 3 * o_a, y_b,
-             x_off + o_a, slide_h],
-            [box_w + x_off + 5 * o_a, y_b,
-             x_off + o_a, stator_h + o_a]
-        ]
-
-        for box in boxes:
-            (x0, y0, dx, dy) = box
-            draw_box(r, x0, y0, dx, dy)
-            draw_box(r, x0, y0 + slide_h + o_a, dx, dy)
-
-            x0 = round(2 * (6.5 * o_a + box_w + 2 * x_off) - x0 - dx)
-
-            draw_box(r, x0, y0, dx, dy)
-            draw_box(r, x0, y0 + slide_h + o_a, dx, dy)
-
-        points = [
-            [2 * o_a + 120, y_b + o_a + scale_h],
-            [6 * o_a + box_w + x_off + 2 * scale_h, y_b + scale_h],
-            [6 * o_a + box_w + x_off + scale_h, y_b + 2 * scale_h],
-
-            [2 * o_a + 120, y_b + slide_h + o_a + scale_h],
-            [6 * o_a + box_w + x_off + scale_h, y_b + 640 + o_a + o_a + 2 * scale_h],
-            [6 * o_a + box_w + x_off + 2 * scale_h, y_b + 640 + o_a + o_a + scale_h]
-        ]
-
-        hole_r = 34  # (2.5mm diameter screw holes) = math.ceil(0.25 * Geometry.PixelsPerCM / 2)
-
-        for point in points:
-            (p_x, p_y) = point
-            r.ellipse((p_x - hole_r, p_y - hole_r,
-                       p_x + hole_r, p_y + hole_r),
-                      fill=style.bg,
-                      outline=Colors.CUT)
-
-            p_x = round(2 * (6.5 * o_a + box_w + 2 * x_off) - p_x)
-
-            r.ellipse((p_x - hole_r, p_y - hole_r,
-                       p_x + hole_r, p_y + hole_r),
-                      fill=style.bg,
-                      outline=Colors.CUT)
-
-        save_png(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
+        render_stickerprint_mode(model, model_name, output_suffix, sliderule_img)
 
     print(f'The program took {round(time.time() - start_time, 2)} seconds to run')
+
+
+def render_sliderule_mode(model: Model, sliderule_img, render_mode: Mode, render_cutoffs: bool = False):
+    r = ImageDraw.Draw(sliderule_img)
+    geom = model.geometry
+    layout = model.layout
+    y_rear_start = geom.side_h + 2 * geom.oY
+    if render_mode == Mode.RENDER:
+        draw_borders(r, geom, geom.oY, Side.FRONT)
+        if render_cutoffs:
+            draw_metal_cutoffs(r, geom, geom.oY, Side.FRONT)
+        draw_borders(r, geom, y_rear_start, Side.REAR)
+        if render_cutoffs:
+            draw_metal_cutoffs(r, geom, y_rear_start, Side.REAR)
+    # Front Scale
+    # Titling
+    style = model.style
+    f_lbl = style.font_for(FontSize.ScaleLBL)
+    side_w = geom.side_w
+    li = geom.li
+    y_off = y_side_start = geom.oY
+    if model == Models.Demo:
+        upper = Align.UPPER
+        y_off_titling = 25 + y_off
+        title_col = Colors.RED
+        draw_sym_al(r, geom, style, title_col, y_off_titling, 0, model.name, side_w * 1 / 4 - li, 0, f_lbl, upper)
+        draw_sym_al(r, geom, style, title_col, y_off_titling, 0, model.subtitle, side_w * 2 / 4 - li + geom.oX, 0,
+                    f_lbl,
+                    upper)
+        draw_sym_al(r, geom, style, title_col, y_off_titling, 0, model.brand, side_w * 3 / 4 - li, 0, f_lbl, upper)
+        y_off = y_off_titling + f_lbl.size
+    # Scales
+    for side in [Side.FRONT, Side.REAR]:
+        for part, top in [(RulePart.STATOR, True), (RulePart.SLIDE, True), (RulePart.STATOR, False)]:
+            part_scales = layout.scales_at(side, part, top)
+            last_i = len(part_scales) - 1
+            for i, sc in enumerate(part_scales):
+                scale_h = geom.scale_h(sc, side)
+                scale_al = layout.scale_al(sc, side, top)
+                # Last scale per top part, align to bottom of part:
+                if top and i == last_i and scale_al == Align.LOWER:
+                    y_off = y_side_start + geom.stator_h + (geom.slide_h if part == RulePart.SLIDE else 0) - scale_h
+                if i == 0 and scale_al == Align.UPPER:  # First scale, aligned to top edge
+                    y_off = y_side_start + geom.stator_h + (geom.slide_h if part == RulePart.STATOR else 0)
+                gen_scale(r, geom, style, y_off, sc, al=scale_al, side=side)
+                y_off += scale_h
+
+        y_off = y_rear_start
+        y_side_start = y_rear_start
+        y_off += geom.top_margin
+
+
+def render_stickerprint_mode(model, model_name, output_suffix, sliderule_img):
+    # Code Names
+    # (fs) | UL,UM,UR [ ML,MM,MR ] LL,LM,LR |
+    # (bs) | UL,UM,UR [ ML,MM,MR ] LL,LM,LR |
+    # Front Scale, Back Scale
+    # Upper Middle Lower, Left Middle Right
+    # (18 total stickers)
+    o_x2 = 50  # x dir margins
+    o_y2 = 50  # y dir margins
+    o_a = 50  # overhang amount
+    ext = 20  # extension amount
+    geom = model.geometry
+    scale_w = 6500
+    geom_s = Geometry(
+        (scale_w, 1600),
+        Geometry.NO_MARGINS,
+        (scale_w, Geometry.SH),
+        Geometry.DEFAULT_TICK_WH,
+        640
+    )
+    style = model.style
+    scale_h = geom_s.SH
+    total_w = scale_w + 2 * o_x2
+    total_h = 5075
+    stickerprint_img = Image.new('RGB', (total_w, total_h), style.bg)
+    r = ImageDraw.Draw(stickerprint_img)
+    # fsUM,MM,LM:
+    y = 0
+    y += o_y2 + o_a
+    x_off = 750
+    x_left = geom.oX + x_off
+    slide_h = geom_s.slide_h
+    stator_h = geom_s.stator_h
+    transcribe(sliderule_img, stickerprint_img, x_left, geom.oY, scale_w, stator_h, o_x2, y)
+    extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
+    draw_corners(r, o_x2, y - o_a, o_x2 + scale_w, y + stator_h)
+    y += stator_h + o_a
+    transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + stator_h + 1, scale_w, slide_h, o_x2, y)
+    extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
+    extend(stickerprint_img, geom_s, y + slide_h - 1, BleedDir.DOWN, ext)
+    draw_corners(r, o_x2, y, o_x2 + scale_w, y + slide_h)
+    y += slide_h + o_a
+    transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + geom.side_h - stator_h, scale_w, stator_h, o_x2,
+               y)
+    extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
+    extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
+    draw_corners(r, o_x2, y, o_x2 + scale_w, y + stator_h + o_a)
+    # bsUM,MM,LM:
+    y += stator_h + o_a + o_a + o_a
+    y_start = geom.oY + geom.side_h + geom.oY
+    transcribe(sliderule_img, stickerprint_img, x_left, y_start, scale_w, stator_h, o_x2, y)
+    extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
+    draw_corners(r, o_x2, y - o_a, o_x2 + scale_w, y + stator_h)
+    y += stator_h + o_a
+    transcribe(sliderule_img, stickerprint_img, x_left, y_start + stator_h + 1 - 3, scale_w, slide_h, o_x2, y)
+    extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
+    extend(stickerprint_img, geom_s, y + slide_h - 1, BleedDir.DOWN, ext)
+    draw_corners(r, o_x2, y, o_x2 + scale_w, y + slide_h)
+    y += slide_h + o_a
+    transcribe(sliderule_img, stickerprint_img, x_left, y_start + geom_s.side_h - stator_h, scale_w, stator_h, o_x2,
+               y)
+    extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
+    extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
+    y_bottom = y + stator_h + o_a
+    draw_corners(r, o_x2, y, o_x2 + scale_w, y_bottom)
+    y_b = y_bottom + 20
+    box_w = 510
+    boxes = [
+        [o_a, y_b,
+         box_w + o_a, stator_h + o_a],
+        [box_w + 3 * o_a, y_b,
+         x_off + o_a, slide_h],
+        [box_w + x_off + 5 * o_a, y_b,
+         x_off + o_a, stator_h + o_a]
+    ]
+    for box in boxes:
+        (x0, y0, dx, dy) = box
+        draw_box(r, x0, y0, dx, dy)
+        draw_box(r, x0, y0 + slide_h + o_a, dx, dy)
+
+        x0 = round(2 * (6.5 * o_a + box_w + 2 * x_off) - x0 - dx)
+
+        draw_box(r, x0, y0, dx, dy)
+        draw_box(r, x0, y0 + slide_h + o_a, dx, dy)
+    points = [
+        [2 * o_a + 120, y_b + o_a + scale_h],
+        [6 * o_a + box_w + x_off + 2 * scale_h, y_b + scale_h],
+        [6 * o_a + box_w + x_off + scale_h, y_b + 2 * scale_h],
+
+        [2 * o_a + 120, y_b + slide_h + o_a + scale_h],
+        [6 * o_a + box_w + x_off + scale_h, y_b + 640 + o_a + o_a + 2 * scale_h],
+        [6 * o_a + box_w + x_off + 2 * scale_h, y_b + 640 + o_a + o_a + scale_h]
+    ]
+    hole_r = 34  # (2.5mm diameter screw holes) = math.ceil(0.25 * Geometry.PixelsPerCM / 2)
+    for point in points:
+        (p_x, p_y) = point
+        r.ellipse((p_x - hole_r, p_y - hole_r,
+                   p_x + hole_r, p_y + hole_r),
+                  fill=style.bg,
+                  outline=Colors.CUT)
+
+        p_x = round(2 * (6.5 * o_a + box_w + 2 * x_off) - p_x)
+
+        r.ellipse((p_x - hole_r, p_y - hole_r,
+                   p_x + hole_r, p_y + hole_r),
+                  fill=style.bg,
+                  outline=Colors.CUT)
+    save_png(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
+
+
+def render_diagnostic_mode(model: Model, model_name: str, output_suffix: str):
+    """
+    Diagnostic mode, rendering scales independently.
+    Works as a test of tick marks, labeling, and layout. Also, regressions.
+    If you're reading this, you're a real one
+    +5 brownie points to you
+    """
+    scale_h = Geometry.SH
+    k = 120 + scale_h
+    is_demo = model == Models.Demo
+    layout = model.layout
+    style = model.style
+    upper = Align.UPPER
+    sh_with_margins = scale_h + (40 if is_demo else 10)
+    scale_names = ['A', 'B', 'C', 'D',
+                   'K', 'R1', 'R2', 'CI',
+                   'DI', 'CF', 'DF', 'CIF', 'L',
+                   'S', 'T', 'ST']
+    for sc_name in layout.scale_names_in_order():
+        if sc_name not in scale_names:
+            scale_names.append(sc_name)
+    total_h = k + (len(scale_names) + 1) * sh_with_margins + scale_h
+    geom_d = Geometry(
+        (6500, total_h),
+        (250, 250),  # remove y-margin to stack scales
+        (Geometry.SL, scale_h),
+        Geometry.DEFAULT_TICK_WH,
+        480
+    )
+    diagnostic_img = Image.new('RGB', (geom_d.total_w, total_h), style.bg)
+    r = ImageDraw.Draw(diagnostic_img)
+    title_x = round(geom_d.midpoint_x) - geom_d.li
+    title = 'Diagnostic Test Print of Available Scales'
+    draw_sym_al(r, geom_d, style, style.fg, 50, 0, title, title_x, 0,
+                style.font_for(FontSize.Title), upper)
+    draw_sym_al(r, geom_d, style, style.fg, 200, 0, ' '.join(scale_names), title_x, 0,
+                style.font_for(FontSize.Subtitle), upper)
+    for n, sc_name in enumerate(scale_names):
+        sc = getattr(Scales, sc_name)
+        al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, True)
+        try:
+            gen_scale(r, geom_d, style, k + (n + 1) * sh_with_margins, sc, al=al)
+        except Exception as e:
+            print(f"Error while generating scale {sc.key}: {e}")
+    save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
 
 
 if __name__ == '__main__':
