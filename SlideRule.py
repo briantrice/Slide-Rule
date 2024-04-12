@@ -273,7 +273,7 @@ class Geometry:
 
     @property
     def midpoint_x(self):
-        return self.total_w / 2
+        return self.total_w // 2
 
     @property
     def print_height(self):
@@ -1161,14 +1161,14 @@ class Model:
 
     def auto_stock_h(self):
         result = 0
-        for side in [Side.FRONT, Side.REAR]:
+        for side in Side:
             for top in True, False:
                 result = max(result, self.scale_h_per(side, RulePart.STATOR, top))
         return result
 
     def auto_slide_h(self):
         result = 0
-        for side in [Side.FRONT, Side.REAR]:
+        for side in Side:
             result = max(result, self.scale_h_per(side, RulePart.SLIDE, True))
         return result
 
@@ -1483,8 +1483,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col, side=side)
 
         if y_off < geom.side_h + geom.oY:
-            Marks.deg_per_rad.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col, side=side)
-            Marks.tau.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col, side=side)
+            for mark in (Marks.deg_per_rad, Marks.tau):
+                mark.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col, side=side)
 
     elif sc.scaler == Scalers.Square:
         sf = 100
@@ -1499,8 +1499,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
                      fp3, fpe + 1, sf, steps + (steps[-1],), ths2, fonts_lbl, True)
 
         # Gauge Points
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, side=side)
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, shift_adj=0.5, side=side)
+        for shift_adj in (0, 0.5):
+            Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, shift_adj=shift_adj, side=side)
 
     elif sc == Scales.K:
         sf = 100
@@ -1566,8 +1566,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         grad_pat(r, geom, style, y_off, sc, al, fp4, fpe + 1, sf, (sf, sf // 2, 100, 20), ths1, fonts_lbl, True)
 
         # Gauge Points
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, side=side)
-        Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, shift_adj=-1, side=side)
+        for shift_adj in (0, -1):
+            Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, shift_adj=shift_adj, side=side)
 
     elif sc == Scales.L:
         sf = 100
@@ -1987,21 +1987,21 @@ def render_sliderule_mode(model: Model, sliderule_img, render_mode: Mode, render
     r = ImageDraw.Draw(sliderule_img)
     geom = model.geometry
     layout = model.layout
-    y_rear_start = geom.side_h + 2 * geom.oY
+    y_front_start = geom.oY
+    y_rear_start = y_front_start + geom.side_h + geom.oY
     if render_mode == Mode.RENDER:
-        draw_borders(r, geom, geom.oY, Side.FRONT)
-        if render_cutoffs:
-            draw_metal_cutoffs(r, geom, geom.oY, Side.FRONT)
-        draw_borders(r, geom, y_rear_start, Side.REAR)
-        if render_cutoffs:
-            draw_metal_cutoffs(r, geom, y_rear_start, Side.REAR)
+        for side in Side:
+            y0 = y_front_start if side == Side.FRONT else y_rear_start
+            draw_borders(r, geom, y0, side)
+            if render_cutoffs:
+                draw_metal_cutoffs(r, geom, y0, side)
     # Front Scale
     # Titling
     style = model.style
     f_lbl = style.font_for(FontSize.SC_LBL)
     side_w = geom.side_w
     li = geom.li
-    y_off = y_side_start = geom.oY
+    y_off = y_side_start = y_front_start
     if model == Models.Demo:
         upper = Align.UPPER
         y_off_titling = 25 + y_off
@@ -2013,7 +2013,7 @@ def render_sliderule_mode(model: Model, sliderule_img, render_mode: Mode, render
         draw_sym_al(r, geom, style, title_col, y_off_titling, 0, model.brand, side_w * 3 / 4 - li, 0, f_lbl, upper)
         y_off = y_off_titling + f_lbl.size
     # Scales
-    for side in [Side.FRONT, Side.REAR]:
+    for side in Side:
         for part, top in [(RulePart.STATOR, True), (RulePart.SLIDE, True), (RulePart.STATOR, False)]:
             part_scales = layout.scales_at(side, part, top)
             last_i = len(part_scales) - 1
@@ -2174,7 +2174,7 @@ def render_diagnostic_mode(model: Model, model_name: str, output_suffix: str):
     )
     diagnostic_img = Image.new('RGB', (geom_d.total_w, total_h), style.bg)
     r = ImageDraw.Draw(diagnostic_img)
-    title_x = round(geom_d.midpoint_x) - geom_d.li
+    title_x = geom_d.midpoint_x - geom_d.li
     title = 'Diagnostic Test Print of Available Scales'
     draw_sym_al(r, geom_d, style, style.fg, 50, 0, title, title_x, 0,
                 style.font_for(FontSize.TITLE), upper)
