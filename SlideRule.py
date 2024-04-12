@@ -461,7 +461,7 @@ def grad_pat(r, geom, style, y_off: int, sc, al: Align,
              i_start, i_end, i_sf, steps_i, steps_th, steps_font, single_digit):
     """
     Place ticks in a graduated pattern. All options are given, not inferred.
-
+    4 levels of tick steps and sizes needed, and three optional fonts for numerals.
     :param ImageDraw.Draw r:
     :param Geometry geom:
     :param Style style:
@@ -688,13 +688,9 @@ def extend(image, geom, y, direction, amplitude):
     for x in range(0, w):
         bleed_color = image.getpixel((x, y))
 
-        if direction == BleedDir.UP:
-            for yi in range(y - amplitude, y):
-                image.putpixel((x, yi), bleed_color)
-
-        elif direction == BleedDir.DOWN:
-            for yi in range(y, y + amplitude):
-                image.putpixel((x, yi), bleed_color)
+        y_range = range(y - amplitude, y) if direction == BleedDir.UP else range(y, y + amplitude)
+        for yi in y_range:
+            image.putpixel((x, yi), bleed_color)
 
 
 # ----------------------3. Scale Generating Function----------------------------
@@ -1488,15 +1484,15 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc.scaler == Scalers.Square:
         sf = 100
-        for b in (10 ** n for n in range(0, 2)):
-            fp1, fp2, fp3, fpe = (fp * b * sf for fp in (1, 2, 5, 10))
-            steps = (sf * b, (sf * b) // 2, (sf * b) // 10)
+        for b in (sf * 10 ** n for n in range(0, 2)):
+            fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
+            steps = (b, b // 2, b // 10)
             grad_pat(r, geom, style, y_off, sc, al,
-                     fp1, fp2, sf, steps + (2 * b,), ths1, fonts_lbl, True)
+                     fp1, fp2, sf, steps + (b // 50,), ths1, fonts_lbl, True)
             grad_pat(r, geom, style, y_off, sc, al,
-                     fp2, fp3, sf, steps + (5 * b,), ths1, fonts_lbl, True)
+                     fp2, fp3, sf, steps + (b // 20,), ths1, fonts_lbl, True)
             grad_pat(r, geom, style, y_off, sc, al,
-                     fp3, fpe + 1, sf, steps + (steps[-1],), ths2, fonts_lbl, True)
+                     fp3, fpe + 1, sf, steps + (b // 10,), ths2, fonts_lbl, True)
 
         # Gauge Points
         for shift_adj in (0, 0.5):
@@ -1504,12 +1500,12 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc == Scales.K:
         sf = 100
-        for b in (10 ** n for n in range(0, 3)):
-            fp1, fp2, fp3, fpe = (fp * b * sf for fp in (1, 3, 6, 10))
-            steps = (sf * b, (sf * b) // 2, (sf * b) // 10)
-            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, steps + (5 * b,), ths1, fonts_xl, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, steps + (10 * b,), ths2, fonts_xl, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp3, fpe + 1, sf, steps + (20 * b,), ths2, fonts_xl, True)
+        for b in (sf * (10 ** n) for n in range(0, 3)):
+            fp1, fp2, fp3, fpe = (fp * b for fp in (1, 3, 6, 10))
+            steps = (b, b // 2, b // 10)
+            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, steps + (b // 20,), ths1, fonts_xl, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, steps + (b // 10,), ths2, fonts_xl, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp3, fpe + 1, sf, steps + (b // 5,), ths2, fonts_xl, True)
 
     elif sc == Scales.R1:
         sf = 1000
@@ -1521,8 +1517,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         for x in range(1, 2):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, sc.pos_of(x, geom), th_med, f_lbl, al)
         # 1.1-1.9 Labels
-        for x in range(11, 20):
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, last_digit_of(x), sc.pos_of(x / 10, geom), th_med,
+        for x in (x / 10 for x in range(11, 20)):
+            draw_numeral(r, geom, style, sym_col, y_off, scale_h, last_digit_of(x), sc.pos_of(x, geom), th_med,
                          f_lgn, al)
 
         Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
