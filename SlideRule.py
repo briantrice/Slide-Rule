@@ -1525,7 +1525,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, last_digit_of(x), sc.pos_of(x / 10, geom), th_med,
                          f_lgn, al)
 
-        # Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
+        Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc in {Scales.W1, Scales.W1Prime}:
         sc.grad_pat_divided(r, geom, style, y_off, al, [2])
@@ -1541,7 +1541,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 10, sf // 20, sf // 100), ths3, fonts2, True)
         grad_pat(r, geom, style, y_off, sc, al, fp2, fpe + 1, sf, (sf, sf // 2, sf // 10, sf // 50), ths1, fonts_lbl, True)
 
-        # Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
+        Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.H1:
         draw_numeral(r, geom, style, sym_col, y_off, scale_h, 1.005, sc.pos_of(1.005, geom), geom.tick_h(HMod.XL),
