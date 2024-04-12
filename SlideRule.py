@@ -745,7 +745,7 @@ def scale_pythagorean(x):
 
 def scale_hyperbolic(x):
     assert x > 1
-    # y = math.sqrt(1+x**2)
+    # y = math.sqrt(1+x**2) = math.hypot(1, x)
     return gen_base(math.sqrt((x ** 2) - 1))
 
 
@@ -870,7 +870,7 @@ class Scalers:
     Theta = Scaler(lambda x: x / DEG_RIGHT_ANGLE, lambda p: p * DEG_RIGHT_ANGLE)
     LogLog = Scaler(scale_log_log, lambda p: math.exp(pos_base(p)))
     LogLogNeg = Scaler(scale_neg_log_log, lambda p: math.exp(pos_base(-p)), increasing=False)
-    Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.sqrt(1 + math.pow(pos_base(p), 2)))
+    Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.hypot(1, pos_base(p)))
 
 
 class Scale:
