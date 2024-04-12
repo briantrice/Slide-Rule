@@ -397,10 +397,7 @@ def grad_pat_auto(r, geom, style, y_off, sc, al, start_value=None, end_value=Non
     Draw a graduated pattern of tick marks across the scale range.
     Determine the lowest digit tick mark spacing and work upwards from there.
 
-    Tick Patterns:
-    * 1-.5-.1-.05
-    * 1-.5-.1-.02
-    * 1-.5-.1-.01
+    Tick Patterns: 2-5-2, 2-5-5, 2-5-10
     """
     # Ticks
     if not start_value:
@@ -455,6 +452,19 @@ def grad_pat_auto(r, geom, style, y_off, sc, al, start_value=None, end_value=Non
              (num_th, half_th, tenth_th, dot_th),
              (num_font, None, tenth_font if draw_tenth else None),
              single_digit)
+
+
+def t_s(s1, f2, f3, f4):
+    s2 = s1 if f2 == 1 else s1 // f2
+    s3 = s2 if f3 == 1 else s2 // f3
+    s4 = s3 if f4 == 1 else s3 // f4
+    return s1, s2, s3, s4
+
+
+def ts25(x): return t_s(x, 2, 5, 1)
+def ts252(x): return t_s(x, 2, 5, 2)
+def ts255(x): return t_s(x, 2, 5, 5)
+def tst25(x): return t_s(x, 10, 2, 5)
 
 
 def grad_pat(r, geom, style, y_off: int, sc, al: Align,
@@ -1469,11 +1479,11 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         sf = 100
         fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
         grad_pat(r, geom, style, y_off, sc, al,
-                 fp1, fp2, sf, (sf, 10, 5, 1), ths3, fonts2, True)
+                 fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
         grad_pat(r, geom, style, y_off, sc, al,
-                 fp2, fp4, sf, (sf, sf // 2, 10, 2), ths1, fonts_lbl, False)
+                 fp2, fp4, sf, ts255(sf), ths1, fonts_lbl, False)
         grad_pat(r, geom, style, y_off, sc, al,
-                 fp4, fpe + 1, sf, (sf, sf // 2, 10, 5), ths1, fonts_lbl, True)
+                 fp4, fpe + 1, sf, ts252(sf), ths1, fonts_lbl, True)
 
         # Gauge Points
         Marks.pi.draw(r, geom, style, y_off, sc, f_lbl, al, col=sym_col, side=side)
@@ -1486,13 +1496,12 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         sf = 100
         for b in (sf * 10 ** n for n in range(0, 2)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
-            steps = (b, b // 2, b // 10)
             grad_pat(r, geom, style, y_off, sc, al,
-                     fp1, fp2, sf, steps + (b // 50,), ths1, fonts_lbl, True)
+                     fp1, fp2, sf, ts255(b), ths1, fonts_lbl, True)
             grad_pat(r, geom, style, y_off, sc, al,
-                     fp2, fp3, sf, steps + (b // 20,), ths1, fonts_lbl, True)
+                     fp2, fp3, sf, ts252(b), ths1, fonts_lbl, True)
             grad_pat(r, geom, style, y_off, sc, al,
-                     fp3, fpe + 1, sf, steps + (b // 10,), ths2, fonts_lbl, True)
+                     fp3, fpe + 1, sf, ts25(b), ths2, fonts_lbl, True)
 
         # Gauge Points
         for shift_adj in (0, 0.5):
@@ -1502,16 +1511,15 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         sf = 100
         for b in (sf * (10 ** n) for n in range(0, 3)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 3, 6, 10))
-            steps = (b, b // 2, b // 10)
-            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, steps + (b // 20,), ths1, fonts_xl, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, steps + (b // 10,), ths2, fonts_xl, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp3, fpe + 1, sf, steps + (b // 5,), ths2, fonts_xl, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, ts252(b), ths1, fonts_xl, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, ts25(b), ths2, fonts_xl, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp3, fpe + 1, sf, t_s(b, 1, 5, 1), ths2, fonts_xl, True)
 
     elif sc == Scales.R1:
         sf = 1000
         fp1, fp2, fpe = (int(fp * sf) for fp in (1, 2, 3.17))
-        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf // 10, sf // 20, sf // 100, sf // 200), ths1, fonts_no, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp2, fpe + 1, sf, (sf, sf // 10, sf // 20, sf // 100), (th_med, th_med, th_sm, th_xs), fonts2, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, ts252(sf // 10), ths1, fonts_no, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp2, fpe + 1, sf, tst25(sf), (th_med, th_med, th_sm, th_xs), fonts2, True)
 
         # 1-10 Labels
         for x in range(1, 2):
@@ -1534,8 +1542,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.R2:
         sf = 1000
         fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
-        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 10, sf // 20, sf // 100), ths3, fonts2, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp2, fpe + 1, sf, (sf, sf // 2, sf // 10, sf // 50), ths1, fonts_lbl, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp2, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
 
         Marks.sqrt_ten.draw(r, geom, style, y_off, sc, f_lgn, al, sym_col, side=side)
 
@@ -1553,13 +1561,13 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         is_cif = sc == Scales.CIF
         sf = 1000
         fp1 = 310 if is_cif else 314
-        i1 = round(sf / TEN)
+        i1 = sf // TEN
         fp2, fp3, fp4 = (fp * i1 for fp in (4, 10, 20))
         fpe = 3200 if is_cif else fp1 * TEN
-        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (i1, i1 // 2, 10, 2), ths1, fonts_lbl, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (i1, i1 // 2, 10, 5), ths1, fonts_lbl, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, (sf, i1, i1 // 2, i1 // 10), ths3, fonts2, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp4, fpe + 1, sf, (sf, sf // 2, 100, 20), ths1, fonts_lbl, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, ts255(i1), ths1, fonts_lbl, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, ts252(i1), ths1, fonts_lbl, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, tst25(sf), ths3, fonts2, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp4, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
 
         # Gauge Points
         for shift_adj in (0, -1):
@@ -1568,7 +1576,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.L:
         sf = 100
         grad_pat(r, geom, style, y_off, sc, al, 0, TEN * sf + 1, sf,
-                 (sf, sf // 2, sf // 10, sf // 50), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
+                 ts255(sf), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
         # Labels
         for x in range(0, 11):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, x / 10, sc.pos_of(x, geom), th_med, f_lbl, al)
@@ -1581,16 +1589,16 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         is_tan = sc.scaler == Scalers.Tan
         if is_tan:
             fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
-            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 2, sf // 10, sf // 20), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf, sf // 2, sf // 10, sf // 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp3, fpe + 1, sf, (sf * 5, sf, sf // 5, sf // 5), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, ts252(sf), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, ts25(sf), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp3, fpe + 1, sf, t_s(sf * 5, 5, 5, 1), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
         else:
             fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, 90))
-            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 2, sf // 10, sf // 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf * 5, sf, sf // 2, sf // 5), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, (sf * 10, sf * 5, sf, sf // 2), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp4, fp5, sf, (sf * 10, sf * 5, sf, sf), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp5, fpe + 1, sf, (sf * 10, sf * 5, sf * 5, sf * 5), (th_med, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, ts25(sf), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, 5, 5, 1), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, ts252(sf * 10), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp4, fp5, sf, ts25(sf * 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp5, fpe + 1, sf, t_s(sf * 10, 2, 1, 1), (th_med, th_sm, th_xs, th_xs), fonts_no, True)
 
         # Degree Labels
         f = geom.STH * 1.1 if is_tan else th_med
@@ -1613,17 +1621,17 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         # Ticks
         sf = 100
         fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, 84.5))
-        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf * 5, sf, sf // 2, sf // 10), ths4, fonts_xl, False)
-        grad_pat(r, geom, style, y_off, sc, al, fp2, fpe, sf, (sf * 5, sf, sf // 2, sf // 20), ths4, fonts_xl, False)
+        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, 5, 2, 5), ths4, fonts_xl, False)
+        grad_pat(r, geom, style, y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, 5, 2, 10), ths4, fonts_xl, False)
 
     elif sc == Scales.ST:
         # Ticks
         sf = 1000
         fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.57, 1, 2, 4, 5.8))
-        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 20, sf // 100, sf // 200), ths1, fonts_no, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf // 10, sf // 10, sf // 20, sf // 100), ths1, fonts_no, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, (sf // 2, sf // 2, sf // 10, sf // 50), ths1, fonts_no, True)
-        grad_pat(r, geom, style, y_off, sc, al, fp4, fpe + 1, sf, (sf, sf, sf // 10, sf // 20), ths1, fonts_no, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, t_s(sf, 20, 5, 2), ths1, fonts_no, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, t_s(sf // 10, 1, 2, 5), ths1, fonts_no, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, t_s(sf // 2, 1, 5, 5), ths1, fonts_no, True)
+        grad_pat(r, geom, style, y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, 1, 10, 2), ths1, fonts_no, True)
 
         # Degree Labels
         draw_sym_al(r, geom, style, sym_col, y_off, scale_h, '1°', sc.pos_of(1, geom), th_med, f_lbl, al)
