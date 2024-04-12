@@ -157,7 +157,12 @@ class Style:
     def numeral_decimal_color(self):
         return self.decimal_color
 
+    @classmethod
     @cache
+    def get_font(cls, font_family: str, fs: int, font_style: int):
+        font_name = font_family[font_style]
+        return ImageFont.truetype(font_name, fs)
+
     def font_for(self, font_size, font_style=FontStyle.REG, h_ratio=None):
         """
         :param FontStyle font_style: font style
@@ -165,11 +170,10 @@ class Style:
         :param h_ratio: proportion of requested font size to downsize by
         :return: FreeTypeFont
         """
-        font_name = self.font_family[font_style.value]
         fs = font_size if isinstance(font_size, int) else font_size.value
         if h_ratio and h_ratio != 1:
             fs = round(fs * h_ratio)
-        return ImageFont.truetype(font_name, fs)
+        return self.get_font(self.font_family, fs, font_style.value)
 
     @staticmethod
     def sym_dims(symbol, font):
