@@ -126,9 +126,9 @@ class Style:
         self.bg = bg_color
         self.dec_color = decreasing_color
         self.decimal_color = decimal_color
-        self.sc_bg_colors = sc_bg_colors or dict()
+        self.sc_bg_colors = sc_bg_colors or {}
         self.font_family = font_family
-        self.overrides_by_sc_key = overrides_by_sc_key or dict()
+        self.overrides_by_sc_key = overrides_by_sc_key or {}
 
     def __repr__(self):
         return (f'Style(fg_color={self.fg}, bg_color={self.bg},'
@@ -309,12 +309,11 @@ class Geometry:
         """
         if side == Side.FRONT:
             return self.scale_h_front_by_key.get(sc.key, default or self.SH)
-        elif side == Side.REAR:
+        if side == Side.REAR:
             return self.scale_h_rear_by_key.get(sc.key, default or self.SH)
-        else:
-            return self.scale_h_front_by_key.get(
-                sc.key,
-                self.scale_h_rear_by_key.get(sc.key, default or self.SH))
+        return self.scale_h_front_by_key.get(
+            sc.key,
+            self.scale_h_rear_by_key.get(sc.key, default or self.SH))
 
     def scale_h_ratio(self, sc, side=None):
         scale_h = self.scale_h(sc, side=side)
@@ -388,41 +387,6 @@ def i_range_tenths(first: int, last: int, include_last=True, sf=100) -> range:
     return i_range(first * sf, last * sf, include_last)
 
 
-def pat(r, geom, y_off, sc, h_mod, index_range, base_pat, excl_pat, al, sf=100, shift_adj=0):
-    """
-    Place ticks in a pattern
-    a+bN (N ∈ Z) defines the patterning (which ticks to place)
-    a0+b0N (N ∈ Z) defines the exclusion patterning (which ticks not to place)
-
-    :param ImageDraw.Draw r:
-    :param Geometry geom:
-    :param y_off: y pos
-    :param Scale sc:
-    :param HMod h_mod: height modifier (input height scalar like xs, sm, med, lg)
-    :param Iterable index_range: index point range (X_LEFT_INDEX to X_RIGHT_INDEX at widest)
-    :param (int, int) base_pat: the base pattern; a=offset from i_i, b=tick iteration offset
-    :param (int, int)|None excl_pat: an exclusion pattern; a0=offset from i_i, b0=tick iteration offset
-    :param Align al: alignment
-    :param int|None sf: scale factor - how much to divide the inputs by before scaling (to generate fine decimals)
-    :param float shift_adj: how much to adjust the shift from the scale
-    """
-
-    h = geom.tick_h(h_mod)
-    (a, b) = base_pat
-    (a0, b0) = excl_pat or (None, None)
-    tick_col = sc.col
-    scale_w = geom.SL
-    scale_h = geom.scale_h(sc)
-    for x in index_range:
-        if x % b - a == 0:
-            x_scaled = sc.scale_to(x / sf if sf else x, scale_w, shift_adj=shift_adj)
-            if excl_pat:
-                if x % b0 - a0 != 0:
-                    draw_tick(r, geom, tick_col, y_off, scale_h, x_scaled, h, al)
-            else:
-                draw_tick(r, geom, tick_col, y_off, scale_h, x_scaled, h, al)
-
-
 def grad_pat_auto(r, geom, style, y_off, sc, al, start_value=None, end_value=None, include_last=False):
     """
     Draw a graduated pattern of tick marks across the scale range.
@@ -432,15 +396,6 @@ def grad_pat_auto(r, geom, style, y_off, sc, al, start_value=None, end_value=Non
     * 1-.5-.1-.05
     * 1-.5-.1-.02
     * 1-.5-.1-.01
-    :param ImageDraw.Draw r:
-    :param Geometry geom:
-    :param Style style:
-    :param int y_off:
-    :param Scale sc:
-    :param Align al:
-    :param Number start_value:
-    :param Number end_value:
-    :param bool include_last:
     """
     # Ticks
     if not start_value:
@@ -498,9 +453,24 @@ def grad_pat_auto(r, geom, style, y_off, sc, al, start_value=None, end_value=Non
 
 
 def grad_pat(r, geom, style, y_off: int, sc, al: Align,
-             i_start: int, i_end: int, i_sf: int,
-             steps_i: tuple, steps_th: tuple, steps_font: tuple,
-             single_digit: bool):
+             i_start, i_end, i_sf, steps_i, steps_th, steps_font, single_digit):
+    """
+    Place ticks in a layered pattern. All options are given, not inferred.
+
+    :param ImageDraw.Draw r:
+    :param Geometry geom:
+    :param Style style:
+    :param y_off: y pos
+    :param Scale sc:
+    :param Align al: alignment
+    :param int i_start: index across the scale to start at
+    :param int i_end: index across the scale to end at
+    :param int i_sf: scale factor - how much to divide the inputs by before scaling (to generate fine decimals)
+    :param tuple[int, int, int, int] steps_i: patterning steps, large to small
+    :param tuple[int, int, int, int] steps_th: tick sizes, large to small, per step
+    :param tuple[FreeTypeFont, FreeTypeFont, FreeTypeFont] steps_font: optional font sizes, for numerals above ticks
+    :param bool single_digit: whether to show the main numerals as the most relevant digit only
+    """
     step1, step2, step3, step4 = steps_i
     th1, th2, th3, th4 = steps_th
     font1, font2, font3 = steps_font
@@ -886,8 +856,8 @@ class Scalers:
     SquareRoot = Scaler(scale_sqrt, lambda p: pos_base(p / 2))
     Log10 = Scaler(scale_log, lambda p: p * TEN)
     Ln = Scaler(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
-    Sin = Scaler(scale_sin, lambda p: math.asin(p))
-    CoSin = Scaler(scale_cos, lambda p: math.asin(p), increasing=False)
+    Sin = Scaler(scale_sin, math.asin)
+    CoSin = Scaler(scale_cos, math.acos, increasing=False)
     Tan = Scaler(scale_tan, lambda p: math.atan(pos_base(p)))
     SinTan = Scaler(scale_sin_tan, lambda p: math.atan(pos_base(p)))
     SinTanRadians = Scaler(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))))
@@ -1090,8 +1060,7 @@ class Layout:
     def parse_segment_layout(cls, segment_layout: str) -> [str]:
         if segment_layout:
             return re.split(r'[, ]+', segment_layout.strip(' '))
-        else:
-            return None
+        return None
 
     @classmethod
     def parts_of_side_layout(cls, side_layout: str) -> [str]:
@@ -1100,8 +1069,7 @@ class Layout:
         parts = re.fullmatch(r'\|?\s*(.+)\[(.+)](.*)\s*\|?', side_layout)
         if parts:
             return [parts.group(1), parts.group(2), parts.group(3)]
-        else:
-            return [side_layout, '', '']
+        return [side_layout, '', '']
 
     @classmethod
     def parse_side_layout(cls, layout):
@@ -1138,12 +1106,10 @@ class Layout:
     def scale_names_in_order(self):
         for part in self.front_sc_keys:
             if part:
-                for scale_name in part:
-                    yield scale_name
+                yield from part
         for part in self.rear_sc_keys:
             if part:
-                for scale_name in part:
-                    yield scale_name
+                yield from part
 
     def scale_names(self):
         seen = set()
@@ -1163,7 +1129,7 @@ class Layout:
         default_al = sc.al or (top and Align.LOWER or Align.UPPER)
         if side == Side.FRONT:
             return self.front_aligns_by_sc_key.get(sc.key, default_al)
-        elif side == Side.REAR:
+        if side == Side.REAR:
             return self.rear_aligns_by_sc_key.get(sc.key, default_al)
 
 
@@ -1525,7 +1491,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc.scaler == Scalers.Square:
         sf = 100
-        for b in [10 ** foo for foo in range(0, 2)]:
+        for b in [10 ** n for n in range(0, 2)]:
             fp1, fp2, fp3, fpe = map(lambda fp: fp * b * sf, (1, 2, 5, 10))
             steps = (sf * b, (sf * b) // 2, (sf * b) // 10)
             grad_pat(r, geom, style, y_off, sc, al,
@@ -1541,7 +1507,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc == Scales.K:
         sf = 100
-        for b in [10 ** foo for foo in range(0, 3)]:
+        for b in [10 ** n for n in range(0, 3)]:
             fp1, fp2, fp3, fpe = map(lambda fp: fp * b * sf, (1, 3, 6, 10))
             steps = (sf * b, (sf * b) // 2, (sf * b) // 10)
             grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, steps + (5 * b,), ths1, fonts_xl, True)
@@ -2021,7 +1987,7 @@ def main():
     output_suffix = cli_args.suffix or ('test' if cli_args.test else None)
     render_cutoffs = cli_args.cutoffs
     global DEBUG
-    # DEBUG = cli_args.debug
+    DEBUG = cli_args.debug
 
     start_time = time.time()
 
@@ -2033,7 +1999,7 @@ def main():
     r = ImageDraw.Draw(sliderule_img)
     style = model.style
     layout = model.layout
-    if render_mode == Mode.RENDER or render_mode == Mode.STICKERPRINT:
+    if render_mode in {Mode.RENDER, Mode.STICKERPRINT}:
         y_rear_start = geom.side_h + 2 * geom.oY
         if render_mode == Mode.RENDER:
             draw_borders(r, geom, geom.oY, Side.FRONT)
