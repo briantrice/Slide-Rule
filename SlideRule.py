@@ -1474,6 +1474,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     sc_alt = None
     if sc == Scales.S:
         sc_alt = Scales.CoS
+    elif sc == Scales.CoS:
+        sc_alt = Scales.S
     elif sc == Scales.T:
         sc_alt = Scales.CoT
 
@@ -1618,7 +1620,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.Ln:
         grad_pat_auto(r, geom, style, y_off, sc, al, include_last=True)
 
-    elif sc.scaler == Scalers.Sin:
+    elif sc.scaler in {Scalers.Sin, Scalers.CoSin}:
         sf = 100
         fp1, fp2, fp3, fp4, fp5, fpe = map(lambda fp: int(fp * sf), (5.7, 20, 30, 60, 80, 90))
         grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 2, sf // 10, sf // 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
@@ -1721,6 +1723,9 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         for x in range(2, 6):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, sc.pos_of(x, geom), th_med, f_lbl, al)
 
+    elif sc == Scales.SRT:
+        grad_pat_auto(r, geom, style, y_off, sc, al)
+
     elif sc == Scales.P:
         # Labels
         label_h = geom.tick_h(HMod.MED)
@@ -1735,6 +1740,9 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc == Scales.Sh2:
         grad_pat_auto(r, geom, style, y_off, sc, al, include_last=True)
+
+    elif sc == Scales.Ch1:
+        sc.grad_pat_divided(r, geom, style, y_off, al, [1, 2], start_value=0.01)
 
     elif sc == Scales.Th:
         sf = 1000
@@ -2112,7 +2120,10 @@ def main():
         for n, sc_name in enumerate(scale_names):
             sc = getattr(Scales, sc_name)
             al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, True)
-            gen_scale(r, geom_d, style, k + (n + 1) * sh_with_margins, sc, al=al)
+            try:
+                gen_scale(r, geom_d, style, k + (n + 1) * sh_with_margins, sc, al=al)
+            except Exception as e:
+                print(f"Error while generating scale {sc.key}: {e}")
 
         save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
 
