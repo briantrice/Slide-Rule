@@ -1572,15 +1572,10 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.L:
         sf = 100
         grad_pat(r, geom, style, y_off, sc, al, 0, TEN * sf + 1, sf,
-                 (100, 50, 10, 2), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
+                 (sf, sf // 2, sf // 10, sf // 50), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
         # Labels
         for x in range(0, 11):
-            if x == 0:
-                draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, sc.pos_of(x, geom), th_med, f_lbl, al)
-            if x == 10:
-                draw_numeral(r, geom, style, sym_col, y_off, scale_h, 1, sc.pos_of(x, geom), th_med, f_lbl, al)
-            elif x in range(1, 10):
-                draw_numeral(r, geom, style, sym_col, y_off, scale_h, x / 10, sc.pos_of(x, geom), th_med, f_lbl, al)
+            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x / 10, sc.pos_of(x, geom), th_med, f_lbl, al)
 
     elif sc == Scales.Ln:
         grad_pat_auto(r, geom, style, y_off, sc, al, include_last=True)
@@ -1603,18 +1598,14 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
         # Degree Labels
         f = geom.STH * 1.1 if is_tan else th_med
-        first_range = range(6, 16)
-        mid_range = range(16, 21)
-        last_range = range(25, 41, 5)
-        if not is_tan:
-            last_range = chain(last_range, range(50, 80, 10))
-        full_range = chain(first_range, mid_range, last_range)
-        for x in full_range:
-            f_l = f_md2_i if x in first_range else f_mdn_i
-            f_r = f_md2 if x in first_range else f_mdn
+        range1 = range(6, 16)
+        range2 = range(16, 21)
+        for x in chain(range1, range2, range(25, 41, 5), () if is_tan else range(50, 80, 10)):
+            f_l = f_md2_i if x in range1 else f_mdn_i
+            f_r = f_md2 if x in range1 else f_mdn
             x_coord = sc.pos_of(x, geom) + 1.2 / 2 * style.sym_width(str(x), f_l)
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, x_coord, f, f_r, al)
-            if x not in mid_range:
+            if x not in range2:
                 xi = angle_opp(x)
                 x_coord_opp = sc.pos_of(x, geom) - 1.4 / 2 * style.sym_width(str(xi), f_l)
                 draw_numeral(r, geom, style, dec_col, y_off, scale_h, xi, x_coord_opp, f, f_l, al)
@@ -1631,26 +1622,16 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc == Scales.ST:
         # Ticks
-        sf = 100
-        fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.58, 1, 2, 4, 5.8))
-        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 20, sf // 100, sf // 100), ths1, fonts_no, True)
+        sf = 1000
+        fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.57, 1, 2, 4, 5.8))
+        grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 20, sf // 100, sf // 200), ths1, fonts_no, True)
         grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf // 10, sf // 10, sf // 20, sf // 100), ths1, fonts_no, True)
         grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, (sf // 2, sf // 2, sf // 10, sf // 50), ths1, fonts_no, True)
         grad_pat(r, geom, style, y_off, sc, al, fp4, fpe + 1, sf, (sf, sf, sf // 10, sf // 20), ths1, fonts_no, True)
 
-        for x in range(570, 1000):
-            if x % 5 == 0 and last_digit_of(x) != 0:
-                draw_tick(r, geom, sym_col, y_off, scale_h, sc.pos_of(x / 1000, geom), geom.tick_h(HMod.XS), al)
-
         # Degree Labels
         draw_sym_al(r, geom, style, sym_col, y_off, scale_h, '1°', sc.pos_of(1, geom), th_med, f_lbl, al)
-        for x in range(6, 10):
-            x_value = x / 10
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x_value, sc.pos_of(x_value, geom), th_med, f_lbl, al)
-        for x in range(1, 4):
-            x_value = x + 0.5
-            draw_numeral(r, geom, style, sym_col, y_off, scale_h, x_value, sc.pos_of(x_value, geom), th_med, f_lbl, al)
-        for x in range(2, 6):
+        for x in chain((x / 10 for x in range(6, 10)), (x + 0.5 for x in range(1, 4)), range(2, 6)):
             draw_numeral(r, geom, style, sym_col, y_off, scale_h, x, sc.pos_of(x, geom), th_med, f_lbl, al)
 
     elif sc == Scales.SRT:
