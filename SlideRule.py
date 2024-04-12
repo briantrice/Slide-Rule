@@ -455,7 +455,7 @@ def grad_pat_auto(r, geom, style, y_off, sc, al, start_value=None, end_value=Non
 def grad_pat(r, geom, style, y_off: int, sc, al: Align,
              i_start, i_end, i_sf, steps_i, steps_th, steps_font, single_digit):
     """
-    Place ticks in a layered pattern. All options are given, not inferred.
+    Place ticks in a graduated pattern. All options are given, not inferred.
 
     :param ImageDraw.Draw r:
     :param Geometry geom:
@@ -1648,7 +1648,6 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         draw_numeral(r, geom, style, sym_col, y_off, scale_h, 45, scale_w, f, f_lgn, al)
 
     elif sc == Scales.T2:
-        f = geom.tick_h(HMod.LG)
         # Ticks
         sf = 100
         fp1, fp2, fpe = map(lambda fp: int(fp * sf), (45, 75, 84.5))
@@ -1702,7 +1701,6 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc == Scales.Th:
         sf = 1000
-        fp2, fp3, fpe = map(lambda fp: fp * sf, (1, 2, 3))
         sc.grad_pat_divided(r, geom, style, y_off, al, dividers=[0.2, 0.4, 1], end_value=3)
         # Labels
         label_h = geom.tick_h(HMod.MED)
@@ -1886,8 +1884,8 @@ def draw_metal_cutoffs(r, geom, y0, side):
     points = coords
     # If backside, first apply a vertical reflection
     if side == Side.REAR:
-        for i in range(0, len(coords)):
-            (x1, x2, y1, y2) = coords[i]
+        for coord in coords:
+            (x1, x2, y1, y2) = coord
             mid_y = 2 * y0 + side_h
             points.append([x1, x2, mid_y - y2, mid_y - y1])
     for i in range(0, 12):
