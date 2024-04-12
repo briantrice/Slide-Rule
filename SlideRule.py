@@ -486,13 +486,7 @@ def grad_pat(r, geom, style, y_off: int, sc, al: Align,
             tick_h = th1
             if font1:
                 if single_digit:
-                    if not (num > 0 and math.log10(num).is_integer()):
-                        if num % 10 == 0:
-                            num = first_digit_of(num)
-                        elif num < 1:
-                            num = last_digit_of(num)
-                    else:
-                        num = first_digit_of(num)
+                    num = sig_digit_of(num)
                 draw_numeral(r, geom, style, sym_col, y_off, scale_h, num, x, th1, font1, al)
         elif i % step2 == 0:
             tick_h = th2
@@ -1779,6 +1773,18 @@ def last_digit_of(x) -> int:
     if int(x) == x:
         x = int(x)
     return int(str(x)[-1])
+
+
+def sig_digit_of(num):
+    """When only one digit will fit on a major scale's numerals, pick the most significant."""
+    if not (num > 0 and math.log10(num).is_integer()):
+        if num % 10 == 0:
+            num = first_digit_of(num)
+        elif num < 1:
+            num = last_digit_of(num)
+    else:
+        num = first_digit_of(num)
+    return num
 
 
 # ----------------------4. Line Drawing Functions----------------------------
