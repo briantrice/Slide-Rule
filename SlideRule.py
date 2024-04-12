@@ -1132,10 +1132,8 @@ class Layout:
 
     def scale_al(self, sc: Scale, side: Side, top: bool):
         default_al = sc.al or (top and Align.LOWER or Align.UPPER)
-        if side == Side.FRONT:
-            return self.front_aligns_by_sc_key.get(sc.key, default_al)
-        if side == Side.REAR:
-            return self.rear_aligns_by_sc_key.get(sc.key, default_al)
+        return (self.front_aligns_by_sc_key if side == Side.FRONT
+                else self.rear_aligns_by_sc_key).get(sc.key, default_al)
 
 
 class Layouts:
