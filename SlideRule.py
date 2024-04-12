@@ -322,14 +322,14 @@ class Geometry:
 
 
 class FontSize(Enum):
-    Title = 140
-    Subtitle = 120
-    ScaleLBL = 90
-    NumXL = 75
-    NumLG = 60
-    NumMD = 55
-    NumSM = 45
-    NumXS = 35
+    TITLE = 140
+    SUBTITLE = 120
+    SC_LBL = 90
+    N_XL = 75
+    N_LG = 60
+    N_MD = 55
+    N_SM = 45
+    N_XS = 35
 
 
 class Align(Enum):
@@ -434,13 +434,13 @@ def grad_pat_auto(r, geom, style, y_off, sc, al, start_value=None, end_value=Non
     i_offset = i_start % step_last
     if i_offset > 0:  # Align to first tick on or after start
         i_start = i_start - i_offset + step_last
-    num_font = style.font_for(FontSize.NumLG, h_ratio=scale_hf)
+    num_font = style.font_for(FontSize.N_LG, h_ratio=scale_hf)
     numeral_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_numeral / sf, scale_w)
     max_num_chars = numeral_tick_offset / style.sym_width('_', num_font)
     if max_num_chars < 4:
-        num_font = style.font_for(FontSize.NumSM, h_ratio=scale_hf)
+        num_font = style.font_for(FontSize.N_SM, h_ratio=scale_hf)
     single_digit = max_num_chars < 2
-    tenth_font = style.font_for(FontSize.NumXS, h_ratio=scale_hf)
+    tenth_font = style.font_for(FontSize.N_XS, h_ratio=scale_hf)
     # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
     draw_tenth = (step_last < step_tenth < step_numeral) and max_num_chars > 8
     i_end = int(end_value * sf + (1 if include_last else 0))
@@ -564,7 +564,7 @@ def draw_sym_al(r, geom, style, color, y_off, al_h, symbol, x, y, font, al):
     draw_symbol(r, style, base_sym, color, round(x_left), y_top, font)
 
     if exponent or subscript:
-        sub_font_size = FontSize.NumLG if font.size == FontSize.ScaleLBL else font.size
+        sub_font_size = FontSize.N_LG if font.size == FontSize.SC_LBL else font.size
         sub_font = style.font_for(sub_font_size, h_ratio=0.75)
         x_right = round(x_left + w)
         if exponent:
@@ -1394,13 +1394,13 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     # Place Index Symbols (Left and Right)
     italic = FontStyle.ITALIC
-    f_lbl = style.font_for(FontSize.ScaleLBL if scale_h > FontSize.ScaleLBL.value * 1.5 else scale_h // 2)
-    f_lbl_s = style.font_for(FontSize.NumXL if scale_h > FontSize.NumXL.value * 2 else scale_h // 2)
-    f_xln = style.font_for(FontSize.NumXL, h_ratio=scale_h_ratio)
-    f_lgn = style.font_for(FontSize.NumLG, h_ratio=scale_h_ratio)
-    f_mdn = style.font_for(FontSize.NumMD, h_ratio=scale_h_ratio)
-    f_smn = style.font_for(FontSize.NumSM, h_ratio=scale_h_ratio)
-    f_mdn_i = style.font_for(FontSize.NumMD, font_style=italic, h_ratio=scale_h_ratio)
+    f_lbl = style.font_for(FontSize.SC_LBL if scale_h > FontSize.SC_LBL.value * 1.5 else scale_h // 2)
+    f_lbl_s = style.font_for(FontSize.N_XL if scale_h > FontSize.N_XL.value * 2 else scale_h // 2)
+    f_xln = style.font_for(FontSize.N_XL, h_ratio=scale_h_ratio)
+    f_lgn = style.font_for(FontSize.N_LG, h_ratio=scale_h_ratio)
+    f_mdn = style.font_for(FontSize.N_MD, h_ratio=scale_h_ratio)
+    f_smn = style.font_for(FontSize.N_SM, h_ratio=scale_h_ratio)
+    f_mdn_i = style.font_for(FontSize.N_MD, font_style=italic, h_ratio=scale_h_ratio)
 
     if not al:
         al = sc.al
@@ -1468,7 +1468,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     fonts_no = (None, None, None)
     if (sc.scaler in {Scalers.Base, Scalers.Inverse}) and sc.shift == 0:  # C/D and CI/DI
         sf = 100
-        fp1, fp2, fp4, fpe = map(lambda fp: fp * sf, (1, 2, 4, 10))
+        fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
         grad_pat(r, geom, style, y_off, sc, al,
                  fp1, fp2, sf, (sf, 10, 5, 1), ths3, fonts2, True)
         grad_pat(r, geom, style, y_off, sc, al,
@@ -1485,8 +1485,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc.scaler == Scalers.Square:
         sf = 100
-        for b in [10 ** n for n in range(0, 2)]:
-            fp1, fp2, fp3, fpe = map(lambda fp: fp * b * sf, (1, 2, 5, 10))
+        for b in (10 ** n for n in range(0, 2)):
+            fp1, fp2, fp3, fpe = (fp * b * sf for fp in (1, 2, 5, 10))
             steps = (sf * b, (sf * b) // 2, (sf * b) // 10)
             grad_pat(r, geom, style, y_off, sc, al,
                      fp1, fp2, sf, steps + (2 * b,), ths1, fonts_lbl, True)
@@ -1501,8 +1501,8 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc == Scales.K:
         sf = 100
-        for b in [10 ** n for n in range(0, 3)]:
-            fp1, fp2, fp3, fpe = map(lambda fp: fp * b * sf, (1, 3, 6, 10))
+        for b in (10 ** n for n in range(0, 3)):
+            fp1, fp2, fp3, fpe = (fp * b * sf for fp in (1, 3, 6, 10))
             steps = (sf * b, (sf * b) // 2, (sf * b) // 10)
             grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, steps + (5 * b,), ths1, fonts_xl, True)
             grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, steps + (10 * b,), ths2, fonts_xl, True)
@@ -1510,7 +1510,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc == Scales.R1:
         sf = 1000
-        fp1, fp2, fpe = map(lambda fp: int(fp * sf), (1, 2, 3.17))
+        fp1, fp2, fpe = (int(fp * sf) for fp in (1, 2, 3.17))
         grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf // 10, sf // 20, sf // 100, sf // 200), ths1, fonts_no, True)
         grad_pat(r, geom, style, y_off, sc, al, fp2, fpe + 1, sf, (sf, sf // 10, sf // 20, sf // 100), (th_med, th_med, th_sm, th_xs), fonts2, True)
 
@@ -1534,7 +1534,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc == Scales.R2:
         sf = 1000
-        fp1, fp2, fpe = map(lambda fp: int(fp * sf), (3.16, 5, 10))
+        fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
         grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 10, sf // 20, sf // 100), ths3, fonts2, True)
         grad_pat(r, geom, style, y_off, sc, al, fp2, fpe + 1, sf, (sf, sf // 2, sf // 10, sf // 50), ths1, fonts_lbl, True)
 
@@ -1555,7 +1555,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         sf = 1000
         fp1 = 310 if is_cif else 314
         i1 = round(sf / TEN)
-        fp2, fp3, fp4 = map(lambda fp: fp * i1, (4, 10, 20))
+        fp2, fp3, fp4 = (fp * i1 for fp in (4, 10, 20))
         fpe = 3200 if is_cif else fp1 * TEN
         grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (i1, i1 // 2, 10, 2), ths1, fonts_lbl, True)
         grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (i1, i1 // 2, 10, 5), ths1, fonts_lbl, True)
@@ -1584,7 +1584,7 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc.scaler in {Scalers.Sin, Scalers.CoSin}:
         sf = 100
-        fp1, fp2, fp3, fp4, fp5, fpe = map(lambda fp: int(fp * sf), (5.7, 20, 30, 60, 80, 90))
+        fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, 90))
         grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 2, sf // 10, sf // 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
         grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf * 5, sf, sf // 2, sf // 5), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
         grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, (sf * 10, sf * 5, sf, sf // 2), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
@@ -1617,9 +1617,9 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
 
         draw_numeral(r, geom, style, sym_col, y_off, scale_h, DEG_RIGHT_ANGLE, scale_w, th_med, f_lgn, al)
 
-    elif sc == Scales.T or sc == Scales.T1:
+    elif sc in {Scales.T, Scales.T1}:
         sf = 100
-        fp1, fp2, fp3, fpe = map(lambda fp: int(fp * sf), (5.7, 10, 25, 45))
+        fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
         grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 2, sf // 10, sf // 20), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
         grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf, sf // 2, sf // 10, sf // 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
         grad_pat(r, geom, style, y_off, sc, al, fp3, fpe + 1, sf, (sf * 5, sf, sf // 5, sf // 5), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
@@ -1650,14 +1650,14 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.T2:
         # Ticks
         sf = 100
-        fp1, fp2, fpe = map(lambda fp: int(fp * sf), (45, 75, 84.5))
+        fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, 84.5))
         grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf * 5, sf, sf // 2, sf // 10), ths4, fonts_xl, False)
         grad_pat(r, geom, style, y_off, sc, al, fp2, fpe, sf, (sf * 5, sf, sf // 2, sf // 20), ths4, fonts_xl, False)
 
     elif sc == Scales.ST:
         # Ticks
         sf = 100
-        fp1, fp2, fp3, fp4, fpe = map(lambda fp: int(fp * sf), (0.58, 1, 2, 4, 5.8))
+        fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.58, 1, 2, 4, 5.8))
         grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, (sf, sf // 20, sf // 100, sf // 100), ths1, fonts_no, True)
         grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, (sf // 10, sf // 10, sf // 20, sf // 100), ths1, fonts_no, True)
         grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, (sf // 2, sf // 2, sf // 10, sf // 50), ths1, fonts_no, True)
@@ -1700,7 +1700,6 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
         sc.grad_pat_divided(r, geom, style, y_off, al, [1, 2], start_value=0.01)
 
     elif sc == Scales.Th:
-        sf = 1000
         sc.grad_pat_divided(r, geom, style, y_off, al, dividers=[0.2, 0.4, 1], end_value=3)
         # Labels
         label_h = geom.tick_h(HMod.MED)
@@ -1963,6 +1962,7 @@ def save_png(img_to_save: Image, basename: str, output_suffix=None):
 
 
 def main():
+    """CLI processor for rendering the models in various modes."""
     import argparse
     args_parser = argparse.ArgumentParser()
     args_parser.add_argument('--mode',
@@ -2026,7 +2026,7 @@ def render_sliderule_mode(model: Model, sliderule_img, render_mode: Mode, render
     # Front Scale
     # Titling
     style = model.style
-    f_lbl = style.font_for(FontSize.ScaleLBL)
+    f_lbl = style.font_for(FontSize.SC_LBL)
     side_w = geom.side_w
     li = geom.li
     y_off = y_side_start = geom.oY
@@ -2205,9 +2205,9 @@ def render_diagnostic_mode(model: Model, model_name: str, output_suffix: str):
     title_x = round(geom_d.midpoint_x) - geom_d.li
     title = 'Diagnostic Test Print of Available Scales'
     draw_sym_al(r, geom_d, style, style.fg, 50, 0, title, title_x, 0,
-                style.font_for(FontSize.Title), upper)
+                style.font_for(FontSize.TITLE), upper)
     draw_sym_al(r, geom_d, style, style.fg, 200, 0, ' '.join(scale_names), title_x, 0,
-                style.font_for(FontSize.Subtitle), upper)
+                style.font_for(FontSize.SUBTITLE), upper)
     for n, sc_name in enumerate(scale_names):
         sc = getattr(Scales, sc_name)
         al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, True)
