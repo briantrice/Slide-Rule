@@ -415,20 +415,6 @@ def draw_tick(r, geom, col, y_off, scale_h, x, height, al):
     r.rectangle((x0, y0, x0 + geom.STT, y1), fill=col)
 
 
-def i_range(first: int, last: int, include_last: bool):
-    return range(first, last + (1 if include_last else 0))
-
-
-def range_div(first: int, last: int, scale_factor: int, include_last: bool):
-    return (x / scale_factor for x in i_range(first, last, include_last))
-
-
-def range_mul(first: int, last: int, scale_factor: int, include_last: bool):
-    return (x * scale_factor for x in i_range(first, last, include_last))
-
-
-def i_range_tenths(first: int, last: int, include_last=True, sf=100) -> range:
-    return i_range(first * sf, last * sf, include_last)
 
 
 def grad_pat_auto(r, geom, style, y_off, sc, al, start_value=None, end_value=None, include_last=False):
