@@ -325,6 +325,45 @@ class Geometry:
         default_scale_h = self.DEFAULT_SCALE_WH[1]
         return scale_h / default_scale_h if scale_h != default_scale_h else None
 
+    def cutoff_outline(self, y_off):
+        """
+        Creates and returns the left cutoff piece outline in vectors as: (x1,x2,y1,y2)
+
+        ~Cute~little~visualization~
+
+        0    240   480
+        |     |     |
+                 1       -0
+               -----
+               |   |
+               |   |
+            4> |   | <6
+               |   |
+               |   |
+            2  |   |    -1120
+           -----   |
+        5> |       |
+           |       |
+           ---------
+            3           -1600
+        |     |     |
+        """
+        side_h = self.side_h
+        cutoff_w = self.cutoff_w
+        b = 30  # offset of metal from boundary
+        x_left = b + self.oX
+        x_mid = x_left + cutoff_w // 2
+        x_right = cutoff_w - b + self.oX
+        y_top = b + y_off
+        y_mid = y_top + side_h - self.stator_h
+        y_bottom = side_h - b + y_off
+        return [(x_mid, x_right, y_top, y_top),  # 1
+                (x_left, x_mid, y_mid, y_mid),  # 2
+                (x_left, x_right, y_bottom, y_bottom),  # 3
+                (x_mid, x_mid, y_top, y_mid),  # 4
+                (x_left, x_left, y_mid, y_bottom),  # 5
+                (x_right, x_right, y_top, y_bottom)]  # 6
+
 
 class FontSize(Enum):
     TITLE = 140
@@ -1791,59 +1830,24 @@ def draw_metal_cutoffs(r, geom, y0, side):
 
     # Initial Boundary verticals
     cutoff_w = geom.cutoff_w
-    verticals = [cutoff_w + geom.oX, geom.total_w - cutoff_w - geom.oX]
+    total_w = geom.total_w
+    verticals = [cutoff_w + geom.oX, total_w - cutoff_w - geom.oX]
     for i, start in enumerate(verticals):
         r.rectangle((start - 1, y0, start + 1, y0 + i), Colors.CUTOFF)
 
-        # ~Cute~little~visualization~
-        #
-        #   0    240   480
-        #   |     |     |
-        #            1       -0
-        #          -----
-        #          |   |
-        #          |   |
-        #       4> |   | <6
-        #          |   |
-        #          |   |
-        #       2  |   |    -1120
-        #      -----   |
-        #   5> |       |
-        #      |       |
-        #      ---------
-        #       3           -1600
-        #   |     |     |
-
-    side_h = geom.side_h
-    total_w = geom.total_w
-    half_cutoff_w = cutoff_w // 2
-    b = 30  # offset of metal from boundary
-    # Create the left piece using format: (x1,x2,y1,y2)
-    x_left = b + geom.oX
-    x_mid = x_left + half_cutoff_w
-    x_right = cutoff_w - b + geom.oX
-    y_top = b + y0
-    y_mid = y_top + side_h - geom.stator_h
-    y_bottom = side_h - b + y0
-    cutoff_fl = [[x_mid, x_right, y_top, y_top],  # 1
-                 [x_left, x_mid, y_mid, y_mid],  # 2
-                 [x_left, x_right, y_bottom, y_bottom],  # 3
-                 [x_mid, x_mid, y_top, y_mid],  # 4
-                 [x_left, x_left, y_mid, y_bottom],  # 5
-                 [x_right, x_right, y_top, y_bottom]]  # 6
+    cutoff_fl = geom.cutoff_outline(y0)
 
     # Symmetrically create the right piece
-    cutoff_fr = [[total_w - x2, total_w - x1, y1, y2] for (x1, x2, y1, y2) in cutoff_fl]
+    cutoff_fr = [(total_w - x2, total_w - x1, y1, y2) for (x1, x2, y1, y2) in cutoff_fl]
     coords = cutoff_fl + cutoff_fr
 
     # Transfer coords to points for printing (yeah I know it's dumb)
     points = coords
     # If backside, first apply a vertical reflection
     if side == Side.REAR:
-        mid_y = 2 * y0 + side_h
-        points = [[x1, x2, mid_y - y2, mid_y - y1] for (x1, x2, y1, y2) in coords]
-    for point in points:
-        (x1, x2, y1, y2) = point
+        mid_y = 2 * y0 + geom.side_h
+        points = [(x1, x2, mid_y - y2, mid_y - y1) for (x1, x2, y1, y2) in coords]
+    for (x1, x2, y1, y2) in points:
         r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Colors.CUTOFF2)
 
 
