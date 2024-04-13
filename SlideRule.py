@@ -1949,13 +1949,11 @@ def main():
 
     start_time = time.time()
 
-    geom = model.geometry
-    sliderule_img = Image.new('RGB', (geom.total_w, geom.print_height), model.style.bg)
+    sliderule_img = None
     if render_mode in {Mode.RENDER, Mode.STICKERPRINT}:
-        render_sliderule_mode(model, sliderule_img, render_mode, render_cutoffs=render_cutoffs)
-
-    if render_mode == Mode.RENDER:
-        save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
+        sliderule_img = render_sliderule_mode(model, render_mode, sliderule_img, render_cutoffs=render_cutoffs)
+        if render_mode == Mode.RENDER:
+            save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
 
     if render_mode == Mode.DIAGNOSTIC:
         render_diagnostic_mode(model, model_name, output_suffix)
@@ -1966,7 +1964,14 @@ def main():
     print(f'The program took {round(time.time() - start_time, 2)} seconds to run')
 
 
-def render_sliderule_mode(model: Model, sliderule_img, render_mode: Mode, render_cutoffs: bool = False):
+def image_for_rendering(model: Model):
+    geom = model.geometry
+    return Image.new('RGB', (geom.total_w, geom.print_height), model.style.bg)
+
+
+def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, render_cutoffs: bool = False):
+    if not sliderule_img:
+        sliderule_img = image_for_rendering(model)
     r = ImageDraw.Draw(sliderule_img)
     geom = model.geometry
     layout = model.layout
@@ -2014,6 +2019,7 @@ def render_sliderule_mode(model: Model, sliderule_img, render_mode: Mode, render
         y_off = y_rear_start
         y_side_start = y_rear_start
         y_off += geom.top_margin
+    return sliderule_img
 
 
 def render_stickerprint_mode(model, model_name, output_suffix, sliderule_img):
@@ -2126,7 +2132,7 @@ def render_stickerprint_mode(model, model_name, output_suffix, sliderule_img):
     save_png(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
 
 
-def render_diagnostic_mode(model: Model, model_name: str, output_suffix: str):
+def render_diagnostic_mode(model: Model, model_name: str, output_suffix: str = None):
     """
     Diagnostic mode, rendering scales independently.
     Works as a test of tick marks, labeling, and layout. Also, regressions.
