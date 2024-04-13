@@ -1139,13 +1139,13 @@ class Layout:
                 continue
             for scale_name in front_part:
                 if scale_name not in SCALE_NAMES:
-                    raise Exception(f'Unrecognized front scale name: {scale_name}')
+                    raise ValueError(f'Unrecognized front scale name: {scale_name}')
         for rear_part in self.front_sc_keys:
             if not rear_part:
                 continue
             for scale_name in rear_part:
                 if scale_name not in SCALE_NAMES:
-                    raise Exception(f'Unrecognized rear scale name: {scale_name}')
+                    raise ValueError(f'Unrecognized rear scale name: {scale_name}')
 
     def scale_names_in_order(self):
         for part in self.front_sc_keys:
@@ -1624,17 +1624,18 @@ def gen_scale(r, geom, style, y_off, sc, al=None, overhang=None, side=None):
     elif sc.scaler in {Scalers.Sin, Scalers.CoSin} or sc in {Scales.T, Scales.T1}:
         sf = 100
         is_tan = sc.scaler == Scalers.Tan
+        ths_z = (th_xl, th_sm, th_xs, th_xs)
         if is_tan:
             fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
             grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, ts252(sf), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, ts25(sf), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, ts25(sf), ths_z, fonts_no, True)
             grad_pat(r, geom, style, y_off, sc, al, fp3, fpe + 1, sf, t_s(sf * 5, 5, 5, 1), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
         else:
             fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, 90))
-            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, ts25(sf), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, 5, 5, 1), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp1, fp2, sf, ts25(sf), ths_z, fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, 5, 5, 1), ths_z, fonts_no, True)
             grad_pat(r, geom, style, y_off, sc, al, fp3, fp4, sf, ts252(sf * 10), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
-            grad_pat(r, geom, style, y_off, sc, al, fp4, fp5, sf, ts25(sf * 10), (th_xl, th_sm, th_xs, th_xs), fonts_no, True)
+            grad_pat(r, geom, style, y_off, sc, al, fp4, fp5, sf, ts25(sf * 10), ths_z, fonts_no, True)
             grad_pat(r, geom, style, y_off, sc, al, fp5, fpe + 1, sf, t_s(sf * 10, 2, 1, 1), (th_med, th_sm, th_xs, th_xs), fonts_no, True)
 
         # Degree Labels
@@ -1782,10 +1783,6 @@ def sig_digit_of(num):
 
 
 # ----------------------4. Line Drawing Functions----------------------------
-
-# These functions are unfortunately difficult to modify,
-# since I built them with specific numbers rather than variables
-
 
 def draw_borders(r, geom, y0, side, color=Colors.BLACK):
     """
