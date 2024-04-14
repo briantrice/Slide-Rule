@@ -1365,7 +1365,7 @@ class Models:
                                      }
                                  }
                              ),
-                             Style(Colors.BLACK, Colors.WHITE, sc_bg_colors={
+                             Style(sc_bg_colors={
                                  'C': Colors.FC_LIGHT_GREEN_BG,
                                  'CF': Colors.FC_LIGHT_GREEN_BG,
                                  'A': Colors.FC_LIGHT_BLUE_BG,
@@ -1986,7 +1986,7 @@ def render_stickerprint_mode(model, model_name, output_suffix, sliderule_img):
         [box_w + x_off + 5 * o_a, y_b,
          x_off + o_a, stator_h + o_a]
     ]
-    box_x_mirror = (6.5 * o_a + box_w + 2 * x_off)
+    box_x_mirror = 6.5 * o_a + box_w + 2 * x_off
     for box in boxes:
         (x0, y0, dx, dy) = box
         r.draw_box(x0, y0, dx, dy, Colors.CUT)
