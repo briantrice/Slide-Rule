@@ -250,7 +250,7 @@ class UtilsTestCase(unittest.TestCase):
 class SlideRuleLayoutTestCase(unittest.TestCase):
     def test_demo(self):
         actual = Layout('|  K,  A  [ B, T, ST, S ] D,  DI    |',
-                                 '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |')
+                        '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |')
         self.assertEqual(actual.front_sc_keys, [['K', 'A'], ['B', 'T', 'ST', 'S'], ['D', 'DI']])
         self.assertEqual(actual.rear_sc_keys, [['L', 'DF'], ['CF', 'CIF', 'CI', 'C'], ['D', 'R1', 'R2']])
 

@@ -948,11 +948,8 @@ class Scale:
     """non-unicode name for keying/lookup"""  # TODO extend for all alternate namings?
     on_slide: bool = False
     """whether the scale is meant to be on the slide; implying slide vs stator"""
-    opp_scale = None
-    """which scale, if on an edge, it's aligned with
-    :type: Scale"""
-    al: Align = None
-    """If a scale has an alignment its label or relationship to another scale implies."""
+    opp_key: str = None
+    """which scale, if on an edge, it's aligned with"""
 
     def __post_init__(self):
         scaler = self.scaler
@@ -962,11 +959,6 @@ class Scale:
             self.is_increasing = scaler.is_increasing if isinstance(scaler, Scaler) else True
         if self.key is None:
             self.key = self.left_sym
-        opp_scale = self.opp_scale
-        if opp_scale and not opp_scale.opp_scale:
-            opp_scale.opp_scale = self
-            self.al = Align.UPPER
-            opp_scale.al = Align.LOWER
 
     def __hash__(self):
         return hash(self.key)
@@ -1050,15 +1042,15 @@ class Scale:
 
 
 class Scales:
-    A = Scale('A', 'x²', Scalers.Square)
-    B = Scale('B', 'x²_y', Scalers.Square, on_slide=True, opp_scale=A)
-    C = Scale('C', 'x_y', Scalers.Base, on_slide=True)
-    DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift)
-    CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, on_slide=True, opp_scale=DF)
-    CI = Scale('CI', '1/x_y', Scalers.Inverse, on_slide=True)
+    A = Scale('A', 'x²', Scalers.Square, opp_key='B')
+    B = Scale('B', 'x²_y', Scalers.Square, on_slide=True, opp_key='A')
+    C = Scale('C', 'x_y', Scalers.Base, on_slide=True, opp_key='D')
+    DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift, opp_key='CF')
+    CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, on_slide=True, opp_key='DF')
+    CI = Scale('CI', '1/x_y', Scalers.Inverse, on_slide=True, opp_key='DI')
     CIF = Scale('CIF', '1/πx_y', Scalers.Inverse, shift=pi_fold_shift - 1, on_slide=True)
-    D = Scale('D', 'x', Scalers.Base, opp_scale=C)
-    DI = Scale('DI', '1/x', Scalers.Inverse)
+    D = Scale('D', 'x', Scalers.Base, opp_key='C')
+    DI = Scale('DI', '1/x', Scalers.Inverse, opp_key='CI')
     K = Scale('K', 'x³', Scalers.Cube)
     L = Scale('L', 'log x', Scalers.Log10)
     Ln = Scale('Ln', 'ln x', Scalers.Ln)
@@ -1081,10 +1073,10 @@ class Scales:
     CoT = Scale('T', '∡cot x°', Scalers.CoTan)
     T1 = Scale('T₁', '∡tan x°', Scalers.Tan, key='T1')
     T2 = Scale('T₂', '∡tan 0.1x°', Scalers.Tan, key='T2', shift=-1)
-    W1Prime = Scale("W'₁", '√x', Scalers.SquareRoot, key='W1Prime')
-    W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1', opp_scale=W1Prime)
-    W2 = Scale('W₂', '√10x', Scalers.SquareRoot, key='W2', shift=-1)
-    W2Prime = Scale("W'₂", '√10x', Scalers.SquareRoot, key='W2Prime', shift=-1, opp_scale=W2)
+    W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1', opp_key='W1Prime')
+    W1Prime = Scale("W'₁", '√x', Scalers.SquareRoot, key='W1Prime', opp_key='W1')
+    W2 = Scale('W₂', '√10x', Scalers.SquareRoot, key='W2', shift=-1, opp_key='W2Prime')
+    W2Prime = Scale("W'₂", '√10x', Scalers.SquareRoot, key='W2Prime', shift=-1, opp_key='W2')
 
     H1 = Scale('H₁', '√1+0.1x²', Scalers.Hyperbolic, key='H1', shift=1)
     H2 = Scale('H₂', '√1+x²', Scalers.Hyperbolic, key='H2')
@@ -1111,15 +1103,19 @@ SCALE_NAMES = set(keys_of(Scales))
 
 
 class Layout:
-    def __init__(self, front_sc_keys: str, rear_sc_keys: str,
-                 front_aligns: dict[str, Align] = None, rear_aligns: dict[str, Align] = None):
-        if not rear_sc_keys and '\n' in front_sc_keys:
-            (front_sc_keys, rear_sc_keys) = front_sc_keys.splitlines()
-        self.front_sc_keys: list[list[str]] = self.parse_side_layout(front_sc_keys)
-        self.rear_sc_keys: list[list[str]] = self.parse_side_layout(rear_sc_keys)
+    parts_and_top = ((RulePart.STATOR, True), (RulePart.SLIDE, True), (RulePart.STATOR, False))
+
+    def __init__(self, front_str: str, rear_str: str = None, align_overrides=None):
+        if align_overrides is None:
+            align_overrides = {}
+        if not rear_str and '\n' in front_str:
+            (front_str, rear_str) = front_str.splitlines()
+        self.front_sc_keys: list[list[str]] = self.parse_side_layout(front_str)
+        self.rear_sc_keys: list[list[str]] = self.parse_side_layout(rear_str)
         self.check_scales()
-        self.front_aligns_by_sc_key = front_aligns or {}
-        self.rear_aligns_by_sc_key = rear_aligns or {}
+        self.scale_aligns: dict[Side, dict[str, Align]] = {
+            Side.FRONT: align_overrides.get(Side.FRONT, {}), Side.REAR: align_overrides.get(Side.REAR, {})}
+        self.infer_aligns()
 
     def __repr__(self):
         return f'Layout({self.front_sc_keys}, {self.rear_sc_keys})'
@@ -1193,10 +1189,27 @@ class Layout:
             layout_i = 0 if top else 2
         return [getattr(Scales, sc_name) for sc_name in layout[layout_i] or []]
 
+    def infer_aligns(self):
+        """Fill scale alignments per the layout into the overrides."""
+        for side in Side:
+            side_overrides = self.scale_aligns[side]
+            side_seen = set()
+            for part, top in self.parts_and_top:
+                part_scales = self.scales_at(side, part, top)
+                last_i = len(part_scales) - 1
+                for i, sc in enumerate(part_scales):
+                    if sc.key not in side_overrides:
+                        if i == 0 and not part == RulePart.STATOR and not top:
+                            side_overrides[sc.key] = Align.UPPER
+                        elif i == last_i and top:
+                            side_overrides[sc.key] = Align.LOWER
+                        elif sc.opp_key:
+                            side_overrides[sc.key] = Align.UPPER if sc.opp_key in side_seen else Align.LOWER
+                    side_seen.add(sc.key)
+
     def scale_al(self, sc: Scale, side: Side, top: bool):
-        default_al = sc.al or (top and Align.LOWER or Align.UPPER)
-        return (self.front_aligns_by_sc_key if side == Side.FRONT
-                else self.rear_aligns_by_sc_key).get(sc.key, default_al)
+        default_al = Align.LOWER if top else Align.UPPER
+        return self.scale_aligns[side].get(sc.key, default_al)
 
 
 class Layouts:
@@ -1252,7 +1265,7 @@ class Models:
                           }),
                  Layout('|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |',
                         '|  K,  A  [ B, T, ST, S ] D,  DI    |',
-                        front_aligns={'CIF': Align.UPPER}))
+                        align_overrides={Side.FRONT: {'CIF': Align.UPPER}}))
 
     MannheimOriginal = Model('Mannheim', 'Demo', 'Original',
                              Geometry((8000, 1000),
@@ -1295,18 +1308,17 @@ class Models:
                             Layout(
                                 'K T1 T2 DF/CF CIF CI C/D S ST P',
                                 'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3',
-                                front_aligns={
-                                    'T2': Align.UPPER,
-                                    'CI': Align.UPPER,
-                                    'DF': Align.LOWER,
-                                    'S': Align.LOWER,
-                                },
-                                rear_aligns={
-                                    'C': Align.UPPER
+                                align_overrides={
+                                    Side.FRONT: {
+                                        'T2': Align.UPPER,
+                                        'CI': Align.UPPER,
+                                        'DF': Align.LOWER,
+                                        'S': Align.LOWER,
+                                    },
+                                    Side.REAR: {'C': Align.UPPER}
                                 }
                             ),
-                            Style(Colors.BLACK, Colors.WHITE,
-                                  font_family=Font.CMUBright,
+                            Style(font_family=Font.CMUBright,
                                   sc_bg_colors={
                                       'C': Colors.FC_LIGHT_GREEN_BG,
                                       'CF': Colors.FC_LIGHT_GREEN_BG
@@ -1334,21 +1346,23 @@ class Models:
                              Layout(
                                  'T1 T2 K A DF [CF B CIF CI C] D DI S ST P',
                                  'LL03 LL02 LL01 LL00 W2 [W2Prime CI L C W1Prime] W1 D LL0 LL1 LL2 LL3',
-                                 front_aligns={
-                                     'T2': Align.UPPER,
-                                     'CI': Align.UPPER,
-                                     'S': Align.LOWER,
-                                 },
-                                 rear_aligns={
-                                     'LL03': Align.LOWER,
-                                     'LL02': Align.UPPER,
-                                     'LL01': Align.LOWER,
-                                     'LL00': Align.UPPER,
-                                     'C': Align.UPPER,
-                                     'LL0': Align.LOWER,
-                                     'LL1': Align.UPPER,
-                                     'LL2': Align.LOWER,
-                                     'LL3': Align.UPPER,
+                                 align_overrides={
+                                     Side.FRONT: {
+                                         'T2': Align.UPPER,
+                                         'CI': Align.UPPER,
+                                         'S': Align.LOWER,
+                                     },
+                                     Side.REAR: {
+                                         'LL03': Align.LOWER,
+                                         'LL02': Align.UPPER,
+                                         'LL01': Align.LOWER,
+                                         'LL00': Align.UPPER,
+                                         'C': Align.UPPER,
+                                         'LL0': Align.LOWER,
+                                         'LL1': Align.UPPER,
+                                         'LL2': Align.LOWER,
+                                         'LL3': Align.UPPER,
+                                     }
                                  }
                              ),
                              Style(Colors.BLACK, Colors.WHITE, sc_bg_colors={
@@ -1442,8 +1456,6 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
     f_md2 = style.font_for(50, h_ratio=scale_h_ratio)
     f_md2_i = style.font_for(50, font_style=italic, h_ratio=scale_h_ratio)
 
-    if not al:
-        al = sc.al
     li = geom.li
     scale_w = geom.SL
     if DEBUG:
@@ -1879,7 +1891,7 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
         y_off = y_off_titling + f_lbl.size
     # Scales
     for side in Side:
-        for part, top in [(RulePart.STATOR, True), (RulePart.SLIDE, True), (RulePart.STATOR, False)]:
+        for part, top in layout.parts_and_top:
             part_scales = layout.scales_at(side, part, top)
             last_i = len(part_scales) - 1
             for i, sc in enumerate(part_scales):
