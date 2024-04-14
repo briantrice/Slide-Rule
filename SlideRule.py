@@ -22,6 +22,7 @@ import math
 import re
 import time
 import unicodedata
+from dataclasses import dataclass, field
 from enum import Enum
 from functools import cache
 from itertools import chain
@@ -41,24 +42,17 @@ DEG_FULL = 360
 DEG_SEMI = DEG_FULL // 2
 DEG_RT = DEG_SEMI // 2
 
-
-LOG_ZERO = -math.inf
-
-
-class BleedDir(Enum):
-    UP = 'up'
-    DOWN = 'down'
+BYTE_MAX = 255
 
 
 # ----------------------1. Setup----------------------------
 
 
-class Colors:
-    MAX = 255
-    WHITE = (MAX, MAX, MAX)
-    RED = (MAX, 0, 0)
-    GREEN = (0, MAX, 0)
-    BLUE = (0, 0, MAX)
+class Colors(Enum):
+    WHITE = (BYTE_MAX, BYTE_MAX, BYTE_MAX)
+    RED = (BYTE_MAX, 0, 0)
+    GREEN = (0, BYTE_MAX, 0)
+    BLUE = (0, 0, BYTE_MAX)
     BLACK = (0, 0, 0)
 
     CUT = BLUE  # color which indicates CUT
@@ -67,10 +61,17 @@ class Colors:
     SYM_GREEN = (34, 139, 30)  # Override PIL for green for slide rule symbol conventions
     FC_LIGHT_BLUE_BG = (194, 235, 247)  # Faber-Castell scale background
     FC_LIGHT_GREEN_BG = (203, 243, 225)  # Faber-Castell scale background
+    PICKETT_EYE_SAVER_YELLOW = (253, 253, 150)  # pastel yellow
+    LIGHT_BLUE = 'lightblue'
 
-    RED_WHITE_1 = (MAX, 224, 224)
-    RED_WHITE_2 = (MAX, 192, 192)
-    RED_WHITE_3 = (MAX, 160, 160)
+    RED_WHITE_1 = (BYTE_MAX, 224, 224)
+    RED_WHITE_2 = (BYTE_MAX, 192, 192)
+    RED_WHITE_3 = (BYTE_MAX, 160, 160)
+
+
+@cache
+def pil_color(col_spec):
+    return col_spec.value if isinstance(col_spec, Colors) else col_spec
 
 
 class FontStyle(Enum):
@@ -80,8 +81,8 @@ class FontStyle(Enum):
     BOLD_ITALIC = 3  # bold italic
 
 
-# per https://cm-unicode.sourceforge.io/font_table.html:
-class FontFamilies:
+class Font:
+    """per https://cm-unicode.sourceforge.io/font_table.html"""
     CMUTypewriter = (
         'cmuntt.ttf',  # CMUTypewriter-Regular
         'cmunit.ttf',  # CMUTypewriter-Italic
@@ -109,33 +110,38 @@ class FontFamilies:
         'cmunbso.ttf',  # CMUBright-SemiBoldOblique
     )
 
+    @classmethod
+    @cache
+    def get_font(cls, font_family: str, fs: int, font_style: int):
+        font_name = font_family[font_style]
+        return ImageFont.truetype(font_name, fs)
 
+    @classmethod
+    def font_for(cls, font_family, font_size, font_style=FontStyle.REG, h_ratio=None):
+        """
+        :param [str] font_family: font filenames indexed by font_style
+        :param FontStyle font_style: font style
+        :param FontSize|int font_size: font size
+        :param h_ratio: proportion of requested font size to downsize by
+        :returns: FreeTypeFont
+        """
+        fs = font_size if isinstance(font_size, int) else font_size.value
+        if h_ratio and h_ratio != 1:
+            fs = round(fs * h_ratio)
+        return cls.get_font(font_family, fs, font_style.value)
+
+
+@dataclass(frozen=True)
 class Style:
-    fg = Colors.BLACK
+    fg: Colors = Colors.BLACK
     """foreground color black"""
-    bg = Colors.WHITE
+    bg: Colors = Colors.WHITE
     """background color white"""
-    overrides_by_sc_key: dict[str, dict] = {}
-
-    def __init__(self, fg_color=fg, bg_color=bg,
-                 decreasing_color=Colors.RED,
-                 decimal_color=None,
-                 sc_bg_colors: dict = None,
-                 font_family=FontFamilies.CMUTypewriter,
-                 overrides_by_sc_key=None):
-        self.fg = fg_color
-        self.bg = bg_color
-        self.dec_color = decreasing_color
-        self.decimal_color = decimal_color
-        self.sc_bg_colors = sc_bg_colors or {}
-        self.font_family = font_family
-        self.overrides_by_sc_key = overrides_by_sc_key or {}
-
-    def __repr__(self):
-        return (f'Style(fg_color={self.fg}, bg_color={self.bg},'
-                f' decreasing_color={self.dec_color}, decimal_color={self.decimal_color},'
-                f' sc_bg_colors={self.sc_bg_colors}'
-                f' font_family={self.font_family})')
+    dec_color: Colors = Colors.RED
+    decimal_color: Colors = Colors.BLACK
+    sc_bg_colors: dict = field(default_factory=dict)
+    font_family: [str] = Font.CMUTypewriter
+    overrides_by_sc_key: dict[str, dict] = field(default_factory=dict)
 
     def scale_fg_col(self, sc):
         """:type sc: Scale"""
@@ -158,23 +164,8 @@ class Style:
     def numeral_decimal_color(self):
         return self.decimal_color
 
-    @classmethod
-    @cache
-    def get_font(cls, font_family: str, fs: int, font_style: int):
-        font_name = font_family[font_style]
-        return ImageFont.truetype(font_name, fs)
-
     def font_for(self, font_size, font_style=FontStyle.REG, h_ratio=None):
-        """
-        :param FontStyle font_style: font style
-        :param FontSize|int font_size: font size
-        :param h_ratio: proportion of requested font size to downsize by
-        :returns: FreeTypeFont
-        """
-        fs = font_size if isinstance(font_size, int) else font_size.value
-        if h_ratio and h_ratio != 1:
-            fs = round(fs * h_ratio)
-        return self.get_font(self.font_family, fs, font_style.value)
+        return Font.font_for(self.font_family, font_size, font_style, h_ratio)
 
     @staticmethod
     def sym_dims(symbol, font):
@@ -201,12 +192,12 @@ class Style:
 class Styles:
     Default = Style()
     PickettEyeSaver = Style(
-        font_family=FontFamilies.CMUBright,
-        bg_color=(253, 253, 150)  # pastel yellow
+        font_family=Font.CMUBright,
+        bg=Colors.PICKETT_EYE_SAVER_YELLOW
     )
     Graphoplex = Style(
-        font_family=FontFamilies.CMUBright,
-        decimal_color='lightblue'
+        font_family=Font.CMUBright,
+        decimal_color=Colors.LIGHT_BLUE
     )
 
 
@@ -386,11 +377,11 @@ class Side(Enum):
     REAR = 'rear'
 
 
+@dataclass(frozen=True)
 class GaugeMark:
-    def __init__(self, sym, value, comment=None):
-        self.sym = sym
-        self.value = value
-        self.comment = comment
+    sym: str
+    value: float = None
+    comment: str = None
 
 
 # ----------------------2. Fundamental Functions----------------------------
@@ -413,24 +404,20 @@ DEBUG = False
 DRAW_RADICALS = True
 
 
+@dataclass(frozen=True)
 class Renderer:
-    r: ImageDraw = None
+    r: ImageDraw.ImageDraw = None
     geometry: Geometry = None
     style: Style = None
 
-    def __init__(self, r, geom, style):
-        self.r = r
-        self.geometry = geom
-        self.style = style
-
     def draw_box(self, x0, y0, dx, dy, col, width=1):
-        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), outline=col, width=width)
+        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), outline=pil_color(col), width=width)
 
     def fill_rect(self, x0, y0, dx, dy, col):
-        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), fill=col)
+        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), fill=pil_color(col))
 
     def draw_circle(self, xc, yc, r, col):
-        self.r.ellipse((xc - r, yc - r, xc + r, yc + r), outline=col)
+        self.r.ellipse((xc - r, yc - r, xc + r, yc + r), outline=pil_color(col))
 
     def draw_tick(self, y_off, x, height, col, scale_h, al):
         """
@@ -442,8 +429,8 @@ class Renderer:
             y0 += scale_h - height
         self.fill_rect(x0, y0, self.geometry.STT, height, col)
 
-    def grad_pat(self, y_off: int, sc, al: Align,
-                 i_start, i_end, i_sf, steps_i, steps_th, steps_font, single_digit):
+    def pat(self, y_off: int, sc, al: Align,
+            i_start, i_end, i_sf, steps_i, steps_th, steps_font, single_digit):
         """
         Place ticks in a graduated pattern. All options are given, not inferred.
         4 levels of tick steps and sizes needed, and three optional fonts for numerals.
@@ -538,21 +525,22 @@ class Renderer:
         # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
         draw_tenth = (step_last < step_tenth < step_numeral) and max_num_chars > 8
         i_end = int(end_value * sf + (1 if include_last else 0))
-        self.grad_pat(y_off, sc, al,
-                      i_start, i_end, sf,
-                      (step_numeral, step_half, step_tenth, step_last),
-                      (num_th, half_th, tenth_th, dot_th),
-                      (num_font, None, tenth_font if draw_tenth else None),
-                      single_digit)
+        self.pat(y_off, sc, al,
+                 i_start, i_end, sf,
+                 (step_numeral, step_half, step_tenth, step_last),
+                 (num_th, half_th, tenth_th, dot_th),
+                 (num_font, None, tenth_font if draw_tenth else None),
+                 single_digit)
 
     def draw_symbol(self, symbol, color, x_left, y_top, font):
         """
         :param str symbol:
-        :param str|tuple[int] color:
+        :param str|Colors color:
         :param Number x_left:
         :param Number y_top:
         :param FreeTypeFont font:
         """
+        color = pil_color(color)
         if '∡' in symbol:
             symbol = symbol.replace('∡', '')
         if DEBUG:
@@ -576,7 +564,7 @@ class Renderer:
 
     def draw_sym_al(self, symbol, y_off, color, al_h, x, y, font, al):
         """
-        :param str|tuple[int] color: color name that PIL recognizes
+        :param str|Colors color: color that PIL recognizes
         :param int y_off: y pos
         :param int al_h: height for alignment
         :param str symbol: content (text or number)
@@ -609,16 +597,7 @@ class Renderer:
                 self.draw_symbol_sub(subscript, color, h, x_right, y_top, sub_font)
 
     def draw_numeral(self, num, y_off, color, scale_h, x, y, font, al):
-        """
-        :param str|tuple[int] color: color name that PIL recognizes
-        :param int y_off: y pos
-        :param int scale_h:
-        :param Number num: the number to draw
-        :param x: offset of centerline from left index (li)
-        :param y: offset of base from baseline (LOWER) or top from upper line (UPPER)
-        :param FreeTypeFont font:
-        :param Align al: alignment
-        """
+        """Draw a numeric symbol for a scale"""
         if isinstance(num, int):
             num_sym = str(num)
         elif not num.is_integer():
@@ -717,7 +696,7 @@ class Renderer:
             mid_y = 2 * y_off + self.geometry.side_h
             points = [(x1, x2, mid_y - y2, mid_y - y1) for (x1, x2, y1, y2) in coords]
         for (x1, x2, y1, y2) in points:
-            self.r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Colors.CUTOFF2)
+            self.r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Colors.CUTOFF2.value)
 
     # ---------------------- 6. Stickers -----------------------------
 
@@ -729,7 +708,7 @@ class Renderer:
         :param int y2: Second corner of box
         :param int arm_w: width of extension cross arms
         """
-        col = Colors.CUT
+        col = pil_color(Colors.CUT)
         # horizontal cross arms at 4 corners:
         self.r.line((x1 - arm_w, y1, x1 + arm_w, y1), col)
         self.r.line((x1 - arm_w, y2, x1 + arm_w, y2), col)
@@ -792,6 +771,11 @@ def symbol_parts(symbol: str):
     return base_sym, expon, subscript
 
 
+class BleedDir(Enum):
+    UP = 'up'
+    DOWN = 'down'
+
+
 def extend(image, geom, y, direction, amplitude):
     """
     Used to create bleed for sticker cutouts
@@ -816,8 +800,11 @@ def extend(image, geom, y, direction, amplitude):
 
 TEN = 10
 HUNDRED = TEN * TEN
+LOG_TEN = math.log(TEN)
+LOG_ZERO = -math.inf
 
 
+def unit(x): return x
 def gen_base(x): return math.log10(x)
 def pos_base(p): return math.pow(TEN, p)
 def scale_square(x): return gen_base(x) / 2
@@ -878,71 +865,23 @@ class RulePart(Enum):
     SLIDE = 'slide'
 
 
-class InvertibleFn:
-    def __init__(self, fn, inv_fn):
-        self.fn = fn
-        self.inverse = inv_fn
-
-    def __call__(self, x):
-        return self.fn(x)
-
-    def inverted(self):
-        return self.__class__(self.inverse, self.fn)
-
-    def compose_with(self, another):
-        """
-        :param InvertibleFn another:
-        :return: InvertibleFn
-        """
-        return self.__class__(
-            lambda x: self.fn(another.fn(x)),
-            lambda x: another.inverse(self.inverse(x))
-        )
-
-    def __repr__(self):
-        return f'Scaler({self.fn}, {self.inverse})'
-
-    def __add__(self, other):
-        return self.__class__(
-            lambda x: self.fn(x + other),
-            lambda x: self.inverse(x) - other
-        )
-
-    def __sub__(self, other):
-        return self.__class__(
-            lambda x: self.fn(x - other),
-            lambda x: self.inverse(x) + other
-        )
-
-    def __mul__(self, other):
-        return self.__class__(
-            lambda x: self.fn(x * other),
-            lambda x: self.inverse(x) / other
-        )
-
-
-def unit(x): return x
-
-
-class Invertibles:
-    Unit = InvertibleFn(unit, unit)
-    F_to_C = InvertibleFn(lambda f: (f - 32) * 5 / 9, lambda c: (c * 9 / 5) + 32)
-    cm_to_in = InvertibleFn(lambda x_mm: x_mm / 2.54, lambda x_in: x_in * 2.54)
-    mm_to_in = InvertibleFn(lambda x_mm: x_mm / 25.4, lambda x_in: x_in * 25.4)
-    neper_to_db = InvertibleFn(lambda x_db: x_db / (20 / math.log(TEN)), lambda x_n: x_n * 20 / math.log(TEN))
-
-
-class Scaler(InvertibleFn):
+@dataclass(frozen=True)
+class Scaler:
     """Encapsulates a generating function and its inverse.
     The generating function takes X and returns the fractional position in the unit output space it should locate.
     The inverse function takes a fraction of a unit output space, returning the value to indicate at that position.
 
     These should be monotonic over their intended range.
     """
+    fn: callable
+    inverse: callable
+    is_increasing: bool = True
 
-    def __init__(self, fn, inv_fn, increasing=True):
-        super().__init__(fn, inv_fn)
-        self.is_increasing = increasing
+    def __call__(self, x):
+        return self.fn(x)
+
+    def inverted(self):
+        return Scaler(self.inverse, self.fn, not self.is_increasing)
 
     def position_of(self, value):
         return self.fn(value)
@@ -957,32 +896,35 @@ class Scaler(InvertibleFn):
         return self.value_at(1)
 
 
-LOG_TEN = math.log(10)
-
-
 class Scalers:
+    Unit = Scaler(unit, unit)
+    F_to_C = Scaler(lambda f: (f - 32) * 5 / 9, lambda c: (c * 9 / 5) + 32)
+    cm_to_in = Scaler(lambda x_mm: x_mm / 2.54, lambda x_in: x_in * 2.54)
+    mm_to_in = Scaler(lambda x_mm: x_mm / 25.4, lambda x_in: x_in * 25.4)
+    neper_to_db = Scaler(lambda x_db: x_db / (20 / math.log(TEN)), lambda x_n: x_n * 20 / math.log(TEN))
+
     Base = Scaler(gen_base, pos_base)
     Square = Scaler(scale_square, lambda p: pos_base(p * 2))
     Cube = Scaler(scale_cube, lambda p: pos_base(p * 3))
-    Inverse = Scaler(scale_inverse, lambda p: pos_base(1 - p), increasing=False)
-    InverseSquare = Scaler(scale_inverse_square, lambda p: pos_base(1 - p * 2), increasing=False)
+    Inverse = Scaler(scale_inverse, lambda p: pos_base(1 - p), is_increasing=False)
+    InverseSquare = Scaler(scale_inverse_square, lambda p: pos_base(1 - p * 2), is_increasing=False)
     SquareRoot = Scaler(scale_sqrt, lambda p: pos_base(p / 2))
     Log10 = Scaler(scale_log, lambda p: p * TEN)
     Ln = Scaler(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
     Sin = Scaler(scale_sin, math.asin)
-    CoSin = Scaler(scale_cos, math.acos, increasing=False)
+    CoSin = Scaler(scale_cos, math.acos, is_increasing=False)
     Tan = Scaler(scale_tan, lambda p: math.atan(pos_base(p)))
     SinTan = Scaler(scale_sin_tan, lambda p: math.atan(pos_base(p)))
     SinTanRadians = Scaler(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))))
-    CoTan = Scaler(scale_cot, lambda p: math.atan(DEG_RT - p), increasing=False)
+    CoTan = Scaler(scale_cot, lambda p: math.atan(DEG_RT - p), is_increasing=False)
     SinH = Scaler(scale_sinh, lambda p: math.asinh(pos_base(p)))
     CosH = Scaler(scale_cosh, lambda p: math.acosh(pos_base(p)))
     TanH = Scaler(scale_tanh, lambda p: math.atanh(pos_base(p)))
-    Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2), increasing=False)
+    Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2), is_increasing=False)
     Chi = Scaler(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
     Theta = Scaler(lambda x: x / DEG_RT, lambda p: p * DEG_RT)
     LogLog = Scaler(scale_log_log, lambda p: math.exp(pos_base(p)))
-    LogLogNeg = Scaler(scale_neg_log_log, lambda p: math.exp(pos_base(-p)), increasing=False)
+    LogLogNeg = Scaler(scale_neg_log_log, lambda p: math.exp(pos_base(-p)), is_increasing=False)
     Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.hypot(1, pos_base(p)))
 
 
@@ -991,7 +933,7 @@ class Scale:
     """If a scale has an alignment its label or relationship to another scale implies."""
 
     def __init__(self, left_sym: str, right_sym: str, scaler: callable, shift: float = 0,
-                 increasing=True, key=None, rule_part=RulePart.STATOR, opp_scale=None):
+                 is_increasing=True, key=None, rule_part=RulePart.STATOR, opp_scale=None):
         self.left_sym = left_sym
         """left scale symbol"""
         self.right_sym = right_sym
@@ -1003,7 +945,7 @@ class Scale:
         """positioning function (takes a proportion of output width, returning what value is there)"""
         self.shift = shift
         """scale shift from left index (as a fraction of output width)"""
-        self.is_increasing = scaler.is_increasing if isinstance(scaler, Scaler) else increasing
+        self.is_increasing = scaler.is_increasing if isinstance(scaler, Scaler) else is_increasing
         """whether the scale values increase from left to right"""
         self.key = key or left_sym
         """non-unicode name; unused"""  # TODO extend for all alternate namings?
@@ -1252,18 +1194,14 @@ class Layouts:
     Darmstadt = Layout('S T A/B K CI C/D P', 'L LL1 LL2 LL3')
 
 
+@dataclass(frozen=True)
 class Model:
-    def __init__(self, brand: str, subtitle: str, model_name: str,
-                 geometry: Geometry, layout: Layout, style: Style = Styles.Default):
-        self.brand = brand
-        self.subtitle = subtitle
-        self.name = model_name
-        self.geometry = geometry
-        self.layout = layout
-        self.style = style
-
-    def __repr__(self):
-        return f'Model({self.brand}, {self.name}, {self.layout}, style={self.style})'
+    brand: str
+    subtitle: str
+    name: str
+    geometry: Geometry
+    layout: Layout
+    style: Style = Styles.Default
 
     def scale_h_per(self, side: Side, part: RulePart, top: bool):
         result = 0
@@ -1323,7 +1261,7 @@ class Models:
                           'ST T1 T2 DF/CF CIF CI C/D P S',
                           'LL01 LL02 LL03 A/B L K C/D LL3 LL2 LL1'
                       ),
-                      Style(font_family=FontFamilies.CMUBright))
+                      Style(font_family=Font.CMUBright))
     PickettN515T = Model('Pickett', '', 'N-515-T',
                          Geometry((8000, 2000),
                                   (100, 100),
@@ -1355,7 +1293,7 @@ class Models:
                                 }
                             ),
                             Style(Colors.BLACK, Colors.WHITE,
-                                  font_family=FontFamilies.CMUBright,
+                                  font_family=Font.CMUBright,
                                   sc_bg_colors={
                                       'C': Colors.FC_LIGHT_GREEN_BG,
                                       'CF': Colors.FC_LIGHT_GREEN_BG
@@ -1406,7 +1344,7 @@ class Models:
                                  'A': Colors.FC_LIGHT_BLUE_BG,
                                  'B': Colors.FC_LIGHT_BLUE_BG,
                                  'LL0': Colors.FC_LIGHT_GREEN_BG
-                             }, font_family=FontFamilies.CMUBright))
+                             }, font_family=Font.CMUBright))
 
     Graphoplex621 = Model('Graphoplex', '', '621',
                           Geometry((7740, 1070),  # 29cm (7733px) x 40cm (1066px)
@@ -1553,9 +1491,9 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
     if (sc.scaler in {Scalers.Base, Scalers.Inverse}) and sc.shift == 0:  # C/D and CI/DI
         sf = 100
         fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
-        r.grad_pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
-        r.grad_pat(y_off, sc, al, fp2, fp4, sf, ts255(sf), ths1, fonts_lbl, False)
-        r.grad_pat(y_off, sc, al, fp4, fpe + 1, sf, ts252(sf), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
+        r.pat(y_off, sc, al, fp2, fp4, sf, ts255(sf), ths1, fonts_lbl, False)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, ts252(sf), ths1, fonts_lbl, True)
 
         # Gauge Points
         r.draw_mark(Marks.pi, y_off, sc, f_lbl, al, col=sym_col, side=side)
@@ -1568,9 +1506,9 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         sf = 100
         for b in (sf * 10 ** n for n in range(0, 2)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
-            r.grad_pat(y_off, sc, al, fp1, fp2, sf, ts255(b), ths1, fonts_lbl, True)
-            r.grad_pat(y_off, sc, al, fp2, fp3, sf, ts252(b), ths1, fonts_lbl, True)
-            r.grad_pat(y_off, sc, al, fp3, fpe + 1, sf, ts25(b), ths2, fonts_lbl, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, ts255(b), ths1, fonts_lbl, True)
+            r.pat(y_off, sc, al, fp2, fp3, sf, ts252(b), ths1, fonts_lbl, True)
+            r.pat(y_off, sc, al, fp3, fpe + 1, sf, ts25(b), ths2, fonts_lbl, True)
 
         # Gauge Points
         for shift_adj in (0, 0.5):
@@ -1580,15 +1518,15 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         sf = 100
         for b in (sf * (10 ** n) for n in range(0, 3)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 3, 6, 10))
-            r.grad_pat(y_off, sc, al, fp1, fp2, sf, ts252(b), ths1, fonts_xl, True)
-            r.grad_pat(y_off, sc, al, fp2, fp3, sf, ts25(b), ths2, fonts_xl, True)
-            r.grad_pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, 1, 5, 1), ths2, fonts_xl, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, ts252(b), ths1, fonts_xl, True)
+            r.pat(y_off, sc, al, fp2, fp3, sf, ts25(b), ths2, fonts_xl, True)
+            r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, 1, 5, 1), ths2, fonts_xl, True)
 
     elif sc == Scales.R1:
         sf = 1000
         fp1, fp2, fpe = (int(fp * sf) for fp in (1, 2, 3.17))
-        r.grad_pat(y_off, sc, al, fp1, fp2, sf, ts252(sf // 10), ths1, fonts_no, True)
-        r.grad_pat(y_off, sc, al, fp2, fpe + 1, sf, tst25(sf), (th_med, th_med, th_sm, th_xs), fonts2, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, ts252(sf // 10), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp2, fpe + 1, sf, tst25(sf), (th_med, th_med, th_sm, th_xs), fonts2, True)
 
         # 1-10 Labels
         for x in range(1, 2):
@@ -1610,8 +1548,8 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.R2:
         sf = 1000
         fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
-        r.grad_pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
-        r.grad_pat(y_off, sc, al, fp2, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
+        r.pat(y_off, sc, al, fp2, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
 
         r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
 
@@ -1630,10 +1568,10 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         i1 = sf // TEN
         fp2, fp3, fp4 = (fp * i1 for fp in (4, 10, 20))
         fpe = 3200 if is_cif else fp1 * TEN
-        r.grad_pat(y_off, sc, al, fp1, fp2, sf, ts255(i1), ths1, fonts_lbl, True)
-        r.grad_pat(y_off, sc, al, fp2, fp3, sf, ts252(i1), ths1, fonts_lbl, True)
-        r.grad_pat(y_off, sc, al, fp3, fp4, sf, tst25(sf), ths3, fonts2, True)
-        r.grad_pat(y_off, sc, al, fp4, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, ts255(i1), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp2, fp3, sf, ts252(i1), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp3, fp4, sf, tst25(sf), ths3, fonts2, True)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
 
         # Gauge Points
         for shift_adj in (0, -1):
@@ -1641,8 +1579,8 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc == Scales.L:
         sf = 100
-        r.grad_pat(y_off, sc, al, 0, TEN * sf + 1, sf,
-                   ts255(sf), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
+        r.pat(y_off, sc, al, 0, TEN * sf + 1, sf,
+              ts255(sf), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
         # Labels
         for x in range(0, 11):
             r.draw_numeral(x / 10, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
@@ -1657,17 +1595,17 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         if is_tan:
             fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
             fpe += 1
-            r.grad_pat(y_off, sc, al, fp1, fp2, sf, ts252(sf), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
-            r.grad_pat(y_off, sc, al, fp2, fp3, sf, ts25(sf), ths_z, fonts_no, True)
-            r.grad_pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, 5, 5, 1), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, ts252(sf), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp2, fp3, sf, ts25(sf), ths_z, fonts_no, True)
+            r.pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, 5, 5, 1), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
         else:
             fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, 90))
             fpe += 1
-            r.grad_pat(y_off, sc, al, fp1, fp2, sf, ts25(sf), ths_z, fonts_no, True)
-            r.grad_pat(y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, 5, 5, 1), ths_z, fonts_no, True)
-            r.grad_pat(y_off, sc, al, fp3, fp4, sf, ts252(sf * 10), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
-            r.grad_pat(y_off, sc, al, fp4, fp5, sf, ts25(sf * 10), ths_z, fonts_no, True)
-            r.grad_pat(y_off, sc, al, fp5, fpe, sf, t_s(sf * 10, 2, 1, 1), (th_med, th_sm, th_xs, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, ts25(sf), ths_z, fonts_no, True)
+            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, 5, 5, 1), ths_z, fonts_no, True)
+            r.pat(y_off, sc, al, fp3, fp4, sf, ts252(sf * 10), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp4, fp5, sf, ts25(sf * 10), ths_z, fonts_no, True)
+            r.pat(y_off, sc, al, fp5, fpe, sf, t_s(sf * 10, 2, 1, 1), (th_med, th_sm, th_xs, th_xs), fonts_no, True)
 
         # Degree Labels
         f = geom.STH * 1.1 if is_tan else th_med
@@ -1690,17 +1628,17 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         # Ticks
         sf = 100
         fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, 84.5))
-        r.grad_pat(y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, 5, 2, 5), ths4, fonts_xl, False)
-        r.grad_pat(y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, 5, 2, 10), ths4, fonts_xl, False)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, 5, 2, 5), ths4, fonts_xl, False)
+        r.pat(y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, 5, 2, 10), ths4, fonts_xl, False)
 
     elif sc == Scales.ST:
         # Ticks
         sf = 1000
         fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.57, 1, 2, 4, 5.8))
-        r.grad_pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, 20, 5, 2), ths1, fonts_no, True)
-        r.grad_pat(y_off, sc, al, fp2, fp3, sf, t_s(sf // 10, 1, 2, 5), ths1, fonts_no, True)
-        r.grad_pat(y_off, sc, al, fp3, fp4, sf, t_s(sf // 2, 1, 5, 5), ths1, fonts_no, True)
-        r.grad_pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, 1, 10, 2), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, 20, 5, 2), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf // 10, 1, 2, 5), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf // 2, 1, 5, 5), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, 1, 10, 2), ths1, fonts_no, True)
 
         # Degree Labels
         r.draw_sym_al('1°', y_off, sym_col, scale_h, sc.pos_of(1, geom), th_med, f_lbl, al)
@@ -1894,7 +1832,7 @@ def main():
 
 def image_for_rendering(model: Model):
     geom = model.geometry
-    return Image.new('RGB', (geom.total_w, geom.print_height), model.style.bg)
+    return Image.new('RGB', (geom.total_w, geom.print_height), model.style.bg.value)
 
 
 def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, render_cutoffs: bool = False):
@@ -1972,7 +1910,7 @@ def render_stickerprint_mode(model, model_name, output_suffix, sliderule_img):
     scale_h = geom_s.SH
     total_w = scale_w + 2 * o_x2
     total_h = 5075
-    stickerprint_img = Image.new('RGB', (total_w, total_h), style.bg)
+    stickerprint_img = Image.new('RGB', (total_w, total_h), style.bg.value)
     r = Renderer(ImageDraw.Draw(stickerprint_img), geom_s, style)
     # fsUM,MM,LM:
     y = 0
@@ -2079,7 +2017,7 @@ def render_diagnostic_mode(model: Model, model_name: str, output_suffix: str = N
         Geometry.DEFAULT_TICK_WH,
         480
     )
-    diagnostic_img = Image.new('RGB', (geom_d.total_w, total_h), style.bg)
+    diagnostic_img = Image.new('RGB', (geom_d.total_w, total_h), style.bg.value)
     r = Renderer(ImageDraw.Draw(diagnostic_img), geom_d, style)
     title_x = geom_d.midpoint_x - geom_d.li
     title = 'Diagnostic Test Print of Available Scales'
