@@ -928,44 +928,57 @@ class Scalers:
     Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.hypot(1, pos_base(p)))
 
 
+@dataclass
 class Scale:
+    """Labeling and basic layout for a given invertible Scaler function."""
+    left_sym: str
+    """left scale symbol"""
+    right_sym: str
+    """right scale symbol"""
+    scaler: Scaler
+    gen_fn: callable = None
+    """generating function (producing a fraction of output width)"""
+    pos_fn: callable = None
+    """positioning function (takes a proportion of output width, returning what value is there)"""
+    shift: float = 0
+    """scale shift from left index (as a fraction of output width)"""
+    is_increasing: bool = True
+    """whether the scale values increase as inputs increase (from left to right)"""
+    key: str = None
+    """non-unicode name for keying/lookup"""  # TODO extend for all alternate namings?
+    on_slide: bool = False
+    """whether the scale is meant to be on the slide; implying slide vs stator"""
+    opp_scale = None
+    """which scale, if on an edge, it's aligned with
+    :type: Scale"""
     al: Align = None
     """If a scale has an alignment its label or relationship to another scale implies."""
 
-    def __init__(self, left_sym: str, right_sym: str, scaler: callable, shift: float = 0,
-                 is_increasing=True, key=None, rule_part=RulePart.STATOR, opp_scale=None):
-        self.left_sym = left_sym
-        """left scale symbol"""
-        self.right_sym = right_sym
-        """right scale symbol"""
-        self.scaler: Scaler = scaler
-        self.gen_fn = scaler.fn if isinstance(scaler, Scaler) else scaler
-        """generating function (producing a fraction of output width)"""
-        self.pos_fn = scaler.inverse if isinstance(scaler, Scaler) else None
-        """positioning function (takes a proportion of output width, returning what value is there)"""
-        self.shift = shift
-        """scale shift from left index (as a fraction of output width)"""
-        self.is_increasing = scaler.is_increasing if isinstance(scaler, Scaler) else is_increasing
-        """whether the scale values increase from left to right"""
-        self.key = key or left_sym
-        """non-unicode name; unused"""  # TODO extend for all alternate namings?
-        self.rule_part = rule_part
-        """which part of the rule it's on, slide vs stator"""
-        self.opp_scale = opp_scale
-        """which scale, if on an edge, it's aligned with"""
-        if opp_scale:
+    def __post_init__(self):
+        scaler = self.scaler
+        self.gen_fn = scaler.fn
+        self.pos_fn = scaler.inverse
+        if self.is_increasing is None:
+            self.is_increasing = scaler.is_increasing if isinstance(scaler, Scaler) else True
+        if self.key is None:
+            self.key = self.left_sym
+        opp_scale = self.opp_scale
+        if opp_scale and not opp_scale.opp_scale:
             opp_scale.opp_scale = self
             self.al = Align.UPPER
             opp_scale.al = Align.LOWER
+
+    def __hash__(self):
+        return hash(self.key)
+
+    def __eq__(self, other):
+        return self.key == other.key
 
     def displays_cyclic(self):
         return self.scaler in {Scalers.Base, Scalers.Inverse, Scalers.Square, Scalers.Cube}
 
     def can_spiral(self):
         return self.scaler in {Scalers.LogLog, Scalers.LogLogNeg}
-
-    def __repr__(self):
-        return f'Scale({self.key}, {self.right_sym}, {self.scaler})'
 
     @property
     def col(self):
@@ -1038,12 +1051,12 @@ class Scale:
 
 class Scales:
     A = Scale('A', 'x²', Scalers.Square)
-    B = Scale('B', 'x²_y', Scalers.Square, rule_part=RulePart.SLIDE, opp_scale=A)
-    C = Scale('C', 'x_y', Scalers.Base, rule_part=RulePart.SLIDE)
+    B = Scale('B', 'x²_y', Scalers.Square, on_slide=True, opp_scale=A)
+    C = Scale('C', 'x_y', Scalers.Base, on_slide=True)
     DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift)
-    CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, rule_part=RulePart.SLIDE, opp_scale=DF)
-    CI = Scale('CI', '1/x_y', Scalers.Inverse, rule_part=RulePart.SLIDE)
-    CIF = Scale('CIF', '1/πx_y', Scalers.Inverse, shift=pi_fold_shift - 1, rule_part=RulePart.SLIDE)
+    CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, on_slide=True, opp_scale=DF)
+    CI = Scale('CI', '1/x_y', Scalers.Inverse, on_slide=True)
+    CIF = Scale('CIF', '1/πx_y', Scalers.Inverse, shift=pi_fold_shift - 1, on_slide=True)
     D = Scale('D', 'x', Scalers.Base, opp_scale=C)
     DI = Scale('DI', '1/x', Scalers.Inverse)
     K = Scale('K', 'x³', Scalers.Cube)
