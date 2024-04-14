@@ -942,7 +942,7 @@ class Scale:
     """positioning function (takes a proportion of output width, returning what value is there)"""
     shift: float = 0
     """scale shift from left index (as a fraction of output width)"""
-    is_increasing: bool = True
+    is_increasing: bool = None
     """whether the scale values increase as inputs increase (from left to right)"""
     key: str = None
     """non-unicode name for keying/lookup"""  # TODO extend for all alternate namings?
