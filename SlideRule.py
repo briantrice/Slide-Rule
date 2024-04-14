@@ -212,6 +212,12 @@ class HMod(Enum):
     XL = 1.3
 
 
+class Side(Enum):
+    """Side of the slide (front or rear)"""
+    FRONT = 'front'
+    REAR = 'rear'
+
+
 class Geometry:
     """
     Slide Rule Geometric Parameters
@@ -227,6 +233,8 @@ class Geometry:
     SL: int = 5600  # 21cm = 8.27in
     """scale length"""
     DEFAULT_SCALE_WH = (SL, SH)
+    SM: int = 0
+    """Scale margin"""
 
     # Ticks, Labels, are referenced from li as to be consistent
     STH: int = 70  # 2.62mm
@@ -240,12 +248,13 @@ class Geometry:
     DEFAULT_TICK_WH = (STT, STH)
 
     top_margin = 110
+    scale_h_overrides: dict[Side, dict[str, int]] = {Side.FRONT: {}, Side.REAR: {}}
+    margin_overrides: dict[Side, dict[str, int]] = {Side.FRONT: {}, Side.REAR: {}}
 
     def __init__(self, side_wh: (int, int), margins_xy: (int, int), scale_wh: (int, int), tick_wh: (int, int),
-                 slide_h: int,
-                 top_margin: int = None,
-                 scale_h_front: dict[str, int] = None,
-                 scale_h_rear: dict[str, int] = None):
+                 slide_h: int, top_margin: int = None,
+                 scale_h_overrides: dict[Side, dict[int: [str]]] = None,
+                 margin_overrides: dict[Side, dict[int: [str]]] = None):
         (self.side_w, self.side_h) = side_wh
         (self.oX, self.oY) = margins_xy
         (self.SL, self.SH) = scale_wh
@@ -253,8 +262,20 @@ class Geometry:
         self.slide_h = slide_h
         if top_margin:
             self.top_margin = top_margin
-        self.scale_h_front_by_key = scale_h_front or {}
-        self.scale_h_rear_by_key = scale_h_rear or {}
+        self.scale_h_overrides = {Side.FRONT: {}, Side.REAR: {}}
+        if scale_h_overrides:
+            for side in Side:
+                side_overrides = scale_h_overrides.get(side, {})
+                for h, sc_keys in side_overrides.items():
+                    for sc_key in sc_keys:
+                        self.scale_h_overrides[side][sc_key] = h
+        self.margin_overrides = {Side.FRONT: {}, Side.REAR: {}}
+        if margin_overrides:
+            for side in Side:
+                side_overrides = margin_overrides.get(side, {})
+                for h, sc_keys in side_overrides.items():
+                    for sc_key in sc_keys:
+                        self.margin_overrides[side][sc_key] = h
 
     @property
     def total_w(self):
@@ -295,19 +316,20 @@ class Geometry:
             result *= h_ratio
         return round(result)
 
-    def scale_h(self, sc, side=None, default=None) -> int:
-        """
-        :param Scale sc:
-        :param Side side:
-        :param int default:
-        """
-        if side == Side.FRONT:
-            return self.scale_h_front_by_key.get(sc.key, default or self.SH)
-        if side == Side.REAR:
-            return self.scale_h_rear_by_key.get(sc.key, default or self.SH)
-        return self.scale_h_front_by_key.get(
-            sc.key,
-            self.scale_h_rear_by_key.get(sc.key, default or self.SH))
+    def scale_h(self, sc, side: Side = None, default: int = None) -> int:
+        key = sc.key
+        if side:
+            return self.scale_h_overrides[side].get(key, default or self.SH)
+        return self.scale_h_overrides[Side.FRONT].get(
+            key, self.scale_h_overrides[Side.REAR].get(key, default or self.SH))
+
+    def scale_margin(self, sc, side: Side = None, default=SM) -> int:
+        key = sc.key
+        if side:
+            return self.margin_overrides[side].get(key, default or self.SM)
+        return self.margin_overrides[Side.FRONT].get(
+            key, self.margin_overrides[Side.REAR].get(key, default or self.SM)
+        )
 
     def scale_h_ratio(self, sc, side=None):
         scale_h = self.scale_h(sc, side=side)
@@ -369,12 +391,6 @@ class Align(Enum):
     """Scale Alignment (ticks and labels against upper or lower bounds)"""
     UPPER = 'upper'  # Upper alignment
     LOWER = 'lower'  # Lower Alignment
-
-
-class Side(Enum):
-    """Side of the slide (front or rear)"""
-    FRONT = 'front'
-    REAR = 'rear'
 
 
 @dataclass(frozen=True)
@@ -1232,6 +1248,7 @@ class Model:
     def scale_h_per(self, side: Side, part: RulePart, top: bool):
         result = 0
         for sc in self.layout.scales_at(side, part, top):
+            result += self.geometry.scale_margin(sc, side)
             result += self.geometry.scale_h(sc, side)
         return result
 
@@ -1257,15 +1274,11 @@ class Models:
                           Geometry.DEFAULT_TICK_WH,
                           640,
                           top_margin=109,
-                          scale_h_front={
-                              'R1': 155
-                          },
-                          scale_h_rear={
-                              'D': 240
-                          }),
+                          margin_overrides={Side.REAR: {80: ['DI']}}),
                  Layout('|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |',
                         '|  K,  A  [ B, T, ST, S ] D,  DI    |',
-                        align_overrides={Side.FRONT: {'CIF': Align.UPPER}}))
+                        align_overrides={Side.FRONT: {'CIF': Align.UPPER},
+                                         Side.REAR: {'D': Align.UPPER, 'DI': Align.UPPER}}))
 
     MannheimOriginal = Model('Mannheim', 'Demo', 'Original',
                              Geometry((8000, 1000),
@@ -1331,17 +1344,11 @@ class Models:
                                       (Geometry.STT, 50),
                                       510,  # 1.9cm (506.6px)
                                       top_margin=0,
-                                      scale_h_front={
-                                      },
-                                      scale_h_rear={
-                                          'LL03': 74,
-                                          'LL02': 74,
-                                          'LL01': 74,
-                                          'LL00': 74,
-                                          'LL0': 74,
-                                          'LL1': 74,
-                                          'LL2': 74,
-                                          'LL3': 74,
+                                      scale_h_overrides={
+                                          Side.REAR: {
+                                              74: ['LL0', 'LL1', 'LL2', 'LL3',
+                                                   'LL00', 'LL01', 'LL02', 'LL03']
+                                          }
                                       }),
                              Layout(
                                  'T1 T2 K A DF [CF B CIF CI C] D DI S ST P',
@@ -1379,11 +1386,10 @@ class Models:
                                    (6666, 80),  # 25cm (6666.7px) x 3.5mm (93px)
                                    Geometry.DEFAULT_TICK_WH,
                                    480,  # 1.8cm
-                                   scale_h_front={
-                                       'P': 70,
-                                       'ST': 70,
-                                       'K': 70,
-                                       'L': 70,
+                                   scale_h_overrides={
+                                       Side.FRONT: {
+                                           70: ['P', 'ST', 'K', 'L']
+                                       }
                                    }),
                           Layout(
                               'P ST A [ B T1 S CI C ] D K L',  # 'P SRT A [ B T1 S CI C ] D K L'
@@ -1895,6 +1901,8 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
             part_scales = layout.scales_at(side, part, top)
             last_i = len(part_scales) - 1
             for i, sc in enumerate(part_scales):
+                scale_m = geom.scale_margin(sc, side)
+                y_off += scale_m
                 scale_h = geom.scale_h(sc, side)
                 scale_al = layout.scale_al(sc, side, top)
                 # Last scale per top part, align to bottom of part:
