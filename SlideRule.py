@@ -138,14 +138,18 @@ class Style:
     bg: Colors = Colors.WHITE
     """background color white"""
     dec_color: Colors = Colors.RED
+    """color for a decreasing value scale"""
     decimal_color: Colors = Colors.BLACK
+    """color for sub-decimal points"""
     sc_bg_colors: dict = field(default_factory=dict)
+    """background color overrides for particular scale keys"""
     font_family: [str] = Font.CMUTypewriter
     overrides_by_sc_key: dict[str, dict] = field(default_factory=dict)
 
     def scale_fg_col(self, sc):
         """:type sc: Scale"""
-        return self.fg if sc.is_increasing else self.dec_color
+        return self.override_for(sc, 'color',
+                                 self.fg if sc.is_increasing else self.dec_color)
 
     def scale_bg_col(self, sc):
         """:type sc: Scale"""
@@ -466,7 +470,7 @@ class Renderer:
         font1, font2, font3 = steps_font
         scale_w = self.geometry.SL
         scale_h = self.geometry.scale_h(sc)
-        sym_col = sc.col
+        sym_col = self.style.scale_fg_col(sc)
         tenth_col = self.style.decimal_color
         for i in range(i_start, i_end, step4):
             num = i / i_sf
