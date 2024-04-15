@@ -1127,13 +1127,14 @@ SCALE_NAMES = set(keys_of(Scales))
 class Layout:
     parts_and_top = ((RulePart.STATOR, True), (RulePart.SLIDE, True), (RulePart.STATOR, False))
 
-    def __init__(self, front_str: str, rear_str: str = None, align_overrides=None):
+    def __init__(self, front_str: str, rear_str: str = None, scale_ns: object = Scales, align_overrides=None):
         if align_overrides is None:
             align_overrides = {}
         if not rear_str and '\n' in front_str:
             (front_str, rear_str) = front_str.splitlines()
         self.front_sc_keys: list[list[str]] = self.parse_side_layout(front_str)
         self.rear_sc_keys: list[list[str]] = self.parse_side_layout(rear_str)
+        self.scale_ns: object = scale_ns
         self.check_scales()
         self.scale_aligns: dict[Side, dict[str, Align]] = {
             Side.FRONT: align_overrides.get(Side.FRONT, {}), Side.REAR: align_overrides.get(Side.REAR, {})}
@@ -1180,16 +1181,12 @@ class Layout:
 
     def check_scales(self):
         for front_part in self.front_sc_keys:
-            if not front_part:
-                continue
             for scale_name in front_part:
-                if scale_name not in SCALE_NAMES:
+                if not hasattr(self.scale_ns, scale_name):
                     raise ValueError(f'Unrecognized front scale name: {scale_name}')
         for rear_part in self.front_sc_keys:
-            if not rear_part:
-                continue
             for scale_name in rear_part:
-                if scale_name not in SCALE_NAMES:
+                if not hasattr(self.scale_ns, scale_name):
                     raise ValueError(f'Unrecognized rear scale name: {scale_name}')
 
     def scale_names_in_order(self):
@@ -1212,7 +1209,7 @@ class Layout:
             layout_i = 1
         elif part == RulePart.STATOR:
             layout_i = 0 if top else 2
-        return [getattr(Scales, sc_name) for sc_name in layout[layout_i] or []]
+        return [getattr(self.scale_ns, sc_name) for sc_name in layout[layout_i] or []]
 
     def infer_aligns(self):
         """Fill scale alignments per the layout into the overrides."""
