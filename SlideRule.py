@@ -1322,8 +1322,12 @@ class Models:
                                      (100, 100),
                                      (6666, 101),  # 25cm (6666.7px) x 3.5mm (93px)
                                      Geometry.DEFAULT_TICK_WH,
-                                     Geometry.SH * 4,
-                                     top_margin=0),
+                                     400,  # 1.5cm (400px)
+                                     top_margin=0,
+                                     scale_h_overrides={
+                                         Side.FRONT: {72: ['K', 'T1', 'T2', 'P']},
+                                         Side.REAR: {90: ['LL03', 'LL02', 'LL01', 'LL1', 'LL2', 'LL3']}
+                                     }),
                             Layout(
                                 'K T1 T2 DF/CF CIF CI C/D S ST P',
                                 'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3',
