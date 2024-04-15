@@ -22,7 +22,7 @@ import math
 import re
 import time
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from functools import cache
 from itertools import chain
@@ -563,6 +563,8 @@ class Renderer:
         color = pil_color(color)
         if '∡' in symbol:
             symbol = symbol.replace('∡', '')
+        if '⅓' in symbol:
+            symbol = symbol.replace('⅓', '')
         if DEBUG:
             w, h = self.style.sym_dims(symbol, font)
             print(f'draw_symbol_inner: {symbol}\t{x_left} {y_top} {w} {h}')
@@ -1120,12 +1122,29 @@ class Scales:
     L_r = Scale('L_r', '1/(2πx)²', Scalers.InverseSquare, shift=gen_base(1 / TAU))
 
 
-# TODO scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest
-# TODO meta-scale showing % with 100% over 1/unity
-#  special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
+shift_360 = scale_inverse(3.6)
 
 
-SCALE_NAMES = set(keys_of(Scales))
+class AristoCommerzScales:
+    """scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest"""
+    Z = replace(Scales.D, left_sym='Z', right_sym='', opp_key='T1')
+    T1 = replace(Scales.C, left_sym='T₁', right_sym='', key='T1', opp_key='Z', on_slide=True)
+    P1 = replace(Scales.CI, left_sym='P₁', right_sym='', key='P1', on_slide=True)
+    KZ = replace(Scales.CF, left_sym='KZ', right_sym='', key='KZ', shift=shift_360,
+                 extended_start_value=0.3, extended_end_value=4)
+    T2 = replace(Scales.CF, left_sym='T₂', right_sym='', key='T2', shift=shift_360, on_slide=True,
+                 extended_start_value=0.3, extended_end_value=4)
+    P2 = replace(Scales.CIF, left_sym='P₂', right_sym='', key='P2', shift=shift_360 - 1, on_slide=True,
+                 extended_start_value=0.25, extended_end_value=3.3)
+    Ppct = Scale(left_sym='p%', right_sym='', on_slide=True, shift=shift_360,
+                 scaler=Scaler(lambda x: gen_base((x + HUNDRED) / HUNDRED),
+                               lambda p: pos_base(p) * HUNDRED - HUNDRED))
+    # meta-scale showing % with 100% over 1/unity
+    # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
+    Libra = replace(Scales.L, left_sym='£', right_sym='', key='Libra')
+
+
+SCALE_NAMES = set(keys_of(Scales) + keys_of(AristoCommerzScales))
 
 
 class Layout:
@@ -1312,6 +1331,22 @@ class Models:
                           'LL01 LL02 LL03 A/B L K C/D LL3 LL2 LL1'
                       ),
                       Style(font_family=Font.CMUBright))
+
+    Aristo965 = Model('Aristo', 'Commerz II', '965',
+                      Geometry((8000, 1200),  # 30cm (8000px) x 5cm (1333px)
+                               (100, 100),
+                               (6666, 80),  # 25cm (6666.7px) x 3.5mm (93px)
+                               Geometry.DEFAULT_TICK_WH,
+                               480  # 1.7cm (450px)
+                               ),
+                      Layout('Ppct KZ [T2 P2 P1 T1] Z', '', scale_ns=AristoCommerzScales,
+                             align_overrides={Side.FRONT: {'P2': Align.UPPER}}),
+                      Style(dec_color=Colors.SYM_GREEN, font_family=Font.CMUBright,
+                            overrides_by_sc_key={
+                                'T1': {'color': Colors.RED},
+                                'T2': {'color': Colors.RED}
+                            }))
+
     PickettN515T = Model('Pickett', '', 'N-515-T',
                          Geometry((8000, 2000),
                                   (100, 100),
@@ -1757,17 +1792,32 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         r.draw_mark(Marks.inv_e, y_off, sc, f_smn, al, sym_col, side=side)
 
     elif sc == Scales.LL02:
-        sc.grad_pat_divided(r, y_off, al, [0.75],
-                            start_value=0.35, end_value=0.91)
+        sc.grad_pat_divided(r, y_off, al, [0.75], start_value=0.35, end_value=0.91)
         r.draw_mark(Marks.inv_e, y_off, sc, f_smn, al, sym_col, side=side)
 
     elif sc == Scales.LL01:
-        sc.grad_pat_divided(r, y_off, al, [0.95, 0.98],
-                            start_value=0.9, end_value=0.9906)
+        sc.grad_pat_divided(r, y_off, al, [0.95, 0.98], start_value=0.9, end_value=0.9906)
 
     elif sc == Scales.LL00:
-        sc.grad_pat_divided(r, y_off, al, [0.998],
-                            start_value=0.989, end_value=0.9991)
+        sc.grad_pat_divided(r, y_off, al, [0.998], start_value=0.989, end_value=0.9991)
+
+    elif sc in {AristoCommerzScales.KZ, AristoCommerzScales.T2, AristoCommerzScales.P2}:
+        sc.grad_pat_divided(r, y_off, al, [0.4, 1, 2],
+                            start_value=sc.extended_start_value, end_value=sc.extended_end_value)
+
+    elif sc in {AristoCommerzScales.Z, AristoCommerzScales.T1, AristoCommerzScales.P1}:
+        sc.grad_pat_divided(r, y_off, al, [2, 4])
+
+    elif sc == AristoCommerzScales.Ppct:
+        # sc.grad_pat_divided(r, y_off, al, [0], start_value=-50, end_value=100)
+        for pct_value in (0, 5, 10, 15, 20, 35, 30, 40):
+            r.draw_numeral(pct_value, y_off, sc.col, scale_h, sc.pos_of(pct_value, geom), 0, f_lgn, Align.LOWER)
+            r.draw_numeral(pct_value, y_off, sc.col, scale_h, sc.pos_of(-pct_value, geom), 0, f_lgn, Align.LOWER)
+        r.draw_sym_al('-50%', y_off, sc.col, scale_h, sc.pos_of(-50, geom), 0, f_lgn, Align.LOWER)
+        r.draw_sym_al('50%', y_off, sc.col, scale_h, sc.pos_of(50, geom), 0, f_lgn, Align.LOWER)
+        r.draw_sym_al('-33⅓', y_off, sc.col, scale_h, sc.pos_of(-100/3, geom), 0, f_lgn, Align.LOWER)
+        r.draw_sym_al('33⅓', y_off, sc.col, scale_h, sc.pos_of(100/3, geom), 0, f_lgn, Align.LOWER)
+        r.draw_sym_al('+100%', y_off, sc.col, scale_h, sc.pos_of(100, geom), 0, f_lgn, Align.LOWER)
 
     else:
         sc.grad_pat_divided(r, y_off, al, None)
