@@ -925,6 +925,7 @@ class Scalers:
     Inverse = Scaler(scale_inverse, lambda p: pos_base(1 - p), is_increasing=False)
     InverseSquare = Scaler(scale_inverse_square, lambda p: pos_base(1 - p * 2), is_increasing=False)
     SquareRoot = Scaler(scale_sqrt, lambda p: pos_base(p / 2))
+    CubeRoot = Scaler(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3))
     Log10 = Scaler(scale_log, lambda p: p * TEN)
     Ln = Scaler(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
     Sin = Scaler(scale_sin, math.asin)
@@ -1060,6 +1061,7 @@ class Scale:
 class Scales:
     A = Scale('A', 'x²', Scalers.Square, opp_key='B')
     B = Scale('B', 'x²_y', Scalers.Square, on_slide=True, opp_key='A')
+    BI = Scale('BI', '1/x²_y', Scalers.InverseSquare, on_slide=True)
     C = Scale('C', 'x_y', Scalers.Base, on_slide=True, opp_key='D')
     DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift, opp_key='CF')
     CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, on_slide=True, opp_key='DF')
