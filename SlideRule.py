@@ -1082,7 +1082,7 @@ class Scales:
     R1 = Scale('R₁', '√x', Scalers.SquareRoot, key='R1')
     R2 = Scale('R₂', '√10x', Scalers.SquareRoot, key='R2', shift=-1)
     S = Scale('S', '∡sin x°', Scalers.Sin)
-    CoS = Scale('C', '∡cos x°', Scalers.CoSin)
+    CoS = Scale('C', '∡cos x°', Scalers.CoSin, key='CoS')
     SRT = Scale('SRT', '∡tan 0.01x', Scalers.SinTanRadians)
     ST = Scale('ST', '∡tan 0.01x°', Scalers.SinTan)
     T = Scale('T', '∡tan x°', Scalers.Tan)
