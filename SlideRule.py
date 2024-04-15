@@ -1204,11 +1204,11 @@ class Layout:
 
     def check_scales(self):
         for front_part in self.front_sc_keys:
-            for scale_name in front_part:
+            for scale_name in front_part or ():
                 if not hasattr(self.scale_ns, scale_name):
                     raise ValueError(f'Unrecognized front scale name: {scale_name}')
         for rear_part in self.front_sc_keys:
-            for scale_name in rear_part:
+            for scale_name in rear_part or ():
                 if not hasattr(self.scale_ns, scale_name):
                     raise ValueError(f'Unrecognized rear scale name: {scale_name}')
 
