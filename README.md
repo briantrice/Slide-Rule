@@ -1,6 +1,8 @@
 # Slide-Rule
 
-This repository helps generate complete slide rule patterns.
+This Python 3 application helps generate complete slide rule patterns.
+
+[![Python application](https://github.com/briantrice/Slide-Rule/actions/workflows/python-app.yml/badge.svg)](https://github.com/briantrice/Slide-Rule/actions/workflows/python-app.yml)
 
 ## Running
 To run the program, you can download the one file as:
