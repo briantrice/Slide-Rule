@@ -1146,11 +1146,14 @@ class Layout:
 
     @classmethod
     def parts_of_side_layout(cls, side_layout: str) -> [str]:
+        side_layout = side_layout.strip(' |')
+        parts = None
         if '/' in side_layout:
-            return side_layout.split('/')
-        parts = re.fullmatch(r'\|?\s*(.+)\[(.+)](.*)\s*\|?', side_layout)
+            parts = side_layout.split('/', 2)
+        elif '[' in side_layout and ']' in side_layout:
+            parts = re.split(r'[\[\]]', side_layout, 2)
         if parts:
-            return [parts.group(1), parts.group(2), parts.group(3)]
+            return [x.strip() for x in parts]
         return [side_layout, '', '']
 
     @classmethod
@@ -1233,9 +1236,10 @@ class Layout:
 class Layouts:
     MannheimOriginal = Layout('A/B C/D', '')
     RegleDesEcoles = Layout('DF/CF C/D', '')
-    Mannheim = Layout('A/B CI C/D K', 'S L T')
-    Rietz = Layout('K A/B CI C/D L', 'S ST T')
-    Darmstadt = Layout('S T A/B K CI C/D P', 'L LL1 LL2 LL3')
+    Mannheim = Layout('A/B CI C/D K', '[S L T]')
+    Rietz = Layout('K A/B CI C/D L', '[S ST T]')
+    Darmstadt = Layout('K A/B K CI C/D P', '[LL1 LL2 LL3]')
+    DarmstadtAdvanced = Layout('T K A/B BI CI C/D P S', '[ L LL0 LL1 LL2 LL3 ]')
 
 
 @dataclass(frozen=True)

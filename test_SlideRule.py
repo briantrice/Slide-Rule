@@ -247,7 +247,7 @@ class UtilsTestCase(unittest.TestCase):
         self.assertEqual(1, first_digit_of(105))
 
 
-class SlideRuleLayoutTestCase(unittest.TestCase):
+class LayoutTestCase(unittest.TestCase):
     def test_demo(self):
         actual = Layout('|  K,  A  [ B, T, ST, S ] D,  DI    |',
                         '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |')
@@ -263,6 +263,14 @@ class SlideRuleLayoutTestCase(unittest.TestCase):
         actual = Layout('A B C D', '')
         self.assertEqual(actual.front_sc_keys, [['A', 'B', 'C', 'D'], None, None])
         self.assertEqual(actual.rear_sc_keys, [None, None, None])
+
+    def test_slide_only_side(self):
+        example = '[S ST T]'
+        self.assertEqual(['', 'S ST T', ''], Layout.parts_of_side_layout(example))
+        self.assertEqual([None, ['S', 'ST', 'T'], None], Layout.parse_side_layout(example))
+        actual = Layout('A / B C / D', example)
+        self.assertEqual(actual.front_sc_keys, [['A'], ['B', 'C'], ['D']])
+        self.assertEqual(actual.rear_sc_keys, [None, ['S', 'ST', 'T'], None])
 
 
 class ModelTestCase(unittest.TestCase):
