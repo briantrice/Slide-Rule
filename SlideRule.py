@@ -983,7 +983,7 @@ class Scale:
         self.gen_fn = scaler.fn
         self.pos_fn = scaler.inverse
         if self.is_increasing is None:
-            self.is_increasing = scaler.is_increasing if isinstance(scaler, Scaler) else True
+            self.is_increasing = scaler.is_increasing
         if self.key is None:
             self.key = self.left_sym
 
@@ -1136,9 +1136,9 @@ class AristoCommerzScales:
                  extended_start_value=0.3, extended_end_value=4)
     P2 = replace(Scales.CIF, left_sym='P₂', right_sym='', key='P2', shift=shift_360 - 1, on_slide=True,
                  extended_start_value=0.25, extended_end_value=3.3)
-    Ppct = Scale(left_sym='p%', right_sym='', on_slide=True, shift=shift_360,
-                 scaler=Scaler(lambda x: gen_base((x + HUNDRED) / HUNDRED),
-                               lambda p: pos_base(p) * HUNDRED - HUNDRED))
+    Pct = Scale(left_sym='p%', right_sym='', on_slide=True, shift=shift_360,
+                scaler=Scaler(lambda x: gen_base((x + HUNDRED) / HUNDRED),
+                              lambda p: pos_base(p) * HUNDRED - HUNDRED))
     # meta-scale showing % with 100% over 1/unity
     # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
     Libra = replace(Scales.L, left_sym='£', right_sym='', key='Libra')
@@ -1339,7 +1339,7 @@ class Models:
                                Geometry.DEFAULT_TICK_WH,
                                480  # 1.7cm (450px)
                                ),
-                      Layout('Ppct KZ [T2 P2 P1 T1] Z', '', scale_ns=AristoCommerzScales,
+                      Layout('Pct KZ [T2 P2 P1 T1] Z', '', scale_ns=AristoCommerzScales,
                              align_overrides={Side.FRONT: {'P2': Align.UPPER}}),
                       Style(dec_color=Colors.SYM_GREEN, font_family=Font.CMUBright,
                             overrides_by_sc_key={
@@ -1808,16 +1808,13 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
     elif sc in {AristoCommerzScales.Z, AristoCommerzScales.T1, AristoCommerzScales.P1}:
         sc.grad_pat_divided(r, y_off, al, [2, 4])
 
-    elif sc == AristoCommerzScales.Ppct:
+    elif sc == AristoCommerzScales.Pct:
         # sc.grad_pat_divided(r, y_off, al, [0], start_value=-50, end_value=100)
         for pct_value in (0, 5, 10, 15, 20, 35, 30, 40):
             r.draw_numeral(pct_value, y_off, sc.col, scale_h, sc.pos_of(pct_value, geom), 0, f_lgn, Align.LOWER)
             r.draw_numeral(pct_value, y_off, sc.col, scale_h, sc.pos_of(-pct_value, geom), 0, f_lgn, Align.LOWER)
-        r.draw_sym_al('-50%', y_off, sc.col, scale_h, sc.pos_of(-50, geom), 0, f_lgn, Align.LOWER)
-        r.draw_sym_al('50%', y_off, sc.col, scale_h, sc.pos_of(50, geom), 0, f_lgn, Align.LOWER)
-        r.draw_sym_al('-33⅓', y_off, sc.col, scale_h, sc.pos_of(-100/3, geom), 0, f_lgn, Align.LOWER)
-        r.draw_sym_al('33⅓', y_off, sc.col, scale_h, sc.pos_of(100/3, geom), 0, f_lgn, Align.LOWER)
-        r.draw_sym_al('+100%', y_off, sc.col, scale_h, sc.pos_of(100, geom), 0, f_lgn, Align.LOWER)
+        for sym, val in (('-50%', -50), ('50%', 50), ('-33⅓', -100/3), ('33⅓', 100/3), ('+100%', 100)):
+            r.draw_sym_al(sym, y_off, sc.col, scale_h, sc.pos_of(val, geom), 0, f_lgn, Align.LOWER)
 
     else:
         sc.grad_pat_divided(r, y_off, al, None)
@@ -2026,8 +2023,7 @@ def render_stickerprint_mode(model, model_name, output_suffix, sliderule_img):
     extend(stickerprint_img, geom_s, y + slide_h - 1, BleedDir.DOWN, ext)
     r.draw_corners(o_x2, y, o_x2 + scale_w, y + slide_h)
     y += slide_h + o_a
-    transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + geom.side_h - stator_h, scale_w, stator_h, o_x2,
-               y)
+    transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + geom.side_h - stator_h, scale_w, stator_h, o_x2, y)
     extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
     extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
     r.draw_corners(o_x2, y, o_x2 + scale_w, y + stator_h + o_a)
@@ -2043,8 +2039,7 @@ def render_stickerprint_mode(model, model_name, output_suffix, sliderule_img):
     extend(stickerprint_img, geom_s, y + slide_h - 1, BleedDir.DOWN, ext)
     r.draw_corners(o_x2, y, o_x2 + scale_w, y + slide_h)
     y += slide_h + o_a
-    transcribe(sliderule_img, stickerprint_img, x_left, y_start + geom_s.side_h - stator_h, scale_w, stator_h, o_x2,
-               y)
+    transcribe(sliderule_img, stickerprint_img, x_left, y_start + geom_s.side_h - stator_h, scale_w, stator_h, o_x2, y)
     extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
     extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
     y_bottom = y + stator_h + o_a
