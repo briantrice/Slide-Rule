@@ -971,6 +971,10 @@ class Scale:
     """whether the scale is meant to be on the slide; implying slide vs stator"""
     opp_key: str = None
     """which scale, if on an edge, it's aligned with"""
+    extended_start_value: float = None
+    """which value, if the scale is displayed extended at start, to show first"""
+    extended_end_value: float = None
+    """which value, if the scale is displayed extended at end, to show last"""
 
     def __post_init__(self):
         scaler = self.scaler
