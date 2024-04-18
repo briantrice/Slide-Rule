@@ -1911,16 +1911,21 @@ def main():
     sliderule_img = None
     if render_mode in {Mode.RENDER, Mode.STICKERPRINT}:
         sliderule_img = render_sliderule_mode(model, render_mode, sliderule_img, render_cutoffs=render_cutoffs)
+        print(f'Slide Rule render finished at: {round(time.time() - start_time, 2)} seconds')
         if render_mode == Mode.RENDER:
             save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
 
     if render_mode == Mode.DIAGNOSTIC:
-        render_diagnostic_mode(model, model_name, output_suffix)
+        diagnostic_img = render_diagnostic_mode(model)
+        print(f'Diagnostic render finished at: {round(time.time() - start_time, 2)} seconds')
+        save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
 
     if render_mode == Mode.STICKERPRINT:
-        render_stickerprint_mode(model, model_name, output_suffix, sliderule_img)
+        stickerprint_img = render_stickerprint_mode(model, sliderule_img)
+        print(f'Stickerprint render finished at: {round(time.time() - start_time, 2)} seconds')
+        save_png(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
 
-    print(f'The program took {round(time.time() - start_time, 2)} seconds to run')
+    print(f'Program finished at: {round(time.time() - start_time, 2)} seconds')
 
 
 def image_for_rendering(model: Model):
@@ -1981,7 +1986,7 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
     return sliderule_img
 
 
-def render_stickerprint_mode(model, model_name, output_suffix, sliderule_img):
+def render_stickerprint_mode(model, sliderule_img):
     # Code Names
     # (fs) | UL,UM,UR [ ML,MM,MR ] LL,LM,LR |
     # (bs) | UL,UM,UR [ ML,MM,MR ] LL,LM,LR |
@@ -2078,10 +2083,10 @@ def render_stickerprint_mode(model, model_name, output_suffix, sliderule_img):
         r.draw_circle(p_x, p_y, hole_r, Colors.CUT)
         p_x_mirror = round(2 * box_x_mirror - p_x)
         r.draw_circle(p_x_mirror, p_y, hole_r, Colors.CUT)
-    save_png(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
+    return stickerprint_img
 
 
-def render_diagnostic_mode(model: Model, model_name: str, output_suffix: str = None):
+def render_diagnostic_mode(model: Model):
     """
     Diagnostic mode, rendering scales independently.
     Works as a test of tick marks, labeling, and layout. Also, regressions.
@@ -2123,7 +2128,7 @@ def render_diagnostic_mode(model: Model, model_name: str, output_suffix: str = N
             gen_scale(r, k + (n + 1) * sh_with_margins, sc, al=al)
         except Exception as e:
             print(f"Error while generating scale {sc.key}: {e}")
-    save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
+    return diagnostic_img
 
 
 if __name__ == '__main__':
