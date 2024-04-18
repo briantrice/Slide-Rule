@@ -855,7 +855,7 @@ def scale_hyperbolic(x):
     return gen_base(math.sqrt((x ** 2) - 1))
 
 
-def angle_opp(x: int) -> int:
+def angle_opp(x):
     """The opposite angle in degrees across a right triangle."""
     return DEG_RT - x
 
@@ -917,7 +917,8 @@ class Scalers:
     Tan = Scaler(lambda x: gen_base(TEN * math.tan(math.radians(x))), lambda p: math.atan(pos_base(p)))
     SinTan = Scaler(scale_sin_tan, lambda p: math.atan(pos_base(p)))
     SinTanRadians = Scaler(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))))
-    CoTan = Scaler(lambda x: gen_base(TEN * math.tan(math.radians(DEG_RT - x))), lambda p: math.atan(DEG_RT - p), is_increasing=False)
+    CoTan = Scaler(lambda x: gen_base(TEN * math.tan(math.radians(angle_opp(x)))),
+                   lambda p: math.atan(pos_base(angle_opp(p))), is_increasing=False)
     SinH = Scaler(lambda x: gen_base(math.sinh(x)), lambda p: math.asinh(pos_base(p)))
     CosH = Scaler(lambda x: gen_base(math.cosh(x)), lambda p: math.acosh(pos_base(p)))
     TanH = Scaler(lambda x: gen_base(math.tanh(x)), lambda p: math.atanh(pos_base(p)))
@@ -1688,7 +1689,7 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.T2:
         # Ticks
         sf = 100
-        fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, 90 - 5.7))
+        fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, angle_opp(5.7)))
         r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, 5, 2, 5), ths4, fonts_xl, False)
         r.pat(y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, 5, 2, 10), ths4, fonts_xl, False)
 
