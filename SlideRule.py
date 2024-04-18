@@ -973,10 +973,12 @@ class Scale:
     """whether the scale is meant to be on the slide; implying slide vs stator"""
     opp_key: str = None
     """which scale, if on an edge, it's aligned with"""
-    extended_start_value: float = None
+    ex_start_value: float = None
     """which value, if the scale is displayed extended at start, to show first"""
-    extended_end_value: float = None
+    ex_end_value: float = None
     """which value, if the scale is displayed extended at end, to show last"""
+    dividers: list = None
+    """which values should the natural scale divide its graduated patterns at"""
 
     def __post_init__(self):
         scaler = self.scaler
@@ -1054,9 +1056,10 @@ class Scale:
         """
         return round(scale_width * self.frac_pos_of(x, shift_adj=shift_adj))
 
-    def grad_pat_divided(self, r, y_off, al, dividers, start_value=None, end_value=None):
-        if dividers is None:
-            dividers = [10 ** n for n in self.powers_of_ten_in_range()]
+    def grad_pat_default(self, r, y_off, al, extended=False):
+        start_value = self.ex_start_value or self.value_at_start() if extended else None
+        end_value = self.ex_end_value or self.value_at_end() if extended else None
+        dividers = self.dividers or [10 ** n for n in self.powers_of_ten_in_range()]
         if dividers:
             r.grad_pat_auto(y_off, self, al, start_value=start_value, end_value=dividers[0])
             last_i = len(dividers) - 1
@@ -1082,15 +1085,24 @@ class Scales:
     K = Scale('K', 'x³', Scalers.Cube)
     L = Scale('L', 'log x', Scalers.Log10)
     Ln = Scale('Ln', 'ln x', Scalers.Ln)
-    LL0 = Scale('LL₀', 'e^0.001x', Scalers.LogLog, shift=3, key='LL0')
-    LL1 = Scale('LL₁', 'e^0.01x', Scalers.LogLog, shift=2, key='LL1')
-    LL2 = Scale('LL₂', 'e^0.1x', Scalers.LogLog, shift=1, key='LL2')
-    LL3 = Scale('LL₃', 'e^x', Scalers.LogLog, key='LL3')
-    LL00 = Scale('LL₀₀', 'e^-0.001x', Scalers.LogLogNeg, shift=3, key='LL00')
-    LL01 = Scale('LL₀₁', 'e^-0.01x', Scalers.LogLogNeg, shift=2, key='LL01')
-    LL02 = Scale('LL₀₂', 'e^-0.1x', Scalers.LogLogNeg, shift=1, key='LL02')
-    LL03 = Scale('LL₀₃', 'e^-x', Scalers.LogLogNeg, key='LL03')
-    P = Scale('P', '√1-(0.1x)²', Scalers.Pythagorean, key='P')
+    LL0 = Scale('LL₀', 'e^0.001x', Scalers.LogLog, shift=3, key='LL0',
+                dividers=[1.002, 1.005], ex_start_value=1.00095, ex_end_value=1.0105)
+    LL1 = Scale('LL₁', 'e^0.01x', Scalers.LogLog, shift=2, key='LL1',
+                dividers=[1.02, 1.05], ex_start_value=1.0095, ex_end_value=1.11)
+    LL2 = Scale('LL₂', 'e^0.1x', Scalers.LogLog, shift=1, key='LL2',
+                dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3)
+    LL3 = Scale('LL₃', 'e^x', Scalers.LogLog, key='LL3',
+                dividers=[10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=60000)
+    LL00 = Scale('LL₀₀', 'e^-0.001x', Scalers.LogLogNeg, shift=3, key='LL00',
+                 dividers=[0.998], ex_start_value=0.989, ex_end_value=0.9991)
+    LL01 = Scale('LL₀₁', 'e^-0.01x', Scalers.LogLogNeg, shift=2, key='LL01',
+                 dividers=[0.95, 0.98], ex_start_value=0.9, ex_end_value=0.9906)
+    LL02 = Scale('LL₀₂', 'e^-0.1x', Scalers.LogLogNeg, shift=1, key='LL02',
+                 dividers=[0.75], ex_start_value=0.35, ex_end_value=0.91)
+    LL03 = Scale('LL₀₃', 'e^-x', Scalers.LogLogNeg, key='LL03',
+                 dividers=[0.001, 0.01, 0.1], ex_start_value=0.0001, ex_end_value=0.39)
+    P = Scale('P', '√1-(0.1x)²', Scalers.Pythagorean, key='P',
+              dividers=[0.3, 0.7, 0.9, 0.98], ex_start_value=0.1, ex_end_value=.995)
     R1 = Scale('R₁', '√x', Scalers.SquareRoot, key='R1')
     R2 = Scale('R₂', '√10x', Scalers.SquareRoot, key='R2', shift=-1)
     S = Scale('S', '∡sin x°', Scalers.Sin)
@@ -1099,27 +1111,28 @@ class Scales:
     ST = Scale('ST', '∡tan 0.01x°', Scalers.SinTan)
     T = Scale('T', '∡tan x°', Scalers.Tan)
     CoT = Scale('T', '∡cot x°', Scalers.CoTan)
-    T1 = Scale('T₁', '∡tan x°', Scalers.Tan, key='T1')
-    T2 = Scale('T₂', '∡tan 0.1x°', Scalers.Tan, key='T2', shift=-1)
-    W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1', opp_key='W1Prime')
-    W1Prime = Scale("W'₁", '√x', Scalers.SquareRoot, key='W1Prime', opp_key='W1')
-    W2 = Scale('W₂', '√10x', Scalers.SquareRoot, key='W2', shift=-1, opp_key='W2Prime')
-    W2Prime = Scale("W'₂", '√10x', Scalers.SquareRoot, key='W2Prime', shift=-1, opp_key='W2')
+    T1 = replace(T, left_sym='T₁', key='T1')
+    T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1)
+    W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1', opp_key='W1Prime', dividers=[2])
+    W1Prime = replace(W1, left_sym="W'₁", key='W1Prime', opp_key='W1')
+    W2 = Scale('W₂', '√10x', Scalers.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5])
+    W2Prime = replace(W2, left_sym="W'₂", key='W2Prime', opp_key='W2')
 
-    H1 = Scale('H₁', '√1+0.1x²', Scalers.Hyperbolic, key='H1', shift=1)
-    H2 = Scale('H₂', '√1+x²', Scalers.Hyperbolic, key='H2')
-    Sh1 = Scale('Sh₁', 'sinh x', Scalers.SinH, key='Sh1', shift=1)
+    H1 = Scale('H₁', '√1+0.1x²', Scalers.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1])
+    H2 = Scale('H₂', '√1+x²', Scalers.Hyperbolic, key='H2', dividers=[4])
+    Sh1 = Scale('Sh₁', 'sinh x', Scalers.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
     Sh2 = Scale('Sh₂', 'sinh x', Scalers.SinH, key='Sh2')
-    Ch1 = Scale('Ch', 'cosh x', Scalers.CosH)
-    Th = Scale('Th', 'tanh x', Scalers.TanH, shift=1)
+    Ch1 = Scale('Ch', 'cosh x', Scalers.CosH, dividers=[1, 2], ex_start_value=0.01)
+    Th = Scale('Th', 'tanh x', Scalers.TanH, shift=1, dividers=[0.2, 0.4, 1], ex_end_value=3)
 
     # EE-specific
     # Hemmi 153:
     Chi = Scale('χ', '', Scalers.Chi)
     Theta = Scale('θ', '°', Scalers.Theta, key='Theta')
     # Pickett N-515-T:
-    f_x = Scale('f_x', 'x/2π', Scalers.Base, shift=gen_base(TAU))
-    L_r = Scale('L_r', '1/(2πx)²', Scalers.InverseSquare, shift=gen_base(1 / TAU))
+    f_x = Scale('f_x', 'x/2π', Scalers.Base, shift=gen_base(TAU), dividers=[0.2, 0.5, 1])
+    L_r = Scale('L_r', '1/(2πx)²', Scalers.InverseSquare, shift=gen_base(1 / TAU),
+                dividers=[0.05, 0.1, 0.2, 0.5, 1, 2], ex_start_value=0.025, ex_end_value=2.55)
 
 
 shift_360 = scale_inverse(3.6)
@@ -1127,15 +1140,14 @@ shift_360 = scale_inverse(3.6)
 
 class AristoCommerzScales:
     """scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest"""
-    Z = replace(Scales.D, left_sym='Z', right_sym='', opp_key='T1')
-    T1 = replace(Scales.C, left_sym='T₁', right_sym='', key='T1', opp_key='Z', on_slide=True)
-    P1 = replace(Scales.CI, left_sym='P₁', right_sym='', key='P1', on_slide=True)
+    Z = replace(Scales.D, left_sym='Z', right_sym='', opp_key='T1', dividers=[2, 4])
+    T1 = replace(Z, left_sym='T₁', key='T1', opp_key='Z', on_slide=True)
+    P1 = replace(Scales.CI, left_sym='P₁', right_sym='', key='P1', on_slide=True, dividers=[2, 4])
     KZ = replace(Scales.CF, left_sym='KZ', right_sym='', key='KZ', shift=shift_360,
-                 extended_start_value=0.3, extended_end_value=4)
-    T2 = replace(Scales.CF, left_sym='T₂', right_sym='', key='T2', shift=shift_360, on_slide=True,
-                 extended_start_value=0.3, extended_end_value=4)
+                 ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2])
+    T2 = replace(KZ, left_sym='T₂', key='T2', on_slide=True)
     P2 = replace(Scales.CIF, left_sym='P₂', right_sym='', key='P2', shift=shift_360 - 1, on_slide=True,
-                 extended_start_value=0.25, extended_end_value=3.3)
+                 ex_start_value=0.25, ex_end_value=3.3, dividers=[0.4, 1, 2])
     Pct = Scale(left_sym='p%', right_sym='', on_slide=True, shift=shift_360,
                 scaler=Scaler(lambda x: gen_base((x + HUNDRED) / HUNDRED),
                               lambda p: pos_base(p) * HUNDRED - HUNDRED))
@@ -1619,11 +1631,11 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc in {Scales.W1, Scales.W1Prime}:
-        sc.grad_pat_divided(r, y_off, al, [2])
+        sc.grad_pat_default(r, y_off, al)
         r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc in {Scales.W2, Scales.W2Prime}:
-        sc.grad_pat_divided(r, y_off, al, [5])
+        sc.grad_pat_default(r, y_off, al)
         r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.R2:
@@ -1636,11 +1648,11 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
 
     elif sc == Scales.H1:
         r.draw_numeral(1.005, y_off, sym_col, scale_h, sc.pos_of(1.005, geom), geom.tick_h(HMod.XL), f_lgn, al)
-        sc.grad_pat_divided(r, y_off, al, [1.03, 1.1])
+        sc.grad_pat_default(r, y_off, al)
 
     elif sc == Scales.H2:
         r.draw_numeral(1.5, y_off, sym_col, scale_h, sc.pos_of(1.5, geom), geom.tick_h(HMod.XL), f_lgn, al)
-        sc.grad_pat_divided(r, y_off, al, [4])
+        sc.grad_pat_default(r, y_off, al)
 
     elif (sc.scaler == Scalers.Base and sc.shift == pi_fold_shift) or sc == Scales.CIF:  # CF/DF/CIF
         is_cif = sc == Scales.CIF
@@ -1730,29 +1742,23 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         r.grad_pat_auto(y_off, sc, al)
 
     elif sc == Scales.P:
-        # Labels
-        label_h = geom.tick_h(HMod.MED)
-        font_s = f_smn
-        for x in [0.995]:
-            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), label_h, font_s, al)
-        sc.grad_pat_divided(r, y_off, al, [0.3, 0.7, 0.9, 0.98],
-                            start_value=0.1, end_value=.995)
+        end_value = sc.ex_end_value
+        r.draw_numeral(end_value, y_off, sym_col, scale_h, sc.pos_of(end_value, geom), th_med, f_smn, al)
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc == Scales.Sh1:
-        sc.grad_pat_divided(r, y_off, al, [0.2, 0.4])
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc == Scales.Sh2:
         r.grad_pat_auto(y_off, sc, al, include_last=True)
 
     elif sc == Scales.Ch1:
-        sc.grad_pat_divided(r, y_off, al, [1, 2], start_value=0.01)
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc == Scales.Th:
-        sc.grad_pat_divided(r, y_off, al, dividers=[0.2, 0.4, 1], end_value=3)
-        # Labels
-        label_h = geom.tick_h(HMod.MED)
+        sc.grad_pat_default(r, y_off, al, extended=True)
         for x in [1, 1.5, 2, 3]:
-            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), label_h, f_smn, al)
+            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
 
     elif sc == Scales.Chi:
         r.grad_pat_auto(y_off, sc, al, include_last=True)
@@ -1762,51 +1768,44 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         r.grad_pat_auto(y_off, sc, al, include_last=True)
 
     elif sc == Scales.f_x:
-        sc.grad_pat_divided(r, y_off, al, [0.2, 0.5, 1])
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc == Scales.L_r:
-        sc.grad_pat_divided(r, y_off, al, [0.05, 0.1, 0.2, 0.5, 1, 2],
-                            start_value=0.025, end_value=2.55)
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc == Scales.LL0:
-        sc.grad_pat_divided(r, y_off, al, [1.002, 1.005],
-                            start_value=1.00095, end_value=1.0105)
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc == Scales.LL1:
-        sc.grad_pat_divided(r, y_off, al, [1.02, 1.05],
-                            start_value=1.0095, end_value=1.11)
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc == Scales.LL2:
-        sc.grad_pat_divided(r, y_off, al, [1.2, 2],
-                            start_value=1.1, end_value=3)
+        sc.grad_pat_default(r, y_off, al, extended=True)
         r.draw_mark(Marks.e, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.LL3:
-        sc.grad_pat_divided(r, y_off, al, [10, 50, 100, 1000, 10000],
-                            start_value=2.5, end_value=60000)
+        sc.grad_pat_default(r, y_off, al, extended=True)
         r.draw_mark(Marks.e, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.LL03:
-        sc.grad_pat_divided(r, y_off, al, [0.001, 0.01, 0.1],
-                            start_value=0.0001, end_value=0.39)
+        sc.grad_pat_default(r, y_off, al, extended=True)
         r.draw_mark(Marks.inv_e, y_off, sc, f_smn, al, sym_col, side=side)
 
     elif sc == Scales.LL02:
-        sc.grad_pat_divided(r, y_off, al, [0.75], start_value=0.35, end_value=0.91)
+        sc.grad_pat_default(r, y_off, al, True)
         r.draw_mark(Marks.inv_e, y_off, sc, f_smn, al, sym_col, side=side)
 
     elif sc == Scales.LL01:
-        sc.grad_pat_divided(r, y_off, al, [0.95, 0.98], start_value=0.9, end_value=0.9906)
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc == Scales.LL00:
-        sc.grad_pat_divided(r, y_off, al, [0.998], start_value=0.989, end_value=0.9991)
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc in {AristoCommerzScales.KZ, AristoCommerzScales.T2, AristoCommerzScales.P2}:
-        sc.grad_pat_divided(r, y_off, al, [0.4, 1, 2],
-                            start_value=sc.extended_start_value, end_value=sc.extended_end_value)
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc in {AristoCommerzScales.Z, AristoCommerzScales.T1, AristoCommerzScales.P1}:
-        sc.grad_pat_divided(r, y_off, al, [2, 4])
+        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc == AristoCommerzScales.Pct:
         # sc.grad_pat_divided(r, y_off, al, [0], start_value=-50, end_value=100)
