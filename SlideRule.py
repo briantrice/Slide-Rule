@@ -1042,6 +1042,16 @@ class Scale:
         else:
             r.grad_pat_auto(y_off, self, al, start_value=start_value, end_value=end_value, include_last=True)
 
+    def band_bg(self, r, y_off, color, start_value=None, end_value=None):
+        geom = r.geometry
+        li = geom.li
+        if start_value is None:
+            start_value = self.value_at_start()
+        if end_value is None:
+            end_value = self.value_at_end()
+        start_pos = self.pos_of(start_value, geom)
+        r.fill_rect(li + start_pos, y_off, self.pos_of(end_value, geom) - start_pos, geom.scale_h(self), color)
+
 
 pi_fold_shift = Scalers.Inverse(PI)
 
@@ -1454,18 +1464,9 @@ class Marks:
     sqrt_ten = GaugeMark('√10', math.sqrt(TEN), comment='square root of 10')
     cube_root_ten = GaugeMark('c', math.pow(TEN, 1 / 3), comment='cube root of 10')
 
+
+class ConversionMarks:
     hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
-
-
-def gen_scale_band_bg(r, y_off, sc, color, start_value=None, end_value=None):
-    geom = r.geometry
-    li = geom.li
-    if start_value is None:
-        start_value = sc.value_at_start()
-    if end_value is None:
-        end_value = sc.value_at_end()
-    start_pos = sc.pos_of(start_value, geom)
-    r.fill_rect(li + start_pos, y_off, sc.pos_of(end_value, geom) - start_pos, geom.scale_h(sc), color)
 
 
 def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
@@ -1510,7 +1511,7 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
     bg_col = style.scale_bg_col(sc)
     dec_col = style.dec_color
     if bg_col:
-        gen_scale_band_bg(r, y_off, sc, bg_col)
+        sc.band_bg(r, y_off, bg_col)
 
     # Right
     f_lbl_r = f_lbl_s if len(sc.right_sym) > 6 or '^' in sc.right_sym else f_lbl
