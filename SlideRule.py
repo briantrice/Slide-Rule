@@ -973,6 +973,8 @@ class Scale:
     """whether the scale is meant to be on the slide; implying slide vs stator"""
     opp_key: str = None
     """which scale, if on an edge, it's aligned with"""
+    mirror_key: str = None
+    """which scale, mathematically, can be assigned numbers going the opposite direction on the ticks"""
     ex_start_value: float = None
     """which value, if the scale is displayed extended at start, to show first"""
     ex_end_value: float = None
@@ -1056,7 +1058,7 @@ class Scale:
         """
         return round(scale_width * self.frac_pos_of(x, shift_adj=shift_adj))
 
-    def grad_pat_default(self, r, y_off, al, extended=False):
+    def grad_pat_default(self, r, y_off, al, extended=True):
         start_value = self.ex_start_value or self.value_at_start() if extended else None
         end_value = self.ex_end_value or self.value_at_end() if extended else None
         dividers = self.dividers or [10 ** n for n in self.powers_of_ten_in_range()]
@@ -1105,17 +1107,19 @@ class Scales:
               dividers=[0.3, 0.7, 0.9, 0.98], ex_start_value=0.1, ex_end_value=.995)
     R1 = Scale('R₁', '√x', Scalers.SquareRoot, key='R1')
     R2 = Scale('R₂', '√10x', Scalers.SquareRoot, key='R2', shift=-1)
-    S = Scale('S', '∡sin x°', Scalers.Sin)
-    CoS = Scale('C', '∡cos x°', Scalers.CoSin, key='CoS')
+    S = Scale('S', '∡sin x°', Scalers.Sin, mirror_key='CoS')
+    CoS = Scale('C', '∡cos x°', Scalers.CoSin, key='CoS', mirror_key='S')
     SRT = Scale('SRT', '∡tan 0.01x', Scalers.SinTanRadians)
     ST = Scale('ST', '∡tan 0.01x°', Scalers.SinTan)
-    T = Scale('T', '∡tan x°', Scalers.Tan)
-    CoT = Scale('T', '∡cot x°', Scalers.CoTan)
+    T = Scale('T', '∡tan x°', Scalers.Tan, mirror_key='CoT')
+    CoT = Scale('T', '∡cot x°', Scalers.CoTan, mirror_key='T')
     T1 = replace(T, left_sym='T₁', key='T1')
     T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1)
-    W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1', opp_key='W1Prime', dividers=[2])
+    W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1', opp_key='W1Prime', dividers=[2],
+               ex_start_value=0.95, ex_end_value=3.38)
     W1Prime = replace(W1, left_sym="W'₁", key='W1Prime', opp_key='W1')
-    W2 = Scale('W₂', '√10x', Scalers.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5])
+    W2 = Scale('W₂', '√10x', Scalers.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5],
+               ex_start_value=3, ex_end_value=10.66)
     W2Prime = replace(W2, left_sym="W'₂", key='W2Prime', opp_key='W2')
 
     H1 = Scale('H₁', '√1+0.1x²', Scalers.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1])
@@ -1507,7 +1511,7 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         return
 
     if not overhang:
-        overhang = 0.08 if sc.can_spiral() else 0.02
+        overhang = 0.07 if sc.can_spiral() or (sc.ex_end_value and sc.ex_end_value > sc.value_at_start()) else 0.02
 
     scale_h = geom.scale_h(sc, side=side)
     scale_h_ratio = geom.scale_h_ratio(sc, side=side)
@@ -1551,15 +1555,8 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
     r.draw_sym_al(sc.left_sym, y_off, sym_col, scale_h, x_left, y1, f_lbl, al)
 
     # Special Symbols for S, and T
-    sc_alt = None
-    if sc == Scales.S:
-        sc_alt = Scales.CoS
-    elif sc == Scales.CoS:
-        sc_alt = Scales.S
-    elif sc == Scales.T:
-        sc_alt = Scales.CoT
-
-    if sc_alt:
+    if sc.mirror_key:
+        sc_alt: Scale = getattr(Scales, sc.mirror_key)
         r.draw_sym_al(sc_alt.left_sym, y_off, sc_alt.col, scale_h, x_left - style.sym_width('__', f_lbl), y2, f_lbl, al)
         r.draw_sym_al(sc_alt.right_sym, y_off, sc_alt.col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
     elif sc == Scales.ST:
@@ -1588,7 +1585,6 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         r.pat(y_off, sc, al, fp2, fp4, sf, ts255(sf), ths1, fonts_lbl, False)
         r.pat(y_off, sc, al, fp4, fpe + 1, sf, ts252(sf), ths1, fonts_lbl, True)
 
-        # Gauge Points
         r.draw_mark(Marks.pi, y_off, sc, f_lbl, al, col=sym_col, side=side)
 
         if y_off < geom.side_h + geom.oY:
@@ -1603,7 +1599,6 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
             r.pat(y_off, sc, al, fp2, fp3, sf, ts252(b), ths1, fonts_lbl, True)
             r.pat(y_off, sc, al, fp3, fpe + 1, sf, ts25(b), ths2, fonts_lbl, True)
 
-        # Gauge Points
         for shift_adj in (0, 0.5):
             r.draw_mark(Marks.pi, y_off, sc, f_lbl, al, shift_adj=shift_adj, side=side)
 
@@ -1630,11 +1625,7 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
 
         r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
 
-    elif sc in {Scales.W1, Scales.W1Prime}:
-        sc.grad_pat_default(r, y_off, al)
-        r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
-
-    elif sc in {Scales.W2, Scales.W2Prime}:
+    elif sc in {Scales.W1, Scales.W1Prime, Scales.W2, Scales.W2Prime}:
         sc.grad_pat_default(r, y_off, al)
         r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
 
@@ -1666,7 +1657,6 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
         r.pat(y_off, sc, al, fp3, fp4, sf, tst25(sf), ths3, fonts2, True)
         r.pat(y_off, sc, al, fp4, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
 
-        # Gauge Points
         for shift_adj in (0, -1):
             r.draw_mark(Marks.pi, y_off, sc, f_lbl, al, shift_adj=shift_adj, side=side)
 
@@ -1744,19 +1734,19 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.P:
         end_value = sc.ex_end_value
         r.draw_numeral(end_value, y_off, sym_col, scale_h, sc.pos_of(end_value, geom), th_med, f_smn, al)
-        sc.grad_pat_default(r, y_off, al, extended=True)
+        sc.grad_pat_default(r, y_off, al)
 
     elif sc == Scales.Sh1:
-        sc.grad_pat_default(r, y_off, al, extended=True)
+        sc.grad_pat_default(r, y_off, al)
 
     elif sc == Scales.Sh2:
         r.grad_pat_auto(y_off, sc, al, include_last=True)
 
     elif sc == Scales.Ch1:
-        sc.grad_pat_default(r, y_off, al, extended=True)
+        sc.grad_pat_default(r, y_off, al)
 
     elif sc == Scales.Th:
-        sc.grad_pat_default(r, y_off, al, extended=True)
+        sc.grad_pat_default(r, y_off, al)
         for x in [1, 1.5, 2, 3]:
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
 
@@ -1767,45 +1757,13 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.Theta:
         r.grad_pat_auto(y_off, sc, al, include_last=True)
 
-    elif sc == Scales.f_x:
-        sc.grad_pat_default(r, y_off, al, extended=True)
-
-    elif sc == Scales.L_r:
-        sc.grad_pat_default(r, y_off, al, extended=True)
-
-    elif sc == Scales.LL0:
-        sc.grad_pat_default(r, y_off, al, extended=True)
-
-    elif sc == Scales.LL1:
-        sc.grad_pat_default(r, y_off, al, extended=True)
-
-    elif sc == Scales.LL2:
-        sc.grad_pat_default(r, y_off, al, extended=True)
+    elif sc in {Scales.LL2, Scales.LL3}:
+        sc.grad_pat_default(r, y_off, al)
         r.draw_mark(Marks.e, y_off, sc, f_lgn, al, sym_col, side=side)
 
-    elif sc == Scales.LL3:
-        sc.grad_pat_default(r, y_off, al, extended=True)
-        r.draw_mark(Marks.e, y_off, sc, f_lgn, al, sym_col, side=side)
-
-    elif sc == Scales.LL03:
-        sc.grad_pat_default(r, y_off, al, extended=True)
+    elif sc in {Scales.LL02, Scales.LL03}:
+        sc.grad_pat_default(r, y_off, al)
         r.draw_mark(Marks.inv_e, y_off, sc, f_smn, al, sym_col, side=side)
-
-    elif sc == Scales.LL02:
-        sc.grad_pat_default(r, y_off, al, True)
-        r.draw_mark(Marks.inv_e, y_off, sc, f_smn, al, sym_col, side=side)
-
-    elif sc == Scales.LL01:
-        sc.grad_pat_default(r, y_off, al, extended=True)
-
-    elif sc == Scales.LL00:
-        sc.grad_pat_default(r, y_off, al, extended=True)
-
-    elif sc in {AristoCommerzScales.KZ, AristoCommerzScales.T2, AristoCommerzScales.P2}:
-        sc.grad_pat_default(r, y_off, al, extended=True)
-
-    elif sc in {AristoCommerzScales.Z, AristoCommerzScales.T1, AristoCommerzScales.P1}:
-        sc.grad_pat_default(r, y_off, al, extended=True)
 
     elif sc == AristoCommerzScales.Pct:
         # sc.grad_pat_divided(r, y_off, al, [0], start_value=-50, end_value=100)
@@ -1816,7 +1774,7 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
             r.draw_sym_al(sym, y_off, sc.col, scale_h, sc.pos_of(val, geom), 0, f_lgn, Align.LOWER)
 
     else:
-        sc.grad_pat_divided(r, y_off, al, None)
+        sc.grad_pat_default(r, y_off, al)
 
 
 def first_digit_of(x) -> int:
