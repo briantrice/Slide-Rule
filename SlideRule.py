@@ -890,8 +890,6 @@ class Scaler:
 class Scalers:
     Unit = Scaler(unit, unit)
     F_to_C = Scaler(lambda f: (f - 32) * 5 / 9, lambda c: (c * 9 / 5) + 32)
-    cm_to_in = Scaler(lambda x_mm: x_mm / 2.54, lambda x_in: x_in * 2.54)
-    mm_to_in = Scaler(lambda x_mm: x_mm / 25.4, lambda x_in: x_in * 25.4)
     neper_to_db = Scaler(lambda x_db: x_db / (20 / math.log(TEN)), lambda x_n: x_n * 20 / math.log(TEN))
 
     Base = Scaler(gen_base, pos_base)
@@ -1466,6 +1464,15 @@ class Marks:
 
 
 class ConversionMarks:
+    cm_per_in = GaugeMark('in', 2.54, comment='cm per in')
+    sq_cm_per_in = GaugeMark('sq in', cm_per_in.value**2, comment='cm² per in²')
+    cu_cm_per_in = GaugeMark('cu in', cm_per_in.value**3, comment='cm³ per in³')
+    ft_per_m = GaugeMark('ft', HUNDRED/(cm_per_in.value*12), comment='ft per m')
+    yd_per_m = GaugeMark('yd', 3/ft_per_m.value, comment='yd per m')
+    km_per_mi = GaugeMark('mi', cm_per_in.value*12*5280/1000, comment='mi per km')
+    qt_per_l = GaugeMark('qt', 0.9463525, comment='US qt per l')
+    gal_per_l = GaugeMark('gal', qt_per_l.value*4, 'US gal per l')
+    lb_per_kg = GaugeMark('lb', 2.2046, comment='lbs per kg')
     hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
 
 
