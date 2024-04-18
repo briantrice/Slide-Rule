@@ -1720,7 +1720,7 @@ def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
     elif sc == Scales.T2:
         # Ticks
         sf = 100
-        fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, 84.5))
+        fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, 90 - 5.7))
         r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, 5, 2, 5), ths4, fonts_xl, False)
         r.pat(y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, 5, 2, 10), ths4, fonts_xl, False)
 
