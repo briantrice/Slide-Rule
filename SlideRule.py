@@ -829,19 +829,10 @@ LOG_ZERO = -math.inf
 def unit(x): return x
 def gen_base(x): return math.log10(x)
 def pos_base(p): return math.pow(TEN, p)
-def scale_inverse(x): return 1 - gen_base(x)
-def scale_inverse_square(x): return 1 - gen_base(x) / 2
-
-
-pi_fold_shift = scale_inverse(PI)
 
 
 def scale_sin_tan_radians(x):
     return gen_base(HUNDRED * (math.sin(x) + math.tan(x)) / 2)
-
-
-def scale_sin_tan(x):
-    return scale_sin_tan_radians(math.radians(x))
 
 
 def scale_pythagorean(x):
@@ -906,8 +897,8 @@ class Scalers:
     Base = Scaler(gen_base, pos_base)
     Square = Scaler(lambda x: gen_base(x) / 2, lambda p: pos_base(p * 2))
     Cube = Scaler(lambda x: gen_base(x) / 3, lambda p: pos_base(p * 3))
-    Inverse = Scaler(scale_inverse, lambda p: pos_base(1 - p), is_increasing=False)
-    InverseSquare = Scaler(scale_inverse_square, lambda p: pos_base(1 - p * 2), is_increasing=False)
+    Inverse = Scaler(lambda x: 1 - gen_base(x), lambda p: pos_base(1 - p), is_increasing=False)
+    InverseSquare = Scaler(lambda x: 1 - gen_base(x) / 2, lambda p: pos_base(1 - p * 2), is_increasing=False)
     SquareRoot = Scaler(lambda x: gen_base(x) * 2, lambda p: pos_base(p / 2))
     CubeRoot = Scaler(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3))
     Log10 = Scaler(lambda x: x / TEN, lambda p: p * TEN)
@@ -915,7 +906,7 @@ class Scalers:
     Sin = Scaler(lambda x: gen_base(TEN * math.sin(math.radians(x))), math.asin)
     CoSin = Scaler(lambda x: gen_base(TEN * math.cos(math.radians(x))), math.acos, is_increasing=False)
     Tan = Scaler(lambda x: gen_base(TEN * math.tan(math.radians(x))), lambda p: math.atan(pos_base(p)))
-    SinTan = Scaler(scale_sin_tan, lambda p: math.atan(pos_base(p)))
+    SinTan = Scaler(lambda x: scale_sin_tan_radians(math.radians(x)), lambda p: math.atan(pos_base(p)))
     SinTanRadians = Scaler(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))))
     CoTan = Scaler(lambda x: gen_base(TEN * math.tan(math.radians(angle_opp(x)))),
                    lambda p: math.atan(pos_base(angle_opp(p))), is_increasing=False)
@@ -1052,6 +1043,9 @@ class Scale:
             r.grad_pat_auto(y_off, self, al, start_value=start_value, end_value=end_value, include_last=True)
 
 
+pi_fold_shift = Scalers.Inverse(PI)
+
+
 class Scales:
     A = Scale('A', 'x²', Scalers.Square, opp_key='B')
     B = Scale('B', 'x²_y', Scalers.Square, on_slide=True, opp_key='A')
@@ -1118,7 +1112,7 @@ class Scales:
                 dividers=[0.05, 0.1, 0.2, 0.5, 1, 2], ex_start_value=0.025, ex_end_value=2.55)
 
 
-shift_360 = scale_inverse(3.6)
+shift_360 = Scalers.Inverse(3.6)
 
 
 class AristoCommerzScales:
