@@ -829,22 +829,11 @@ LOG_ZERO = -math.inf
 def unit(x): return x
 def gen_base(x): return math.log10(x)
 def pos_base(p): return math.pow(TEN, p)
-def scale_square(x): return gen_base(x) / 2
-def scale_cube(x): return gen_base(x) / 3
-def scale_sqrt(x): return gen_base(x) * 2
-def scale_sqrt_ten(x): return gen_base(x) * 2
 def scale_inverse(x): return 1 - gen_base(x)
 def scale_inverse_square(x): return 1 - gen_base(x) / 2
 
 
 pi_fold_shift = scale_inverse(PI)
-
-
-def scale_log(x): return x / TEN
-def scale_sin(x): return gen_base(TEN * math.sin(math.radians(x)))
-def scale_cos(x): return gen_base(TEN * math.cos(math.radians(x)))
-def scale_tan(x): return gen_base(TEN * math.tan(math.radians(x)))
-def scale_cot(x): return gen_base(TEN * math.tan(math.radians(DEG_RT - x)))
 
 
 def scale_sin_tan_radians(x):
@@ -853,11 +842,6 @@ def scale_sin_tan_radians(x):
 
 def scale_sin_tan(x):
     return scale_sin_tan_radians(math.radians(x))
-
-
-def scale_sinh(x): return gen_base(math.sinh(x))
-def scale_cosh(x): return gen_base(math.cosh(x))
-def scale_tanh(x): return gen_base(math.tanh(x))
 
 
 def scale_pythagorean(x):
@@ -869,12 +853,6 @@ def scale_hyperbolic(x):
     assert x > 1
     # y = math.sqrt(1+x**2) = math.hypot(1, x)
     return gen_base(math.sqrt((x ** 2) - 1))
-
-
-def scale_log_log(x): return gen_base(math.log(x))
-
-
-def scale_neg_log_log(x): return gen_base(-math.log(x))
 
 
 def angle_opp(x: int) -> int:
@@ -926,28 +904,28 @@ class Scalers:
     neper_to_db = Scaler(lambda x_db: x_db / (20 / math.log(TEN)), lambda x_n: x_n * 20 / math.log(TEN))
 
     Base = Scaler(gen_base, pos_base)
-    Square = Scaler(scale_square, lambda p: pos_base(p * 2))
-    Cube = Scaler(scale_cube, lambda p: pos_base(p * 3))
+    Square = Scaler(lambda x: gen_base(x) / 2, lambda p: pos_base(p * 2))
+    Cube = Scaler(lambda x: gen_base(x) / 3, lambda p: pos_base(p * 3))
     Inverse = Scaler(scale_inverse, lambda p: pos_base(1 - p), is_increasing=False)
     InverseSquare = Scaler(scale_inverse_square, lambda p: pos_base(1 - p * 2), is_increasing=False)
-    SquareRoot = Scaler(scale_sqrt, lambda p: pos_base(p / 2))
+    SquareRoot = Scaler(lambda x: gen_base(x) * 2, lambda p: pos_base(p / 2))
     CubeRoot = Scaler(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3))
-    Log10 = Scaler(scale_log, lambda p: p * TEN)
+    Log10 = Scaler(lambda x: x / TEN, lambda p: p * TEN)
     Ln = Scaler(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
-    Sin = Scaler(scale_sin, math.asin)
-    CoSin = Scaler(scale_cos, math.acos, is_increasing=False)
-    Tan = Scaler(scale_tan, lambda p: math.atan(pos_base(p)))
+    Sin = Scaler(lambda x: gen_base(TEN * math.sin(math.radians(x))), math.asin)
+    CoSin = Scaler(lambda x: gen_base(TEN * math.cos(math.radians(x))), math.acos, is_increasing=False)
+    Tan = Scaler(lambda x: gen_base(TEN * math.tan(math.radians(x))), lambda p: math.atan(pos_base(p)))
     SinTan = Scaler(scale_sin_tan, lambda p: math.atan(pos_base(p)))
     SinTanRadians = Scaler(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))))
-    CoTan = Scaler(scale_cot, lambda p: math.atan(DEG_RT - p), is_increasing=False)
-    SinH = Scaler(scale_sinh, lambda p: math.asinh(pos_base(p)))
-    CosH = Scaler(scale_cosh, lambda p: math.acosh(pos_base(p)))
-    TanH = Scaler(scale_tanh, lambda p: math.atanh(pos_base(p)))
+    CoTan = Scaler(lambda x: gen_base(TEN * math.tan(math.radians(DEG_RT - x))), lambda p: math.atan(DEG_RT - p), is_increasing=False)
+    SinH = Scaler(lambda x: gen_base(math.sinh(x)), lambda p: math.asinh(pos_base(p)))
+    CosH = Scaler(lambda x: gen_base(math.cosh(x)), lambda p: math.acosh(pos_base(p)))
+    TanH = Scaler(lambda x: gen_base(math.tanh(x)), lambda p: math.atanh(pos_base(p)))
     Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2), is_increasing=False)
     Chi = Scaler(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
     Theta = Scaler(lambda x: x / DEG_RT, lambda p: p * DEG_RT)
-    LogLog = Scaler(scale_log_log, lambda p: math.exp(pos_base(p)))
-    LogLogNeg = Scaler(scale_neg_log_log, lambda p: math.exp(pos_base(-p)), is_increasing=False)
+    LogLog = Scaler(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)))
+    LogLogNeg = Scaler(lambda x: gen_base(-math.log(x)), lambda p: math.exp(pos_base(-p)), is_increasing=False)
     Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.hypot(1, pos_base(p)))
 
 
