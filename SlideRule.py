@@ -950,6 +950,8 @@ class Scale:
     dividers: list = None
     """which values should the natural scale divide its graduated patterns at"""
 
+    min_overhang_frac = 0.02
+
     def __post_init__(self):
         scaler = self.scaler
         self.gen_fn = scaler.fn
@@ -970,6 +972,10 @@ class Scale:
 
     def can_spiral(self):
         return self.scaler in {Scalers.LogLog, Scalers.LogLogNeg}
+
+    def can_overhang(self):
+        return ((self.ex_end_value and self.frac_pos_of(self.ex_end_value) > 1 + self.min_overhang_frac)
+                or (self.ex_start_value and self.frac_pos_of(self.ex_start_value) < -self.min_overhang_frac))
 
     @property
     def col(self):
@@ -1476,23 +1482,14 @@ class ConversionMarks:
     hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
 
 
-def gen_scale(r, y_off, sc, al=None, overhang=None, side=None):
-    """
-    :param Renderer r:
-    :param int y_off: y pos
-    :param Scale sc:
-    :param Align al: alignment
-    :param float overhang: fraction of total width to overhang each side to label
-    :param Side side:
-    """
-
+def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: Side = None):
     geom = r.geometry
     style = r.style
     if style.override_for(sc, 'hide', False):
         return
 
-    if not overhang:
-        overhang = 0.07 if sc.can_spiral() or (sc.ex_end_value and sc.ex_end_value > sc.value_at_start()) else 0.02
+    if not overhang:  # fraction of total width to overhang each side to label
+        overhang = 0.07 if sc.can_spiral() or sc.can_overhang() else 0.02
 
     scale_h = geom.scale_h(sc, side=side)
     scale_h_ratio = geom.scale_h_ratio(sc, side=side)
