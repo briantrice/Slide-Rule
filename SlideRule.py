@@ -1885,9 +1885,9 @@ def main():
     print(f'Program finished at: {round(time.time() - start_time, 2)} seconds')
 
 
-def image_for_rendering(model: Model):
+def image_for_rendering(model: Model, w=None, h=None):
     geom = model.geometry
-    return Image.new('RGB', (geom.total_w, geom.print_height), model.style.bg.value)
+    return Image.new('RGB', (w or geom.total_w, h or geom.print_height), model.style.bg.value)
 
 
 def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, render_cutoffs: bool = False):
@@ -1967,7 +1967,7 @@ def render_stickerprint_mode(model, sliderule_img):
     scale_h = geom_s.SH
     total_w = scale_w + 2 * o_x2
     total_h = 5075
-    stickerprint_img = Image.new('RGB', (total_w, total_h), style.bg.value)
+    stickerprint_img = image_for_rendering(model, w=total_w, h=total_h)
     r = Renderer(ImageDraw.Draw(stickerprint_img), geom_s, style)
     # fsUM,MM,LM:
     y = 0
@@ -2072,7 +2072,7 @@ def render_diagnostic_mode(model: Model):
         Geometry.DEFAULT_TICK_WH,
         480
     )
-    diagnostic_img = Image.new('RGB', (geom_d.total_w, total_h), style.bg.value)
+    diagnostic_img = image_for_rendering(model, w=geom_d.total_w, h=total_h)
     r = Renderer(ImageDraw.Draw(diagnostic_img), geom_d, style)
     title_x = geom_d.midpoint_x - geom_d.li
     title = 'Diagnostic Test Print of Available Scales'
