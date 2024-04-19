@@ -500,7 +500,7 @@ class Renderer:
                     self.draw_numeral(last_digit_of(num), y_off, tenth_col, scale_h, x, th3, font3, al)
             self.draw_tick(y_off, x, tick_h, sym_col, scale_h, al)
 
-    def grad_pat_auto(self, y_off, sc, al, start_value=None, end_value=None, include_last=False):
+    def pat_auto(self, y_off, sc, al, start_value=None, end_value=None, include_last=False):
         """
         Draw a graduated pattern of tick marks across the scale range.
         Determine the lowest digit tick mark spacing and work upwards from there.
@@ -513,10 +513,11 @@ class Renderer:
             end_value = sc.value_at_end()
         if start_value > end_value:
             start_value, end_value = end_value, start_value
-        min_tick_offset = self.geometry.min_tick_offset
+        g = self.geometry
+        min_tick_offset = g.min_tick_offset
         log_diff = abs(math.log10(abs((end_value - start_value) / max(start_value, end_value))))
         num_digits = math.ceil(log_diff) + 3
-        scale_w = self.geometry.SL
+        scale_w = g.SL
         sf = 10 ** num_digits  # ensure enough precision for int ranges
         # Ensure between 6 and 15 numerals will display? Target log10 in 0.8..1.17
         frac_width = sc.offset_between(start_value, end_value, 1)
@@ -533,11 +534,7 @@ class Renderer:
             if smallest_tick_offset >= min_tick_offset:
                 step_last = max(round(step_tenth / tick_div), 1)
                 break
-        scale_hf = self.geometry.scale_h_ratio(sc)
-        num_th = self.geometry.tick_h(HMod.MED, scale_hf)
-        half_th = self.geometry.tick_h(HMod.XL if step_tenth < step_numeral else HMod.XS, scale_hf)
-        dot_th = self.geometry.tick_h(HMod.DOT, scale_hf)
-        tenth_th = self.geometry.tick_h(HMod.XS, scale_hf) if step_last < step_tenth else dot_th
+        scale_hf = g.scale_h_ratio(sc)
         # Ticks and Labels
         i_start = int(start_value * sf)
         i_offset = i_start % step_last
@@ -548,17 +545,21 @@ class Renderer:
         max_num_chars = numeral_tick_offset / self.style.sym_width('_', num_font)
         if max_num_chars < 4:
             num_font = self.style.font_for(FontSize.N_SM, h_ratio=scale_hf)
-        single_digit = max_num_chars < 2
-        tenth_font = self.style.font_for(FontSize.N_XS, h_ratio=scale_hf)
         # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
         draw_tenth = (step_last < step_tenth < step_numeral) and max_num_chars > 8
         i_end = int(end_value * sf + (1 if include_last else 0))
+        # Tick Heights:
+        dot_th = g.tick_h(HMod.DOT, scale_hf)
         self.pat(y_off, sc, al,
                  i_start, i_end, sf,
                  (step_numeral, step_half, step_tenth, step_last),
-                 (num_th, half_th, tenth_th, dot_th),
-                 (num_font, None, tenth_font if draw_tenth else None),
-                 single_digit)
+                 (
+                     g.tick_h(HMod.MED, scale_hf),
+                     g.tick_h(HMod.XL if step_tenth < step_numeral else HMod.XS, scale_hf),
+                     g.tick_h(HMod.XS, scale_hf) if step_last < step_tenth else dot_th,
+                     dot_th),
+                 (num_font, None, self.style.font_for(FontSize.N_XS, h_ratio=scale_hf) if draw_tenth else None),
+                 max_num_chars < 2)
 
     def draw_symbol(self, symbol, color, x_left, y_top, font):
         """
@@ -1035,6 +1036,7 @@ class Scale:
         return round(scale_width * self.frac_pos_of(x, shift_adj=shift_adj))
 
     def grad_pat_default(self, r, y_off, al, extended=True):
+        """graduated pattern, with as many defaults as can be inferred from the scale itself"""
         start_value = self.ex_start_value or self.value_at_start() if extended else None
         end_value = self.ex_end_value or self.value_at_end() if extended else None
         dividers = self.dividers
@@ -1043,14 +1045,14 @@ class Scale:
             if powers:
                 dividers = [10 ** n for n in powers]
         if dividers:
-            r.grad_pat_auto(y_off, self, al, start_value=start_value, end_value=dividers[0])
+            r.pat_auto(y_off, self, al, start_value=start_value, end_value=dividers[0])
             last_i = len(dividers) - 1
             for i, di in enumerate(dividers):
                 is_last = i >= last_i
                 dj = end_value if is_last else dividers[i + 1]
-                r.grad_pat_auto(y_off, self, al, start_value=di, end_value=dj, include_last=is_last)
+                r.pat_auto(y_off, self, al, start_value=di, end_value=dj, include_last=is_last)
         else:
-            r.grad_pat_auto(y_off, self, al, start_value=start_value, end_value=end_value, include_last=True)
+            r.pat_auto(y_off, self, al, start_value=start_value, end_value=end_value, include_last=True)
 
     def band_bg(self, r, y_off, color, start_value=None, end_value=None):
         geom = r.geometry
@@ -1105,7 +1107,7 @@ class Scales:
     SRT = Scale('SRT', '∡tan 0.01x', Scalers.SinTanRadians)
     ST = Scale('ST', '∡tan 0.01x°', Scalers.SinTan)
     T = Scale('T', '∡tan x°', Scalers.Tan, mirror_key='CoT')
-    CoT = Scale('T', '∡cot x°', Scalers.CoTan, mirror_key='T')
+    CoT = Scale('T', '∡cot x°', Scalers.CoTan, key='CoT', mirror_key='T')
     T1 = replace(T, left_sym='T₁', key='T1')
     T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1)
     W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1', opp_key='W1Prime', dividers=[2],
@@ -1147,7 +1149,8 @@ class AristoCommerzScales:
                  ex_start_value=0.25, ex_end_value=3.3, dividers=[0.4, 1, 2])
     Pct = Scale(left_sym='p%', right_sym='', on_slide=True, shift=shift_360,
                 scaler=Scaler(lambda x: gen_base((x + HUNDRED) / HUNDRED),
-                              lambda p: pos_base(p) * HUNDRED - HUNDRED))
+                              lambda p: pos_base(p) * HUNDRED - HUNDRED),
+                dividers=[0], ex_start_value=-50, ex_end_value=100)
     # meta-scale showing % with 100% over 1/unity
     # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
     Libra = replace(Scales.L, left_sym='£', right_sym='', key='Libra')
@@ -1577,7 +1580,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             for mark in (Marks.deg_per_rad, Marks.tau):
                 r.draw_mark(mark, y_off, sc, f_lbl, al, col=sym_col, side=side)
 
-    elif sc.scaler == Scalers.Square:
+    elif sc.scaler == Scalers.Square or sc == Scales.BI:
         sf = 100
         for b in (sf * 10 ** n for n in range(0, 2)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
@@ -1648,14 +1651,12 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     elif sc == Scales.L:
         sf = 100
-        r.pat(y_off, sc, al, 0, TEN * sf + 1, sf,
-              ts255(sf), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
-        # Labels
+        r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, ts255(sf), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
         for x in range(0, 11):
             r.draw_numeral(x / 10, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
 
     elif sc == Scales.Ln:
-        r.grad_pat_auto(y_off, sc, al, include_last=True)
+        sc.grad_pat_default(r, y_off, al)
 
     elif sc.scaler in {Scalers.Sin, Scalers.CoSin} or sc in {Scales.T, Scales.T1}:
         sf = 100
@@ -1690,8 +1691,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
                 x_coord_opp = sc.pos_of(x, geom) - 1.4 / 2 * style.sym_width(str(xi), f_l)
                 r.draw_numeral(xi, y_off, dec_col, scale_h, x_coord_opp, f, f_l, al)
 
-        end_numeral = 45 if is_tan else DEG_RT
-        r.draw_numeral(end_numeral, y_off, sym_col, scale_h, scale_w, f, f_lgn, al)
+        r.draw_numeral(45 if is_tan else DEG_RT, y_off, sym_col, scale_h, scale_w, f, f_lgn, al)
 
     elif sc == Scales.T2:
         # Ticks
@@ -1715,20 +1715,14 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
 
     elif sc == Scales.SRT:
-        r.grad_pat_auto(y_off, sc, al)
+        sc.grad_pat_default(r, y_off, al, False)
 
     elif sc == Scales.P:
         end_value = sc.ex_end_value
         r.draw_numeral(end_value, y_off, sym_col, scale_h, sc.pos_of(end_value, geom), th_med, f_smn, al)
         sc.grad_pat_default(r, y_off, al)
 
-    elif sc == Scales.Sh1:
-        sc.grad_pat_default(r, y_off, al)
-
-    elif sc == Scales.Sh2:
-        r.grad_pat_auto(y_off, sc, al, include_last=True)
-
-    elif sc == Scales.Ch1:
+    elif sc in {Scales.Ch1, Scales.Sh1, Scales.Sh2}:
         sc.grad_pat_default(r, y_off, al)
 
     elif sc == Scales.Th:
@@ -1737,11 +1731,11 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
 
     elif sc == Scales.Chi:
-        r.grad_pat_auto(y_off, sc, al, include_last=True)
+        sc.grad_pat_default(r, y_off, al)
         r.draw_mark(Marks.pi_half, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.Theta:
-        r.grad_pat_auto(y_off, sc, al, include_last=True)
+        sc.grad_pat_default(r, y_off, al)
 
     elif sc in {Scales.LL2, Scales.LL3}:
         sc.grad_pat_default(r, y_off, al)
