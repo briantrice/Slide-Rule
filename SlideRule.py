@@ -376,6 +376,16 @@ class Geometry:
                 (x_left, x_left, y_mid, y_bottom),  # 5
                 (x_right, x_right, y_top, y_bottom)]  # 6
 
+    def mirror_vectors_h(self, vectors: list[tuple[int, int, int, int]]):
+        """(x1, x2, y1, y2) mirrored across the centerline"""
+        total_w = self.total_w
+        return [(total_w - x2, total_w - x1, y1, y2) for (x1, x2, y1, y2) in vectors]
+
+    @staticmethod
+    def mirror_vectors_v(vectors: list[tuple[int, int, int, int]], mid_y):
+        """(x1, x2, y1, y2) mirrored across a horizontal line"""
+        return [(x1, x2, mid_y - y2, mid_y - y1) for (x1, x2, y1, y2) in vectors]
+
 
 class FontSize(Enum):
     TITLE = 140
@@ -697,25 +707,21 @@ class Renderer:
         :param Side side:
         """
         # Initial Boundary verticals
-        cutoff_w = self.geometry.cutoff_w
-        total_w = self.geometry.total_w
-        verticals = [cutoff_w + self.geometry.oX, total_w - cutoff_w - self.geometry.oX]
+        g = self.geometry
+        verticals = [g.cutoff_w + g.oX, g.total_w - g.cutoff_w - g.oX]
         for i, start in enumerate(verticals):
             self.fill_rect(start - 1, y_off, 2, i, Colors.CUTOFF)
 
-        cutoff_fl = self.geometry.cutoff_outline(y_off)
+        cutoff_fl = g.cutoff_outline(y_off)
 
         # Symmetrically create the right piece
-        cutoff_fr = [(total_w - x2, total_w - x1, y1, y2) for (x1, x2, y1, y2) in cutoff_fl]
-        coords = cutoff_fl + cutoff_fr
+        coords = cutoff_fl + g.mirror_vectors_h(cutoff_fl)
 
-        # Transfer coords to points for printing (yeah I know it's dumb)
-        points = coords
         # If backside, first apply a vertical reflection
         if side == Side.REAR:
-            mid_y = 2 * y_off + self.geometry.side_h
-            points = [(x1, x2, mid_y - y2, mid_y - y1) for (x1, x2, y1, y2) in coords]
-        for (x1, x2, y1, y2) in points:
+            mid_y = 2 * y_off + g.side_h
+            coords = g.mirror_vectors_v(coords, mid_y)
+        for (x1, x2, y1, y2) in coords:
             self.r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Colors.CUTOFF2.value)
 
     # ---------------------- 5. Stickers -----------------------------
