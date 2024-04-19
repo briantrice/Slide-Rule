@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
 """
-Most Recent Update (11/5/20)
-Please check the readme for details!
---------------------------------------------------------
-
 Slide Rule Scale Generator 2.0 by Javier Lopez 2020
+v3.0 Brian T. Rice <briantrice@gmail.com> 2024
 Available Scales: A B C D K R1 R2 CI DI CF DF CIF L S T ST
 
 Table of Contents
@@ -13,10 +10,13 @@ Table of Contents
    2. Fundamental Functions
    3. Scale Generating Function
    4. Line Drawing Functions
-   5. Action!
-   6. Stickers
-   7. Extras
+   5. Stickers
+   6. Models
+   7. Commands
 """
+
+# ----------------------1. Setup----------------------------
+
 import inspect
 import math
 import re
@@ -43,9 +43,6 @@ DEG_SEMI = DEG_FULL // 2
 DEG_RT = DEG_SEMI // 2
 
 BYTE_MAX = 255
-
-
-# ----------------------1. Setup----------------------------
 
 
 class Colors(Enum):
@@ -407,7 +404,8 @@ class GaugeMark:
 # ----------------------2. Fundamental Functions----------------------------
 
 
-def t_s(s1, f2, f3, f4):
+def t_s(s1: int, f2: int, f3: int, f4: int):
+    """tick iterative subdivision"""
     s2 = s1 if f2 == 1 else s1 // f2
     s3 = s2 if f3 == 1 else s2 // f3
     s4 = s3 if f4 == 1 else s3 // f4
@@ -720,7 +718,7 @@ class Renderer:
         for (x1, x2, y1, y2) in points:
             self.r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Colors.CUTOFF2.value)
 
-    # ---------------------- 6. Stickers -----------------------------
+    # ---------------------- 5. Stickers -----------------------------
 
     def draw_corners(self, x1, y1, x2, y2, arm_w=20):
         """
@@ -1258,6 +1256,8 @@ class Layout:
     def scale_al(self, sc: Scale, side: Side, top: bool):
         default_al = Align.LOWER if top else Align.UPPER
         return self.scale_aligns[side].get(sc.key, default_al)
+
+# --------------------------6. Models----------------------------
 
 
 class Layouts:
@@ -1802,12 +1802,20 @@ def transcribe(src_img, dst_img, src_x, src_y, size_x, size_y, target_x, target_
     dst_img.paste(src_box, (target_x, target_y))
 
 
+def image_for_rendering(model: Model, w=None, h=None):
+    geom = model.geometry
+    return Image.new('RGB', (w or geom.total_w, h or geom.print_height), model.style.bg.value)
+
+
 def save_png(img_to_save: Image, basename: str, output_suffix=None):
     output_filename = f"{basename}{'.' + output_suffix if output_suffix else ''}.png"
     from os.path import abspath
     output_full_path = abspath(output_filename)
     img_to_save.save(output_full_path, 'PNG')
     print(f'Result saved to: file://{output_full_path}')
+
+
+# ----------------------7. Commands------------------------------------------
 
 
 def main():
@@ -1861,11 +1869,6 @@ def main():
         save_png(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
 
     print(f'Program finished at: {round(time.time() - start_time, 2)} seconds')
-
-
-def image_for_rendering(model: Model, w=None, h=None):
-    geom = model.geometry
-    return Image.new('RGB', (w or geom.total_w, h or geom.print_height), model.style.bg.value)
 
 
 def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, render_cutoffs: bool = False):
