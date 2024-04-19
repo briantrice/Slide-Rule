@@ -1491,6 +1491,7 @@ class ConversionMarks:
     gal_per_l = GaugeMark('gal', qt_per_l.value*4, 'US gal per l')
     lb_per_kg = GaugeMark('lb', 2.2046, comment='lbs per kg')
     hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
+    g = GaugeMark('g', 9.80665, comment='gravity acceleration on Earth in m/s²')
 
 
 def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: Side = None):
