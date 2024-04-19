@@ -143,10 +143,10 @@ class Style:
     font_family: [str] = Font.CMUTypewriter
     overrides_by_sc_key: dict[str, dict] = field(default_factory=dict)
 
-    def scale_fg_col(self, sc):
+    def scale_fg_col(self, sc, mirror=False):
         """:type sc: Scale"""
         return self.override_for(sc, 'color',
-                                 self.fg if sc.is_increasing else self.dec_color)
+                                 self.fg if sc.is_increasing != mirror else self.dec_color)
 
     def scale_bg_col(self, sc):
         """:type sc: Scale"""
@@ -978,10 +978,6 @@ class Scale:
         return ((self.ex_end_value and self.frac_pos_of(self.ex_end_value) > 1 + self.min_overhang_frac)
                 or (self.ex_start_value and self.frac_pos_of(self.ex_start_value) < -self.min_overhang_frac))
 
-    @property
-    def col(self):
-        return Styles.Default.scale_fg_col(self)
-
     def frac_pos_of(self, x, shift_adj=0):
         """
         Generating Function for the Scales
@@ -1104,10 +1100,10 @@ class Scales:
     R2 = Scale('R₂', '√10x', Scalers.SquareRoot, key='R2', shift=-1)
     S = Scale('S', '∡sin x°', Scalers.Sin, mirror_key='CoS')
     CoS = Scale('C', '∡cos x°', Scalers.CoSin, key='CoS', mirror_key='S')
-    SRT = Scale('SRT', '∡tan 0.01x', Scalers.SinTanRadians)
+    # SRT = Scale('SRT', '∡tan 0.01x', Scalers.SinTanRadians)
     ST = Scale('ST', '∡tan 0.01x°', Scalers.SinTan)
     T = Scale('T', '∡tan x°', Scalers.Tan, mirror_key='CoT')
-    CoT = Scale('T', '∡cot x°', Scalers.CoTan, key='CoT', mirror_key='T')
+    CoT = Scale('CoT', '∡cot x°', Scalers.CoTan, key='CoT', is_increasing=True, mirror_key='T', shift=-1)
     T1 = replace(T, left_sym='T₁', key='T1')
     T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1)
     W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1', opp_key='W1Prime', dividers=[2],
@@ -1525,7 +1521,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     sym_col = style.scale_fg_col(sc)
     bg_col = style.scale_bg_col(sc)
-    dec_col = style.dec_color
     if bg_col:
         sc.band_bg(r, y_off, bg_col)
 
@@ -1545,10 +1540,11 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     r.draw_sym_al(sc.left_sym, y_off, sym_col, scale_h, x_left, y1, f_lbl, al)
 
     # Special Symbols for S, and T
-    if sc.mirror_key:
-        sc_alt: Scale = getattr(Scales, sc.mirror_key)
-        r.draw_sym_al(sc_alt.left_sym, y_off, sc_alt.col, scale_h, x_left - style.sym_width('__', f_lbl), y2, f_lbl, al)
-        r.draw_sym_al(sc_alt.right_sym, y_off, sc_alt.col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
+    sc_alt: Scale = getattr(Scales, sc.mirror_key) if sc.mirror_key else None
+    if sc_alt:
+        alt_col = style.scale_fg_col(sc_alt, mirror=True)
+        r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, scale_h, x_left - style.sym_width('__', f_lbl), y2, f_lbl, al)
+        r.draw_sym_al(sc_alt.right_sym, y_off, alt_col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
     elif sc == Scales.ST:
         r.draw_sym_al('∡sin 0.01x°', y_off, sym_col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
 
@@ -1659,9 +1655,9 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     elif sc == Scales.Ln:
         sc.grad_pat_default(r, y_off, al)
 
-    elif sc.scaler in {Scalers.Sin, Scalers.CoSin} or sc in {Scales.T, Scales.T1}:
+    elif sc.scaler in {Scalers.Sin, Scalers.CoSin} or sc in {Scales.T, Scales.T1, Scales.CoT}:
         sf = 100
-        is_tan = sc.scaler == Scalers.Tan
+        is_tan = sc.scaler in {Scalers.Tan, Scalers.CoTan}
         ths_z = (th_xl, th_sm, th_xs, th_xs)
         if is_tan:
             fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
@@ -1682,6 +1678,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         f = geom.STH * 1.1 if is_tan else th_med
         range1 = range(6, 16)
         range2 = range(16, 21)
+        alt_col = style.scale_fg_col(sc_alt, mirror=True)
         for x in chain(range1, range2, range(25, 41, 5), () if is_tan else range(50, 80, 10)):
             f_l = f_md2_i if x in range1 else f_mdn_i
             f_r = f_md2 if x in range1 else f_mdn
@@ -1690,7 +1687,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             if x not in range2:
                 xi = angle_opp(x)
                 x_coord_opp = sc.pos_of(x, geom) - 1.4 / 2 * style.sym_width(str(xi), f_l)
-                r.draw_numeral(xi, y_off, dec_col, scale_h, x_coord_opp, f, f_l, al)
+                r.draw_numeral(xi, y_off, alt_col, scale_h, x_coord_opp, f, f_l, al)
 
         r.draw_numeral(45 if is_tan else DEG_RT, y_off, sym_col, scale_h, scale_w, f, f_lgn, al)
 
@@ -1714,9 +1711,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.draw_sym_al('1°', y_off, sym_col, scale_h, sc.pos_of(1, geom), th_med, f_lbl, al)
         for x in chain((x / 10 for x in range(6, 10)), (x + 0.5 for x in range(1, 4)), range(2, 6)):
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
-
-    elif sc == Scales.SRT:
-        sc.grad_pat_default(r, y_off, al, False)
 
     elif sc == Scales.P:
         end_value = sc.ex_end_value
@@ -1750,10 +1744,10 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         if DEBUG:
             sc.grad_pat_default(r, y_off, al)
         for pct_value in (0, 5, 10, 15, 20, 35, 30, 40):
-            r.draw_numeral(pct_value, y_off, sc.col, scale_h, sc.pos_of(pct_value, geom), 0, f_lgn, Align.LOWER)
-            r.draw_numeral(pct_value, y_off, sc.col, scale_h, sc.pos_of(-pct_value, geom), 0, f_lgn, Align.LOWER)
+            r.draw_numeral(pct_value, y_off, sym_col, scale_h, sc.pos_of(pct_value, geom), 0, f_lgn, Align.LOWER)
+            r.draw_numeral(pct_value, y_off, sym_col, scale_h, sc.pos_of(-pct_value, geom), 0, f_lgn, Align.LOWER)
         for sym, val in (('-50%', -50), ('50%', 50), ('-33⅓', -100/3), ('33⅓', 100/3), ('+100%', 100)):
-            r.draw_sym_al(sym, y_off, sc.col, scale_h, sc.pos_of(val, geom), 0, f_lgn, Align.LOWER)
+            r.draw_sym_al(sym, y_off, sym_col, scale_h, sc.pos_of(val, geom), 0, f_lgn, Align.LOWER)
 
     else:
         sc.grad_pat_default(r, y_off, al)
@@ -2066,10 +2060,12 @@ def render_diagnostic_mode(model: Model, all_scales=False):
     for n, sc_name in enumerate(scale_names):
         sc = getattr(Scales, sc_name)
         al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, True)
+        y_off = k + (n + 1) * sh_with_margins
         try:
-            gen_scale(r, k + (n + 1) * sh_with_margins, sc, al=al)
+            gen_scale(r, y_off, sc, al=al)
         except ValueError as e:
             print(f"Error while generating scale {sc.key}: {e}")
+            sc.band_bg(r, y_off, Colors.CUTOFF2)
     return diagnostic_img
 
 
