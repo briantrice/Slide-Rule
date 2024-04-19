@@ -343,22 +343,21 @@ class Geometry:
 
         ~Cute~little~visualization~
 
-        0    240   480
-        |     |     |
-                 1       -0
-               -----
-               |   |
-               |   |
-            4> |   | <6
-               |   |
-               |   |
-            2  |   |    -1120
-           -----   |
-        5> |       |
-           |       |
-           ---------
-            3           -1600
-        |     |     |
+        x_left x_mid x_right
+        0  ↓    ↓    ↓
+        ↓         1↓   ← 0
+                ┌────┐ ← y_top
+                |    |
+                |    |
+             4→ |    | ←6
+                |    |
+                |    |
+             2↓ |    |
+           ┌────┘    | ← y_mid
+        5→ |         |
+           |         |
+           └─────────┘ ← y_bottom
+               3↑      ← side_h
         """
         side_h = self.side_h
         cutoff_w = self.cutoff_w
