@@ -2067,7 +2067,7 @@ def render_diagnostic_mode(model: Model, all_scales=False):
         al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, True)
         try:
             gen_scale(r, k + (n + 1) * sh_with_margins, sc, al=al)
-        except Exception as e:
+        except ValueError as e:
             print(f"Error while generating scale {sc.key}: {e}")
     return diagnostic_img
 
