@@ -1008,6 +1008,8 @@ class Scale:
         end_log = math.log10(end_value) if end_value > 0 else LOG_ZERO
         low_log = min(start_log, end_log)
         high_log = max(start_log, end_log)
+        if high_log - low_log == math.inf:
+            return None
         return range(math.ceil(low_log), math.ceil(high_log))
 
     def pos_of(self, x, geom) -> int:
@@ -1035,7 +1037,11 @@ class Scale:
     def grad_pat_default(self, r, y_off, al, extended=True):
         start_value = self.ex_start_value or self.value_at_start() if extended else None
         end_value = self.ex_end_value or self.value_at_end() if extended else None
-        dividers = self.dividers or [10 ** n for n in self.powers_of_ten_in_range()]
+        dividers = self.dividers
+        if not dividers:
+            powers = self.powers_of_ten_in_range()
+            if powers:
+                dividers = [10 ** n for n in powers]
         if dividers:
             r.grad_pat_auto(y_off, self, al, start_value=start_value, end_value=dividers[0])
             last_i = len(dividers) - 1
