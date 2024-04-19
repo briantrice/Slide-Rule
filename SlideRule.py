@@ -1862,7 +1862,7 @@ def main():
             save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
 
     if render_mode == Mode.DIAGNOSTIC:
-        diagnostic_img = render_diagnostic_mode(model)
+        diagnostic_img = render_diagnostic_mode(model, all_scales=cli_args.debug)
         print(f'Diagnostic render finished at: {round(time.time() - start_time, 2)} seconds')
         save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
 
@@ -2027,7 +2027,7 @@ def render_stickerprint_mode(model, sliderule_img):
     return stickerprint_img
 
 
-def render_diagnostic_mode(model: Model):
+def render_diagnostic_mode(model: Model, all_scales=False):
     """
     Diagnostic mode, rendering scales independently.
     Works as a test of tick marks, labeling, and layout. Also, regressions.
@@ -2045,7 +2045,7 @@ def render_diagnostic_mode(model: Model):
                    'K', 'R1', 'R2', 'CI',
                    'DI', 'CF', 'DF', 'CIF', 'L',
                    'S', 'T', 'ST']
-    for sc_name in layout.scale_names_in_order():
+    for sc_name in keys_of(Scales) if all_scales else layout.scale_names_in_order():
         if sc_name not in scale_names:
             scale_names.append(sc_name)
     total_h = k + (len(scale_names) + 1) * sh_with_margins + scale_h
