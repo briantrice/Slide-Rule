@@ -575,9 +575,7 @@ class Renderer:
             symbol = symbol.replace('⅓', '')
         if DEBUG:
             w, h = self.style.sym_dims(symbol, font)
-            print(f'draw_symbol_inner: {symbol}\t{x_left} {y_top} {w} {h}')
             self.draw_box(x_left, y_top, w, h, 'grey')
-            self.draw_box(x_left, y_top, 10, 10, 'navy', width=4)
         self.r.text((x_left, y_top), symbol, font=font, fill=color)
         if DRAW_RADICALS:
             radicals = re.search(r'[√∛∜]', symbol)
@@ -586,8 +584,6 @@ class Renderer:
                 n_ch = radicals.start() + 1
                 (w_ch, h_rad) = self.style.sym_dims('√', font)
                 (_, h_num) = self.style.sym_dims('1', font)
-                if DEBUG:
-                    print(f"DRAW_RADICALS: {h_rad}, {h}, {h_num}")
                 line_w = h_rad // 14
                 y_bar = y_top + max(10, round(h - h_num - line_w * 2))
                 self.r.line((x_left + w_ch * n_ch - w_ch // 10, y_bar, x_left + w, y_bar), width=line_w, fill=color)
@@ -1750,7 +1746,8 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.draw_mark(Marks.inv_e, y_off, sc, f_smn, al, sym_col, side=side)
 
     elif sc == AristoCommerzScales.Pct:
-        # sc.grad_pat_divided(r, y_off, al, [0], start_value=-50, end_value=100)
+        if DEBUG:
+            sc.grad_pat_default(r, y_off, al)
         for pct_value in (0, 5, 10, 15, 20, 35, 30, 40):
             r.draw_numeral(pct_value, y_off, sc.col, scale_h, sc.pos_of(pct_value, geom), 0, f_lgn, Align.LOWER)
             r.draw_numeral(pct_value, y_off, sc.col, scale_h, sc.pos_of(-pct_value, geom), 0, f_lgn, Align.LOWER)
