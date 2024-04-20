@@ -2134,7 +2134,7 @@ def render_diagnostic_mode(model: Model, all_scales=False):
         try:
             if isinstance(sc, Ruler):
                 sc.pat(r, y_off, False)
-            else:
+            elif isinstance(sc, Scale):
                 gen_scale(r, y_off, sc, al=al)
         except ValueError as e:
             print(f"Error while generating scale {sc.key}: {e}")
