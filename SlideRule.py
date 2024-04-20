@@ -219,6 +219,12 @@ class Side(Enum):
     REAR = 'rear'
 
 
+class RulePart(Enum):
+    STATOR_TOP = 'stator_top'
+    SLIDE = 'slide'
+    STATOR_BOTTOM = 'stator_bottom'
+
+
 class Geometry:
     """
     Slide Rule Geometric Parameters
@@ -317,6 +323,15 @@ class Geometry:
         if h_ratio and h_ratio != 1:
             result *= h_ratio
         return round(result)
+
+    def edge_h(self, part: RulePart, top):
+        if part == RulePart.STATOR_TOP:
+            return 0 if top else self.stator_h
+        if part == RulePart.SLIDE:
+            return self.stator_h + (0 if top else self.slide_h)
+        if part == RulePart.STATOR_BOTTOM:
+            return self.stator_h + self.slide_h if top else self.side_h
+        return 0
 
     def scale_h(self, sc, side: Side = None, default: int = None) -> int:
         key = sc.key
@@ -850,12 +865,6 @@ def scale_hyperbolic(x):
 def angle_opp(x):
     """The opposite angle in degrees across a right triangle."""
     return DEG_RT - x
-
-
-class RulePart(Enum):
-    STATOR_TOP = 'stator_top'
-    SLIDE = 'slide'
-    STATOR_BOTTOM = 'stator_bottom'
 
 
 @dataclass(frozen=True)
@@ -1952,20 +1961,9 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
                 scale_al = layout.scale_al(sc, side, part)
                 # Handle edge-aligned scales:
                 if i == 0 and scale_al == Align.UPPER:
-                    if part == RulePart.STATOR_TOP:
-                        y_off = y_side_start
-                    elif part == RulePart.SLIDE:
-                        y_off = y_side_start + geom.stator_h
-                    elif part == RulePart.STATOR_BOTTOM:
-                        y_off = y_side_start + geom.stator_h + geom.slide_h
+                    y_off = y_side_start + geom.edge_h(part, True)
                 elif i == last_i and scale_al == Align.LOWER:
-                    if part == RulePart.STATOR_TOP:
-                        y_off = y_side_start + geom.stator_h
-                    elif part == RulePart.SLIDE:
-                        y_off = y_side_start + geom.stator_h + geom.slide_h
-                    elif part == RulePart.STATOR_BOTTOM:
-                        y_off = y_side_start + geom.side_h
-                    y_off -= scale_h
+                    y_off = y_side_start + geom.edge_h(part, False) - scale_h
                 else:  # Incremental displacement by default
                     y_off += geom.scale_margin(sc, side)
                 if isinstance(sc, Scale):
