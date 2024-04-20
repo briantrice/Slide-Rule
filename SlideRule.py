@@ -573,7 +573,7 @@ class Renderer:
         sf = 10 ** num_digits  # ensure enough precision for int ranges
         # Ensure between 6 and 15 numerals will display? Target log10 in 0.8..1.17
         frac_width = sc.offset_between(start_value, end_value, 1)
-        step_numeral = 10 ** max((math.floor(math.log10(abs(end_value - start_value)) - 0.5 * frac_width) + num_digits), 0)
+        step_numeral = 10 ** max((int(math.log10(abs(end_value - start_value)) - 0.5 * frac_width) + num_digits), 0)
         step_half = step_numeral // 2
         step_tenth = step_numeral // 10  # second level
         tenth_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_tenth / sf, scale_w)
@@ -1894,16 +1894,16 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
     # Titling
     style = model.style
     f_lbl = style.font_for(FontSize.SC_LBL)
-    side_w = geom.side_w
+    side_w_q = geom.side_w // 4
     li = geom.li
     y_off = y_side_start = y_front_start
     if model == Models.Demo:
         upper = Align.UPPER
         y_off_titling = 25 + y_off
         title_col = Colors.RED
-        r.draw_sym_al(model.name, y_off_titling, title_col, 0, side_w * 1 / 4 - li, 0, f_lbl, upper)
-        r.draw_sym_al(model.subtitle, y_off_titling, title_col, 0, side_w * 2 / 4 - li + geom.oX, 0, f_lbl, upper)
-        r.draw_sym_al(model.brand, y_off_titling, title_col, 0, side_w * 3 / 4 - li, 0, f_lbl, upper)
+        r.draw_sym_al(model.name, y_off_titling, title_col, 0, side_w_q - li, 0, f_lbl, upper)
+        r.draw_sym_al(model.subtitle, y_off_titling, title_col, 0, side_w_q * 2 - li + geom.oX, 0, f_lbl, upper)
+        r.draw_sym_al(model.brand, y_off_titling, title_col, 0, side_w_q * 3 - li, 0, f_lbl, upper)
         y_off = y_off_titling + f_lbl.size
     # Scales
     for side in Side:
@@ -2046,10 +2046,7 @@ def render_diagnostic_mode(model: Model, all_scales=False):
     style = model.style
     upper = Align.UPPER
     sh_with_margins = scale_h + (40 if is_demo else 10)
-    scale_names = ['A', 'B', 'C', 'D',
-                   'K', 'R1', 'R2', 'CI',
-                   'DI', 'CF', 'DF', 'CIF', 'L',
-                   'S', 'T', 'ST']
+    scale_names = ['A', 'B', 'C', 'D', 'K', 'R1', 'R2', 'CI', 'DI', 'CF', 'DF', 'CIF', 'L', 'S', 'T', 'ST']
     for sc_name in keys_of(Scales) if all_scales else layout.sc_keys_in_order():
         if sc_name not in scale_names:
             scale_names.append(sc_name)
