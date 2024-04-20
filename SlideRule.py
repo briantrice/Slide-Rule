@@ -1673,24 +1673,12 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
         r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
 
-    elif sc in {Scales.W1, Scales.W1Prime, Scales.W2, Scales.W2Prime}:
-        sc.grad_pat_default(r, y_off, al)
-        r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
-
     elif sc == Scales.R2:
         fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
         r.pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
         r.pat(y_off, sc, al, fp2, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
 
         r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
-
-    elif sc == Scales.H1:
-        r.draw_numeral(1.005, y_off, sym_col, scale_h, sc.pos_of(1.005, geom), geom.tick_h(HMod.XL), f_lgn, al)
-        sc.grad_pat_default(r, y_off, al)
-
-    elif sc == Scales.H2:
-        r.draw_numeral(1.5, y_off, sym_col, scale_h, sc.pos_of(1.5, geom), geom.tick_h(HMod.XL), f_lgn, al)
-        sc.grad_pat_default(r, y_off, al)
 
     elif (sc.scaler == ScaleFNs.Base and sc.shift == pi_fold_shift) or sc == Scales.CIF:  # CF/DF/CIF
         is_cif = sc == Scales.CIF
@@ -1710,9 +1698,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, ts255(sf), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
         for x in range(0, 11):
             r.draw_numeral(x / 10, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
-
-    elif sc == Scales.Ln:
-        sc.grad_pat_default(r, y_off, al)
 
     elif sc.scaler in {ScaleFNs.Sin, ScaleFNs.CoSin} or sc in {Scales.T, Scales.T1, Scales.CoT}:
         is_tan = sc.scaler in {ScaleFNs.Tan, ScaleFNs.CoTan}
@@ -1766,34 +1751,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         for x in chain((x / 10 for x in range(6, 10)), (x + 0.5 for x in range(1, 4)), range(2, 6)):
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
 
-    elif sc == Scales.P:
-        end_value = sc.ex_end_value
-        r.draw_numeral(end_value, y_off, sym_col, scale_h, sc.pos_of(end_value, geom), th_med, f_smn, al)
-        sc.grad_pat_default(r, y_off, al)
-
-    elif sc in {Scales.Ch1, Scales.Sh1, Scales.Sh2}:
-        sc.grad_pat_default(r, y_off, al)
-
-    elif sc == Scales.Th:
-        sc.grad_pat_default(r, y_off, al)
-        for x in [1, 1.5, 2, 3]:
-            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
-
-    elif sc == Scales.Chi:
-        sc.grad_pat_default(r, y_off, al)
-        r.draw_mark(Marks.pi_half, y_off, sc, f_lgn, al, sym_col, side=side)
-
-    elif sc == Scales.Theta:
-        sc.grad_pat_default(r, y_off, al)
-
-    elif sc in {Scales.LL2, Scales.LL3}:
-        sc.grad_pat_default(r, y_off, al)
-        r.draw_mark(Marks.e, y_off, sc, f_lgn, al, sym_col, side=side)
-
-    elif sc in {Scales.LL02, Scales.LL03}:
-        sc.grad_pat_default(r, y_off, al)
-        r.draw_mark(Marks.inv_e, y_off, sc, f_smn, al, sym_col, side=side)
-
     elif sc == AristoCommerzScales.Pct:
         if DEBUG:
             sc.grad_pat_default(r, y_off, al)
@@ -1803,8 +1760,26 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         for sym, val in (('-50%', -50), ('50%', 50), ('-33⅓', -100/3), ('33⅓', 100/3), ('+100%', 100)):
             r.draw_sym_al(sym, y_off, sym_col, scale_h, sc.pos_of(val, geom), 0, f_lgn, Align.LOWER)
 
-    else:
+    else:  # Fallback to our generic algorithm, then fill in marks and numerals as helpful
         sc.grad_pat_default(r, y_off, al)
+        if sc in {Scales.LL02, Scales.LL03}:
+            r.draw_mark(Marks.inv_e, y_off, sc, f_smn, al, sym_col, side=side)
+        elif sc in {Scales.LL2, Scales.LL3}:
+            r.draw_mark(Marks.e, y_off, sc, f_lgn, al, sym_col, side=side)
+        elif sc == Scales.P:
+            end_value = sc.ex_end_value
+            r.draw_numeral(end_value, y_off, sym_col, scale_h, sc.pos_of(end_value, geom), th_med, f_smn, al)
+        elif sc == Scales.Chi:
+            r.draw_mark(Marks.pi_half, y_off, sc, f_lgn, al, sym_col, side=side)
+        elif sc in {Scales.W1, Scales.W1Prime, Scales.W2, Scales.W2Prime}:
+            r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
+        elif sc == Scales.Th:
+            for x in [1, 1.5, 2, 3]:
+                r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
+        elif sc == Scales.H1:
+            r.draw_numeral(1.005, y_off, sym_col, scale_h, sc.pos_of(1.005, geom), geom.tick_h(HMod.XL), f_lgn, al)
+        elif sc == Scales.H2:
+            r.draw_numeral(1.5, y_off, sym_col, scale_h, sc.pos_of(1.5, geom), geom.tick_h(HMod.XL), f_lgn, al)
 
 
 def first_digit_of(x) -> int:
