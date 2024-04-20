@@ -419,11 +419,48 @@ class Align(Enum):
     LOWER = 'lower'  # Lower Alignment
 
 
+TEN = 10
+HUNDRED = TEN * TEN
+
+
 @dataclass(frozen=True)
 class GaugeMark:
     sym: str
     value: float = None
     comment: str = None
+
+
+class Marks:
+    e = GaugeMark('e', math.e, comment='base of natural logarithms')
+    inv_e = GaugeMark('1/e', 1 / math.e, comment='base of natural logarithms')
+    tau = GaugeMark('τ', TAU, comment='ratio of circle circumference to radius')
+    pi = GaugeMark('π', PI, comment='ratio of circle circumference to diameter')
+    pi_half = GaugeMark('π/2', PI_HALF, comment='ratio of quarter arc length to radius')
+    inv_pi = GaugeMark('M', 1 / PI, comment='reciprocal of π')
+
+    deg_per_rad = GaugeMark('r', DEG_FULL / TAU / TEN, comment='degrees per radian')
+    rad_per_deg = GaugeMark('ρ', TAU / DEG_FULL, comment='radians per degree')
+    rad_per_min = GaugeMark('ρ′', TAU / DEG_FULL * 60, comment='radians per minute')
+    rad_per_sec = GaugeMark('ρ″', TAU / DEG_FULL * 60 * 60, comment='radians per second')
+
+    ln_over_log10 = GaugeMark('L', 1 / math.log10(math.e), comment='ratio of natural log to log base 10')
+
+    sqrt_ten = GaugeMark('√10', math.sqrt(TEN), comment='square root of 10')
+    cube_root_ten = GaugeMark('c', math.pow(TEN, 1 / 3), comment='cube root of 10')
+
+
+class ConversionMarks:
+    cm_per_in = GaugeMark('in', 2.54, comment='cm per in')
+    sq_cm_per_in = GaugeMark('sq in', cm_per_in.value**2, comment='cm² per in²')
+    cu_cm_per_in = GaugeMark('cu in', cm_per_in.value**3, comment='cm³ per in³')
+    ft_per_m = GaugeMark('ft', HUNDRED/(cm_per_in.value*12), comment='ft per m')
+    yd_per_m = GaugeMark('yd', 3/ft_per_m.value, comment='yd per m')
+    km_per_mi = GaugeMark('mi', cm_per_in.value*12*5280/1000, comment='mi per km')
+    qt_per_l = GaugeMark('qt', 0.9463525, comment='US qt per l')
+    gal_per_l = GaugeMark('gal', qt_per_l.value*4, 'US gal per l')
+    lb_per_kg = GaugeMark('lb', 2.2046, comment='lbs per kg')
+    hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
+    g = GaugeMark('g', 9.80665, comment='gravity acceleration on Earth in m/s²')
 
 
 # ----------------------2. Fundamental Functions----------------------------
@@ -836,8 +873,6 @@ def extend(image, geom, y, direction, amplitude):
 # ----------------------3. Scale Generating Function----------------------------
 
 
-TEN = 10
-HUNDRED = TEN * TEN
 LOG_TEN = math.log(TEN)
 LOG_ZERO = -math.inf
 
@@ -960,6 +995,10 @@ class Scale:
     """which value, if the scale is displayed extended at end, to show last"""
     dividers: list = None
     """which values should the natural scale divide its graduated patterns at"""
+    marks: list = None
+    """which GaugeMarks deserve ticks and labels"""
+    numerals: list = None
+    """which numerals to label which otherwise wouldn't be"""
 
     min_overhang_frac = 0.02
 
@@ -1093,19 +1132,19 @@ class Scales:
     LL1 = Scale('LL₁', 'e^0.01x', ScaleFNs.LogLog, shift=2, key='LL1',
                 dividers=[1.02, 1.05], ex_start_value=1.0095, ex_end_value=1.11)
     LL2 = Scale('LL₂', 'e^0.1x', ScaleFNs.LogLog, shift=1, key='LL2',
-                dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3)
+                dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3, marks=[Marks.e])
     LL3 = Scale('LL₃', 'e^x', ScaleFNs.LogLog, key='LL3',
-                dividers=[10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=60000)
+                dividers=[10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=60000, marks=[Marks.e])
     LL00 = Scale('LL₀₀', 'e^-0.001x', ScaleFNs.LogLogNeg, shift=3, key='LL00',
                  dividers=[0.998], ex_start_value=0.989, ex_end_value=0.9991)
     LL01 = Scale('LL₀₁', 'e^-0.01x', ScaleFNs.LogLogNeg, shift=2, key='LL01',
                  dividers=[0.95, 0.98], ex_start_value=0.9, ex_end_value=0.9906)
     LL02 = Scale('LL₀₂', 'e^-0.1x', ScaleFNs.LogLogNeg, shift=1, key='LL02',
-                 dividers=[0.75], ex_start_value=0.35, ex_end_value=0.91)
+                 dividers=[0.75], ex_start_value=0.35, ex_end_value=0.91, marks=[Marks.inv_e])
     LL03 = Scale('LL₀₃', 'e^-x', ScaleFNs.LogLogNeg, key='LL03',
-                 dividers=[0.001, 0.01, 0.1], ex_start_value=0.0001, ex_end_value=0.39)
+                 dividers=[0.001, 0.01, 0.1], ex_start_value=0.0001, ex_end_value=0.39, marks=[Marks.inv_e])
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
-              dividers=[0.3, 0.7, 0.9, 0.98], ex_start_value=0.1, ex_end_value=.995)
+              dividers=[0.3, 0.7, 0.9, 0.98], ex_start_value=0.1, ex_end_value=.995, numerals=[.995])
     R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1')
     R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1)
     S = Scale('S', '∡sin x°', ScaleFNs.Sin, mirror_key='CoS')
@@ -1117,22 +1156,22 @@ class Scales:
     T1 = replace(T, left_sym='T₁', key='T1')
     T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1)
     W1 = Scale('W₁', '√x', ScaleFNs.SquareRoot, key='W1', opp_key='W1Prime', dividers=[2],
-               ex_start_value=0.95, ex_end_value=3.38)
+               ex_start_value=0.95, ex_end_value=3.38, marks=[Marks.sqrt_ten])
     W1Prime = replace(W1, left_sym="W'₁", key='W1Prime', opp_key='W1')
     W2 = Scale('W₂', '√10x', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5],
-               ex_start_value=3, ex_end_value=10.66)
+               ex_start_value=3, ex_end_value=10.66, marks=[Marks.sqrt_ten])
     W2Prime = replace(W2, left_sym="W'₂", key='W2Prime', opp_key='W2')
 
-    H1 = Scale('H₁', '√1+0.1x²', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1])
-    H2 = Scale('H₂', '√1+x²', ScaleFNs.Hyperbolic, key='H2', dividers=[4])
+    H1 = Scale('H₁', '√1+0.1x²', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1], numerals=[1.005])
+    H2 = Scale('H₂', '√1+x²', ScaleFNs.Hyperbolic, key='H2', dividers=[4], numerals=[1.5])
     Sh1 = Scale('Sh₁', 'sinh x', ScaleFNs.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
     Sh2 = Scale('Sh₂', 'sinh x', ScaleFNs.SinH, key='Sh2')
     Ch1 = Scale('Ch', 'cosh x', ScaleFNs.CosH, dividers=[1, 2], ex_start_value=0.01)
-    Th = Scale('Th', 'tanh x', ScaleFNs.TanH, shift=1, dividers=[0.2, 0.4, 1], ex_end_value=3)
+    Th = Scale('Th', 'tanh x', ScaleFNs.TanH, shift=1, dividers=[0.2, 0.4, 1], ex_end_value=3, numerals=[1, 1.5, 2, 3])
 
     # EE-specific
     # Hemmi 153:
-    Chi = Scale('χ', '', ScaleFNs.Chi)
+    Chi = Scale('χ', '', ScaleFNs.Chi, marks=[Marks.pi_half])
     Theta = Scale('θ', '°', ScaleFNs.Theta, key='Theta')
     # Pickett N-515-T:
     f_x = Scale('f_x', 'x/2π', ScaleFNs.Base, shift=gen_base(TAU), dividers=[0.2, 0.5, 1])
@@ -1522,39 +1561,6 @@ class Models:
                           ), Styles.Graphoplex)
 
 
-class Marks:
-    e = GaugeMark('e', math.e, comment='base of natural logarithms')
-    inv_e = GaugeMark('1/e', 1 / math.e, comment='base of natural logarithms')
-    tau = GaugeMark('τ', TAU, comment='ratio of circle circumference to radius')
-    pi = GaugeMark('π', PI, comment='ratio of circle circumference to diameter')
-    pi_half = GaugeMark('π/2', PI_HALF, comment='ratio of quarter arc length to radius')
-    inv_pi = GaugeMark('M', 1 / PI, comment='reciprocal of π')
-
-    deg_per_rad = GaugeMark('r', DEG_FULL / TAU / TEN, comment='degrees per radian')
-    rad_per_deg = GaugeMark('ρ', TAU / DEG_FULL, comment='radians per degree')
-    rad_per_min = GaugeMark('ρ′', TAU / DEG_FULL * 60, comment='radians per minute')
-    rad_per_sec = GaugeMark('ρ″', TAU / DEG_FULL * 60 * 60, comment='radians per second')
-
-    ln_over_log10 = GaugeMark('L', 1 / math.log10(math.e), comment='ratio of natural log to log base 10')
-
-    sqrt_ten = GaugeMark('√10', math.sqrt(TEN), comment='square root of 10')
-    cube_root_ten = GaugeMark('c', math.pow(TEN, 1 / 3), comment='cube root of 10')
-
-
-class ConversionMarks:
-    cm_per_in = GaugeMark('in', 2.54, comment='cm per in')
-    sq_cm_per_in = GaugeMark('sq in', cm_per_in.value**2, comment='cm² per in²')
-    cu_cm_per_in = GaugeMark('cu in', cm_per_in.value**3, comment='cm³ per in³')
-    ft_per_m = GaugeMark('ft', HUNDRED/(cm_per_in.value*12), comment='ft per m')
-    yd_per_m = GaugeMark('yd', 3/ft_per_m.value, comment='yd per m')
-    km_per_mi = GaugeMark('mi', cm_per_in.value*12*5280/1000, comment='mi per km')
-    qt_per_l = GaugeMark('qt', 0.9463525, comment='US qt per l')
-    gal_per_l = GaugeMark('gal', qt_per_l.value*4, 'US gal per l')
-    lb_per_kg = GaugeMark('lb', 2.2046, comment='lbs per kg')
-    hp_per_kw = GaugeMark('N', 1.341022, comment='mechanical horsepower per kW')
-    g = GaugeMark('g', 9.80665, comment='gravity acceleration on Earth in m/s²')
-
-
 def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: Side = None):
     geom = r.geometry
     style = r.style
@@ -1762,24 +1768,12 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     else:  # Fallback to our generic algorithm, then fill in marks and numerals as helpful
         sc.grad_pat_default(r, y_off, al)
-        if sc in {Scales.LL02, Scales.LL03}:
-            r.draw_mark(Marks.inv_e, y_off, sc, f_smn, al, sym_col, side=side)
-        elif sc in {Scales.LL2, Scales.LL3}:
-            r.draw_mark(Marks.e, y_off, sc, f_lgn, al, sym_col, side=side)
-        elif sc == Scales.P:
-            end_value = sc.ex_end_value
-            r.draw_numeral(end_value, y_off, sym_col, scale_h, sc.pos_of(end_value, geom), th_med, f_smn, al)
-        elif sc == Scales.Chi:
-            r.draw_mark(Marks.pi_half, y_off, sc, f_lgn, al, sym_col, side=side)
-        elif sc in {Scales.W1, Scales.W1Prime, Scales.W2, Scales.W2Prime}:
-            r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
-        elif sc == Scales.Th:
-            for x in [1, 1.5, 2, 3]:
+        if sc.marks:
+            for mark in sc.marks:
+                r.draw_mark(mark, y_off, sc, f_lgn, al, sym_col, side=side)
+        if sc.numerals:
+            for x in sc.numerals:
                 r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
-        elif sc == Scales.H1:
-            r.draw_numeral(1.005, y_off, sym_col, scale_h, sc.pos_of(1.005, geom), geom.tick_h(HMod.XL), f_lgn, al)
-        elif sc == Scales.H2:
-            r.draw_numeral(1.5, y_off, sym_col, scale_h, sc.pos_of(1.5, geom), geom.tick_h(HMod.XL), f_lgn, al)
 
 
 def first_digit_of(x) -> int:
