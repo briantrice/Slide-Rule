@@ -1112,16 +1112,17 @@ pi_fold_shift = ScaleFNs.Inverse(PI)
 
 
 class Scales:
-    A = Scale('A', 'x²', ScaleFNs.Square, opp_key='B')
-    B = Scale('B', 'x²_y', ScaleFNs.Square, on_slide=True, opp_key='A')
+    A = Scale('A', 'x²', ScaleFNs.Square, opp_key='B', marks=[Marks.pi])
+    B = Scale('B', 'x²_y', ScaleFNs.Square, on_slide=True, opp_key='A', marks=A.marks)
     BI = Scale('BI', '1/x²_y', ScaleFNs.InverseSquare, on_slide=True)
-    C = Scale('C', 'x_y', ScaleFNs.Base, on_slide=True, opp_key='D')
-    DF = Scale('DF', 'πx', ScaleFNs.Base, shift=pi_fold_shift, opp_key='CF')
-    CF = Scale('CF', 'πx_y', ScaleFNs.Base, shift=pi_fold_shift, on_slide=True, opp_key='DF')
-    CI = Scale('CI', '1/x_y', ScaleFNs.Inverse, on_slide=True, opp_key='DI')
-    CIF = Scale('CIF', '1/πx_y', ScaleFNs.Inverse, shift=pi_fold_shift - 1, on_slide=True)
-    D = Scale('D', 'x', ScaleFNs.Base, opp_key='C')
-    DI = Scale('DI', '1/x', ScaleFNs.Inverse, opp_key='CI')
+    C = Scale('C', 'x_y', ScaleFNs.Base, on_slide=True, opp_key='D', marks=[Marks.pi, Marks.deg_per_rad, Marks.tau])
+    CF = Scale('CF', 'πx_y', ScaleFNs.Base, shift=pi_fold_shift, on_slide=True, opp_key='DF',
+               marks=[Marks.pi, replace(Marks.pi, value=Marks.pi.value/TEN)])
+    DF = Scale('DF', 'πx', ScaleFNs.Base, shift=pi_fold_shift, opp_key='CF', marks=CF.marks)
+    CI = Scale('CI', '1/x_y', ScaleFNs.Inverse, on_slide=True, opp_key='DI', marks=CF.marks)
+    CIF = Scale('CIF', '1/πx_y', ScaleFNs.Inverse, shift=pi_fold_shift - 1, on_slide=True, marks=C.marks)
+    D = Scale('D', 'x', ScaleFNs.Base, opp_key='C', marks=C.marks)
+    DI = Scale('DI', '1/x', ScaleFNs.Inverse, opp_key='CI', marks=C.marks)
     K = Scale('K', 'x³', ScaleFNs.Cube)
     L = Scale('L', 'log x', ScaleFNs.Log10)
     Ln = Scale('Ln', 'ln x', ScaleFNs.Ln)
@@ -1144,7 +1145,7 @@ class Scales:
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
               dividers=[0.3, 0.7, 0.9, 0.98], ex_start_value=0.1, ex_end_value=.995, numerals=[.995])
     R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
-    R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=[Marks.sqrt_ten])
+    R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
     S = Scale('S', '∡sin x°', ScaleFNs.Sin, mirror_key='CoS')
     CoS = Scale('C', '∡cos x°', ScaleFNs.CoSin, key='CoS', mirror_key='S')
     # SRT = Scale('SRT', '∡tan 0.01x', ScaleFNs.SinTanRadians)
@@ -1157,7 +1158,7 @@ class Scales:
                ex_start_value=0.95, ex_end_value=3.38, marks=[Marks.sqrt_ten])
     W1Prime = replace(W1, left_sym="W'₁", key='W1Prime', opp_key='W1')
     W2 = Scale('W₂', '√10x', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5],
-               ex_start_value=3, ex_end_value=10.66, marks=[Marks.sqrt_ten])
+               ex_start_value=3, ex_end_value=10.66, marks=W1.marks)
     W2Prime = replace(W2, left_sym="W'₂", key='W2Prime', opp_key='W2')
 
     H1 = Scale('H₁', '√1+0.1x²', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1], numerals=[1.005])
@@ -1640,21 +1641,12 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.pat(y_off, sc, al, fp2, fp4, sf, ts255(sf), ths1, fonts_lbl, False)
         r.pat(y_off, sc, al, fp4, fpe + 1, sf, ts252(sf), ths1, fonts_lbl, True)
 
-        r.draw_mark(Marks.pi, y_off, sc, f_lbl, al, col=sym_col, side=side)
-
-        if y_off < geom.side_h + geom.oY:
-            for mark in (Marks.deg_per_rad, Marks.tau):
-                r.draw_mark(mark, y_off, sc, f_lbl, al, col=sym_col, side=side)
-
     elif sc.scaler == ScaleFNs.Square or sc == Scales.BI:
         for b in (sf * 10 ** n for n in range(0, 2)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
             r.pat(y_off, sc, al, fp1, fp2, sf, ts255(b), ths1, fonts_lbl, True)
             r.pat(y_off, sc, al, fp2, fp3, sf, ts252(b), ths1, fonts_lbl, True)
             r.pat(y_off, sc, al, fp3, fpe + 1, sf, ts25(b), ths2, fonts_lbl, True)
-
-        for shift_adj in (0, 0.5):
-            r.draw_mark(Marks.pi, y_off, sc, f_lbl, al, shift_adj=shift_adj, side=side)
 
     elif sc == Scales.K:
         for b in (sf * (10 ** n) for n in range(0, 3)):
@@ -1690,9 +1682,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.pat(y_off, sc, al, fp2, fp3, sf, ts252(i1), ths1, fonts_lbl, True)
         r.pat(y_off, sc, al, fp3, fp4, sf, tst25(sf), ths3, fonts2, True)
         r.pat(y_off, sc, al, fp4, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
-
-        for shift_adj in (0, -1):
-            r.draw_mark(Marks.pi, y_off, sc, f_lbl, al, shift_adj=shift_adj, side=side)
 
     elif sc == Scales.L:
         r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, ts255(sf), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
@@ -1764,8 +1753,9 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         sc.grad_pat_default(r, y_off, al)
 
     if sc.marks:
+        f_mark = f_lbl if sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse, ScaleFNs.Square} else f_lgn
         for mark in sc.marks:
-            r.draw_mark(mark, y_off, sc, f_lgn, al, sym_col, side=side)
+            r.draw_mark(mark, y_off, sc, f_mark, al, sym_col, side=side)
     if sc.numerals:
         for x in sc.numerals:
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
