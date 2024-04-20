@@ -1630,8 +1630,8 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     ths3 = (th_med, th_sm, th_sm, th_xs)
     ths4 = (th_med, th_xl, th_sm, th_dot)
     fonts_no = (None, None, None)
+    sf = 1000  # Reflects the minimum significant figures needed for standard scales to avoid FP inaccuracy
     if (sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse}) and sc.shift == 0:  # C/D and CI/DI
-        sf = 100
         fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
         r.pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
         r.pat(y_off, sc, al, fp2, fp4, sf, ts255(sf), ths1, fonts_lbl, False)
@@ -1644,7 +1644,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
                 r.draw_mark(mark, y_off, sc, f_lbl, al, col=sym_col, side=side)
 
     elif sc.scaler == ScaleFNs.Square or sc == Scales.BI:
-        sf = 100
         for b in (sf * 10 ** n for n in range(0, 2)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
             r.pat(y_off, sc, al, fp1, fp2, sf, ts255(b), ths1, fonts_lbl, True)
@@ -1655,7 +1654,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             r.draw_mark(Marks.pi, y_off, sc, f_lbl, al, shift_adj=shift_adj, side=side)
 
     elif sc == Scales.K:
-        sf = 100
         for b in (sf * (10 ** n) for n in range(0, 3)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 3, 6, 10))
             r.pat(y_off, sc, al, fp1, fp2, sf, ts252(b), ths1, fonts_xl, True)
@@ -1663,7 +1661,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, 1, 5, 1), ths2, fonts_xl, True)
 
     elif sc == Scales.R1:
-        sf = 1000
         fp1, fp2, fpe = (int(fp * sf) for fp in (1, 2, 3.17))
         r.pat(y_off, sc, al, fp1, fp2, sf, ts252(sf // 10), ths1, fonts_no, True)
         r.pat(y_off, sc, al, fp2, fpe + 1, sf, tst25(sf), (th_med, th_med, th_sm, th_xs), fonts2, True)
@@ -1682,7 +1679,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif sc == Scales.R2:
-        sf = 1000
         fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
         r.pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
         r.pat(y_off, sc, al, fp2, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
@@ -1699,11 +1695,10 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     elif (sc.scaler == ScaleFNs.Base and sc.shift == pi_fold_shift) or sc == Scales.CIF:  # CF/DF/CIF
         is_cif = sc == Scales.CIF
-        sf = 1000
-        fp1 = 310 if is_cif else 314
+        fp1 = int((0.31 if is_cif else 0.314) * sf)
         i1 = sf // TEN
         fp2, fp3, fp4 = (fp * i1 for fp in (4, 10, 20))
-        fpe = 3200 if is_cif else fp1 * TEN
+        fpe = int(3.2 * sf) if is_cif else fp1 * TEN
         r.pat(y_off, sc, al, fp1, fp2, sf, ts255(i1), ths1, fonts_lbl, True)
         r.pat(y_off, sc, al, fp2, fp3, sf, ts252(i1), ths1, fonts_lbl, True)
         r.pat(y_off, sc, al, fp3, fp4, sf, tst25(sf), ths3, fonts2, True)
@@ -1713,7 +1708,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             r.draw_mark(Marks.pi, y_off, sc, f_lbl, al, shift_adj=shift_adj, side=side)
 
     elif sc == Scales.L:
-        sf = 100
         r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, ts255(sf), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
         for x in range(0, 11):
             r.draw_numeral(x / 10, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
@@ -1722,7 +1716,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         sc.grad_pat_default(r, y_off, al)
 
     elif sc.scaler in {ScaleFNs.Sin, ScaleFNs.CoSin} or sc in {Scales.T, Scales.T1, Scales.CoT}:
-        sf = 100
         is_tan = sc.scaler in {ScaleFNs.Tan, ScaleFNs.CoTan}
         ths_z = (th_xl, th_sm, th_xs, th_xs)
         if is_tan:
@@ -1758,15 +1751,11 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.draw_numeral(45 if is_tan else DEG_RT, y_off, sym_col, scale_h, scale_w, f, f_lgn, al)
 
     elif sc == Scales.T2:
-        # Ticks
-        sf = 100
         fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, angle_opp(5.7)))
         r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, 5, 2, 5), ths4, fonts_xl, False)
         r.pat(y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, 5, 2, 10), ths4, fonts_xl, False)
 
     elif sc == Scales.ST:
-        # Ticks
-        sf = 1000
         fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.57, 1, 2, 4, 5.8))
         r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, 20, 5, 2), ths1, fonts_no, True)
         r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf // 10, 1, 2, 5), ths1, fonts_no, True)
