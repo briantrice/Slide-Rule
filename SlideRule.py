@@ -853,8 +853,9 @@ def angle_opp(x):
 
 
 class RulePart(Enum):
-    STATOR = 'stator'
+    STATOR_TOP = 'stator_top'
     SLIDE = 'slide'
+    STATOR_BOTTOM = 'stator_bottom'
 
 
 @dataclass(frozen=True)
@@ -1156,15 +1157,15 @@ SCALE_NAMES = set(keys_of(Scales) + keys_of(AristoCommerzScales))
 
 
 class Layout:
-    parts_and_top = ((RulePart.STATOR, True), (RulePart.SLIDE, True), (RulePart.STATOR, False))
-
     def __init__(self, front_str: str, rear_str: str = None, scale_ns: object = Scales, align_overrides=None):
         if align_overrides is None:
             align_overrides = {}
         if not rear_str and '\n' in front_str:
             (front_str, rear_str) = front_str.splitlines()
-        self.front_sc_keys: list[list[str]] = self.parse_side_layout(front_str)
-        self.rear_sc_keys: list[list[str]] = self.parse_side_layout(rear_str)
+        self.sc_keys: dict[Side, dict[RulePart, list[str]]] = {
+            Side.FRONT: self.parse_side_layout(front_str),
+            Side.REAR: self.parse_side_layout(rear_str)
+        }
         self.scale_ns: object = scale_ns
         self.check_scales()
         self.scale_aligns: dict[Side, dict[str, Align]] = {
@@ -1172,7 +1173,7 @@ class Layout:
         self.infer_aligns()
 
     def __repr__(self):
-        return f'Layout({self.front_sc_keys}, {self.rear_sc_keys})'
+        return f'Layout({self.sc_keys})'
 
     @classmethod
     def parse_segment_layout(cls, segment_layout: str) -> [str]:
@@ -1196,10 +1197,10 @@ class Layout:
     def parse_side_layout(cls, layout):
         """
         :param str layout:
-        :return: [[str], [str], [str]]
+        :return: dict[RulePart, [str]]
         """
-        upper_frame_scales = None
-        lower_frame_scales = None
+        top_scales = None
+        bottom_scales = None
         slide_scales = None
         if layout:
             major_parts = [cls.parse_segment_layout(x) for x in cls.parts_of_side_layout(layout.strip(' |'))]
@@ -1207,59 +1208,49 @@ class Layout:
             if num_parts == 1:
                 (slide_scales) = major_parts
             elif num_parts == 3:
-                (upper_frame_scales, slide_scales, lower_frame_scales) = major_parts
-        return [upper_frame_scales, slide_scales, lower_frame_scales]
+                (top_scales, slide_scales, bottom_scales) = major_parts
+        return {RulePart.STATOR_TOP: top_scales, RulePart.SLIDE: slide_scales, RulePart.STATOR_BOTTOM: bottom_scales}
+
+    def sc_keys_at(self, side: Side, part: RulePart):
+        return self.sc_keys[side][part]
+
+    def sc_keys_in_order(self):
+        for side in Side:
+            for part in RulePart:
+                for sc_key in self.sc_keys_at(side, part) or ():
+                    yield sc_key
 
     def check_scales(self):
-        for front_part in self.front_sc_keys:
-            for scale_name in front_part or ():
-                if not (hasattr(self.scale_ns, scale_name) or hasattr(Rulers, scale_name)):
-                    raise ValueError(f'Unrecognized front scale name: {scale_name}')
-        for rear_part in self.front_sc_keys:
-            for scale_name in rear_part or ():
-                if not (hasattr(self.scale_ns, scale_name) or hasattr(Rulers, scale_name)):
-                    raise ValueError(f'Unrecognized rear scale name: {scale_name}')
+        for scale_name in self.sc_keys_in_order():
+            if not (hasattr(self.scale_ns, scale_name) or hasattr(Rulers, scale_name)):
+                raise ValueError(f'Unrecognized front scale name: {scale_name}')
 
-    def keys_in_order(self):
-        for part in self.front_sc_keys:
-            if part:
-                yield from part
-        for part in self.rear_sc_keys:
-            if part:
-                yield from part
-
-    def scales_at(self, side: Side, part: RulePart, top: bool) -> list[Scale]:
-        layout = self.front_sc_keys if side == Side.FRONT else self.rear_sc_keys
-        layout_i = 0
-        if part == RulePart.SLIDE:
-            layout_i = 1
-        elif part == RulePart.STATOR:
-            layout_i = 0 if top else 2
+    def scales_at(self, side: Side, part: RulePart) -> list[Scale]:
         return [getattr(self.scale_ns, sc_name, None) or getattr(Rulers, sc_name, None)
-                for sc_name in layout[layout_i] or []]
+                for sc_name in self.sc_keys[side][part] or []]
 
     def infer_aligns(self):
         """Fill scale alignments per the layout into the overrides."""
         for side in Side:
             side_overrides = self.scale_aligns[side]
             side_seen = set()
-            for part, top in self.parts_and_top:
-                part_scales = self.scales_at(side, part, top)
+            for part in RulePart:
+                part_scales = self.scales_at(side, part)
                 last_i = len(part_scales) - 1
                 for i, sc in enumerate(part_scales):
                     if sc.key not in side_overrides:
                         if isinstance(sc, Ruler):  # rulers are always edge-aligned
-                            side_overrides[sc.key] = Align.UPPER if top else Align.LOWER
-                        elif i == 0 and not part == RulePart.STATOR and not top:
+                            side_overrides[sc.key] = Align.UPPER if part == RulePart.STATOR_TOP else Align.LOWER
+                        elif i == 0 and part == RulePart.SLIDE:
                             side_overrides[sc.key] = Align.UPPER
-                        elif i == last_i and top:
+                        elif i == last_i and part != RulePart.STATOR_BOTTOM:
                             side_overrides[sc.key] = Align.LOWER
                         elif sc.opp_key:
                             side_overrides[sc.key] = Align.UPPER if sc.opp_key in side_seen else Align.LOWER
                     side_seen.add(sc.key)
 
-    def scale_al(self, sc: Scale, side: Side, top: bool):
-        default_al = Align.LOWER if top else Align.UPPER
+    def scale_al(self, sc: Scale, side: Side, part: RulePart):
+        default_al = Align.UPPER if part == RulePart.STATOR_BOTTOM else Align.LOWER
         return self.scale_aligns[side].get(sc.key, default_al)
 
 
@@ -1288,8 +1279,7 @@ class Ruler:
     def is_increasing(self):
         return True
 
-    def pat(self, r: Renderer, y_off: int, top=True):
-        al = Align.UPPER if top else Align.LOWER
+    def pat(self, r: Renderer, y_off: int, al: Align):
         g = r.geometry
         li = g.li
         th1, th2, th3, th4 = (g.tick_h(HMod.LG), g.tick_h(HMod.MED), g.tick_h(HMod.XS), g.tick_h(HMod.DOT))
@@ -1346,9 +1336,9 @@ class Model:
     layout: Layout
     style: Style = Styles.Default
 
-    def scale_h_per(self, side: Side, part: RulePart, top: bool):
+    def scale_h_per(self, side: Side, part: RulePart):
         result = 0
-        for sc in self.layout.scales_at(side, part, top):
+        for sc in self.layout.scales_at(side, part):
             result += self.geometry.scale_margin(sc, side)
             result += self.geometry.scale_h(sc, side)
         return result
@@ -1356,14 +1346,14 @@ class Model:
     def auto_stock_h(self):
         result = 0
         for side in Side:
-            for top in True, False:
-                result = max(result, self.scale_h_per(side, RulePart.STATOR, top))
+            for part in RulePart.STATOR_TOP, RulePart.STATOR_BOTTOM:
+                result = max(result, self.scale_h_per(side, part))
         return result
 
     def auto_slide_h(self):
         result = 0
         for side in Side:
-            result = max(result, self.scale_h_per(side, RulePart.SLIDE, True))
+            result = max(result, self.scale_h_per(side, RulePart.SLIDE))
         return result
 
 
@@ -1850,7 +1840,6 @@ def transcribe(src_img, dst_img, src_x, src_y, size_x, size_y, target_x, target_
     :param target_x: Target corner of DESTINATION
     :param target_y: Target corner of DESTINATION
     """
-
     src_box = src_img.crop((src_x, src_y, src_x + size_x, src_y + size_y))
     dst_img.paste(src_box, (target_x, target_y))
 
@@ -1955,35 +1944,34 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
         y_off = y_off_titling + f_lbl.size
     # Scales
     for side in Side:
-        for part, top in layout.parts_and_top:
-            part_scales = layout.scales_at(side, part, top)
+        for part in RulePart:
+            part_scales = layout.scales_at(side, part)
             last_i = len(part_scales) - 1
             for i, sc in enumerate(part_scales):
-                y_off += geom.scale_margin(sc, side)  # Incremental displacement by default
                 scale_h = geom.scale_h(sc, side)
-                scale_al = layout.scale_al(sc, side, top)
-                slide = RulePart.SLIDE
-                on_slide = part == slide
-                against_top_edge = i == 0 and scale_al == Align.UPPER
-                against_bottom_edge = i == last_i and scale_al == Align.LOWER
-                if top:  # Handle edge-aligned scales
-                    if against_top_edge:  # First scale, aligned to top edge of part
+                scale_al = layout.scale_al(sc, side, part)
+                # Handle edge-aligned scales:
+                if i == 0 and scale_al == Align.UPPER:
+                    if part == RulePart.STATOR_TOP:
                         y_off = y_side_start
-                        if on_slide:
-                            y_off += geom.stator_h
-                    elif against_bottom_edge:  # Last scale, aligned to bottom edge
-                        y_off = y_side_start + geom.stator_h - scale_h
-                        if on_slide:
-                            y_off += geom.slide_h
-                else:
-                    if against_top_edge:  # First scale, aligned to top edge of part
+                    elif part == RulePart.SLIDE:
+                        y_off = y_side_start + geom.stator_h
+                    elif part == RulePart.STATOR_BOTTOM:
                         y_off = y_side_start + geom.stator_h + geom.slide_h
-                    elif against_bottom_edge:  # Very bottom edge
-                        y_off = y_side_start + geom.side_h - scale_h
+                elif i == last_i and scale_al == Align.LOWER:
+                    if part == RulePart.STATOR_TOP:
+                        y_off = y_side_start + geom.stator_h
+                    elif part == RulePart.SLIDE:
+                        y_off = y_side_start + geom.stator_h + geom.slide_h
+                    elif part == RulePart.STATOR_BOTTOM:
+                        y_off = y_side_start + geom.side_h
+                    y_off -= scale_h
+                else:  # Incremental displacement by default
+                    y_off += geom.scale_margin(sc, side)
                 if isinstance(sc, Scale):
                     gen_scale(r, y_off, sc, al=scale_al, side=side)
                 elif isinstance(sc, Ruler):
-                    sc.pat(r, y_off, top)
+                    sc.pat(r, y_off, scale_al)
                 y_off += scale_h
 
         y_off = y_rear_start
@@ -2110,7 +2098,7 @@ def render_diagnostic_mode(model: Model, all_scales=False):
                    'K', 'R1', 'R2', 'CI',
                    'DI', 'CF', 'DF', 'CIF', 'L',
                    'S', 'T', 'ST']
-    for sc_name in keys_of(Scales) if all_scales else layout.keys_in_order():
+    for sc_name in keys_of(Scales) if all_scales else layout.sc_keys_in_order():
         if sc_name not in scale_names:
             scale_names.append(sc_name)
     total_h = k + (len(scale_names) + 1) * sh_with_margins + scale_h
@@ -2129,13 +2117,13 @@ def render_diagnostic_mode(model: Model, all_scales=False):
     r.draw_sym_al(' '.join(scale_names), 200, style.fg, 0, title_x, 0, style.font_for(FontSize.SUBTITLE), upper)
     for n, sc_name in enumerate(scale_names):
         sc = getattr(Scales, sc_name, None) or getattr(Rulers, sc_name, None)
-        al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, True)
+        al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, RulePart.SLIDE)
         y_off = k + (n + 1) * sh_with_margins
         try:
             if isinstance(sc, Ruler):
-                sc.pat(r, y_off, False)
+                sc.pat(r, y_off, al)
             elif isinstance(sc, Scale):
-                gen_scale(r, y_off, sc, al=al)
+                gen_scale(r, y_off, sc, al)
         except ValueError as e:
             print(f"Error while generating scale {sc.key}: {e}")
             sc.band_bg(r, y_off, Colors.CUTOFF2)

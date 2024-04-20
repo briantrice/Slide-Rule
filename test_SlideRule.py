@@ -2,9 +2,9 @@ import math
 import unittest
 from dataclasses import replace
 
-from SlideRule import (Scales, ScaleFNs, Layout, Models,
+from SlideRule import (Scales, ScaleFNs, Layout, Models, RulePart,
                        symbol_parts, symbol_with_expon,
-                       last_digit_of, first_digit_of, keys_of, render_diagnostic_mode)
+                       last_digit_of, first_digit_of, keys_of, render_diagnostic_mode, Side)
 
 scale_base = ScaleFNs.Base
 
@@ -252,26 +252,47 @@ class LayoutTestCase(unittest.TestCase):
     def test_demo(self):
         actual = Layout('|  K,  A  [ B, T, ST, S ] D,  DI    |',
                         '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |')
-        self.assertEqual(actual.front_sc_keys, [['K', 'A'], ['B', 'T', 'ST', 'S'], ['D', 'DI']])
-        self.assertEqual(actual.rear_sc_keys, [['L', 'DF'], ['CF', 'CIF', 'CI', 'C'], ['D', 'R1', 'R2']])
+        self.assertListEqual(actual.sc_keys_at(Side.FRONT, RulePart.STATOR_TOP), ['K', 'A'])
+        self.assertListEqual(actual.sc_keys_at(Side.FRONT, RulePart.SLIDE), ['B', 'T', 'ST', 'S'])
+        self.assertListEqual(actual.sc_keys_at(Side.FRONT, RulePart.STATOR_BOTTOM), ['D', 'DI'])
+        self.assertListEqual(actual.sc_keys_at(Side.REAR, RulePart.STATOR_TOP), ['L', 'DF'])
+        self.assertListEqual(actual.sc_keys_at(Side.REAR, RulePart.SLIDE), ['CF', 'CIF', 'CI', 'C'])
+        self.assertListEqual(actual.sc_keys_at(Side.REAR, RulePart.STATOR_BOTTOM), ['D', 'R1', 'R2'])
 
     def test_single_side_slide(self):
         actual = Layout('A/B C/D', '')
-        self.assertEqual(actual.front_sc_keys, [['A'], ['B', 'C'], ['D']])
-        self.assertEqual(actual.rear_sc_keys, [None, None, None])
+        self.assertListEqual(actual.sc_keys_at(Side.FRONT, RulePart.STATOR_TOP), ['A'])
+        self.assertListEqual(actual.sc_keys_at(Side.FRONT, RulePart.SLIDE), ['B', 'C'])
+        self.assertListEqual(actual.sc_keys_at(Side.FRONT, RulePart.STATOR_BOTTOM), ['D'])
+        self.assertIsNone(actual.sc_keys_at(Side.REAR, RulePart.STATOR_TOP))
+        self.assertIsNone(actual.sc_keys_at(Side.REAR, RulePart.SLIDE))
+        self.assertIsNone(actual.sc_keys_at(Side.REAR, RulePart.STATOR_BOTTOM))
 
     def test_no_slide(self):
         actual = Layout('A B C D', '')
-        self.assertEqual(actual.front_sc_keys, [['A', 'B', 'C', 'D'], None, None])
-        self.assertEqual(actual.rear_sc_keys, [None, None, None])
+        self.assertListEqual(actual.sc_keys_at(Side.FRONT, RulePart.STATOR_TOP), ['A', 'B', 'C', 'D'])
+        self.assertIsNone(actual.sc_keys_at(Side.FRONT, RulePart.SLIDE))
+        self.assertIsNone(actual.sc_keys_at(Side.FRONT, RulePart.STATOR_BOTTOM))
+        self.assertIsNone(actual.sc_keys_at(Side.REAR, RulePart.STATOR_TOP))
+        self.assertIsNone(actual.sc_keys_at(Side.REAR, RulePart.SLIDE))
+        self.assertIsNone(actual.sc_keys_at(Side.REAR, RulePart.STATOR_BOTTOM))
 
     def test_slide_only_side(self):
         example = '[S ST T]'
         self.assertEqual(['', 'S ST T', ''], Layout.parts_of_side_layout(example))
-        self.assertEqual([None, ['S', 'ST', 'T'], None], Layout.parse_side_layout(example))
-        actual = Layout('A / B C / D', example)
-        self.assertEqual(actual.front_sc_keys, [['A'], ['B', 'C'], ['D']])
-        self.assertEqual(actual.rear_sc_keys, [None, ['S', 'ST', 'T'], None])
+
+        actual1 = Layout.parse_side_layout(example)
+        self.assertIsNone(actual1[RulePart.STATOR_TOP])
+        self.assertListEqual(actual1[RulePart.SLIDE], ['S', 'ST', 'T'])
+        self.assertIsNone(actual1[RulePart.STATOR_BOTTOM])
+
+        actual2 = Layout('A / B C / D', example)
+        self.assertListEqual(actual2.sc_keys_at(Side.FRONT, RulePart.STATOR_TOP), ['A'])
+        self.assertListEqual(actual2.sc_keys_at(Side.FRONT, RulePart.SLIDE), ['B', 'C'])
+        self.assertListEqual(actual2.sc_keys_at(Side.FRONT, RulePart.STATOR_BOTTOM), ['D'])
+        self.assertIsNone(actual2.sc_keys_at(Side.REAR, RulePart.STATOR_TOP))
+        self.assertListEqual(actual2.sc_keys_at(Side.REAR, RulePart.SLIDE), ['S', 'ST', 'T'])
+        self.assertIsNone(actual2.sc_keys_at(Side.REAR, RulePart.STATOR_BOTTOM))
 
 
 class ModelTestCase(unittest.TestCase):
@@ -289,14 +310,14 @@ class ModelTestCase(unittest.TestCase):
 
     def test_faber_castell_283(self):
         fc283 = Models.FaberCastell283
-        self.assertEqual(fc283.layout.front_sc_keys, [
-            ['K', 'T1', 'T2', 'DF'],
-            ['CF', 'CIF', 'CI', 'C'],
-            ['D', 'S', 'ST', 'P']])
-        self.assertEqual(fc283.layout.rear_sc_keys, [
-            ['LL03', 'LL02', 'LL01', 'W2'],
-            ['W2Prime', 'L', 'C', 'W1Prime'],
-            ['W1', 'LL1', 'LL2', 'LL3']])
+        self.assertDictEqual(fc283.layout.sc_keys[Side.FRONT], {
+            RulePart.STATOR_TOP: ['K', 'T1', 'T2', 'DF'],
+            RulePart.SLIDE: ['CF', 'CIF', 'CI', 'C'],
+            RulePart.STATOR_BOTTOM: ['D', 'S', 'ST', 'P']})
+        self.assertDictEqual(fc283.layout.sc_keys[Side.REAR], {
+            RulePart.STATOR_TOP: ['LL03', 'LL02', 'LL01', 'W2'],
+            RulePart.SLIDE: ['W2Prime', 'L', 'C', 'W1Prime'],
+            RulePart.STATOR_BOTTOM: ['W1', 'LL1', 'LL2', 'LL3']})
 
 
 if __name__ == '__main__':
