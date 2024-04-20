@@ -709,14 +709,12 @@ class Renderer:
     def draw_mark(self, mark: GaugeMark, y_off: int, sc, font, al, col=None, shift_adj=0, side=None):
         if not col:
             col = self.style.scale_fg_col(sc)
-        geom = self.geometry
-        x = sc.scale_to(mark.value, geom.SL, shift_adj=shift_adj)
-        scale_h = geom.scale_h(sc, side=side)
-        scale_h_ratio = geom.scale_h_ratio(sc, side=side)
-        tick_h = geom.tick_h(HMod.MED, h_ratio=scale_h_ratio)
+        g = self.geometry
+        x = sc.scale_to(mark.value, g.SL, shift_adj=shift_adj)
+        scale_h = g.scale_h(sc, side=side)
+        tick_h = g.tick_h(HMod.MED, h_ratio=g.scale_h_ratio(sc, side=side))
         self.draw_tick(y_off, x, tick_h, col, scale_h, al)
-        sym_h = geom.tick_h(HMod.XL if al == Align.LOWER else HMod.MED, h_ratio=scale_h_ratio)
-        self.draw_sym_al(mark.sym, y_off, col, scale_h, x, sym_h, font, al)
+        self.draw_sym_al(mark.sym, y_off, col, scale_h, x, tick_h, font, al)
 
     # ----------------------4. Line Drawing Functions----------------------------
 
@@ -1145,8 +1143,8 @@ class Scales:
                  dividers=[0.001, 0.01, 0.1], ex_start_value=0.0001, ex_end_value=0.39, marks=[Marks.inv_e])
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
               dividers=[0.3, 0.7, 0.9, 0.98], ex_start_value=0.1, ex_end_value=.995, numerals=[.995])
-    R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1')
-    R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1)
+    R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
+    R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=[Marks.sqrt_ten])
     S = Scale('S', '∡sin x°', ScaleFNs.Sin, mirror_key='CoS')
     CoS = Scale('C', '∡cos x°', ScaleFNs.CoSin, key='CoS', mirror_key='S')
     # SRT = Scale('SRT', '∡tan 0.01x', ScaleFNs.SinTanRadians)
@@ -1677,14 +1675,10 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         for x in (x / 10 for x in range(11, 20)):
             r.draw_numeral(last_digit_of(x), y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lgn, al)
 
-        r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
-
     elif sc == Scales.R2:
         fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
         r.pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
         r.pat(y_off, sc, al, fp2, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
-
-        r.draw_mark(Marks.sqrt_ten, y_off, sc, f_lgn, al, sym_col, side=side)
 
     elif (sc.scaler == ScaleFNs.Base and sc.shift == pi_fold_shift) or sc == Scales.CIF:  # CF/DF/CIF
         is_cif = sc == Scales.CIF
@@ -1768,12 +1762,13 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     else:  # Fallback to our generic algorithm, then fill in marks and numerals as helpful
         sc.grad_pat_default(r, y_off, al)
-        if sc.marks:
-            for mark in sc.marks:
-                r.draw_mark(mark, y_off, sc, f_lgn, al, sym_col, side=side)
-        if sc.numerals:
-            for x in sc.numerals:
-                r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
+
+    if sc.marks:
+        for mark in sc.marks:
+            r.draw_mark(mark, y_off, sc, f_lgn, al, sym_col, side=side)
+    if sc.numerals:
+        for x in sc.numerals:
+            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
 
 
 def first_digit_of(x) -> int:
