@@ -520,7 +520,7 @@ class Renderer:
         sf = 10 ** num_digits  # ensure enough precision for int ranges
         # Ensure between 6 and 15 numerals will display? Target log10 in 0.8..1.17
         frac_width = sc.offset_between(start_value, end_value, 1)
-        step_numeral = 10 ** (math.floor(math.log10(abs(end_value - start_value)) - 0.5 * frac_width) + num_digits)
+        step_numeral = 10 ** max((math.floor(math.log10(abs(end_value - start_value)) - 0.5 * frac_width) + num_digits), 0)
         step_half = step_numeral // 2
         step_tenth = step_numeral // 10  # second level
         tenth_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_tenth / sf, scale_w)
@@ -857,7 +857,7 @@ class RulePart(Enum):
 
 
 @dataclass(frozen=True)
-class Scaler:
+class ScaleFN:
     """Encapsulates a generating function and its inverse.
     The generating function takes X and returns the fractional position in the unit output space it should locate.
     The inverse function takes a fraction of a unit output space, returning the value to indicate at that position.
@@ -872,7 +872,7 @@ class Scaler:
         return self.fn(x)
 
     def inverted(self):
-        return Scaler(self.inverse, self.fn, not self.is_increasing)
+        return ScaleFN(self.inverse, self.fn, not self.is_increasing)
 
     def position_of(self, value):
         return self.fn(value)
@@ -887,36 +887,36 @@ class Scaler:
         return self.value_at(1)
 
 
-class Scalers:
-    Unit = Scaler(unit, unit)
-    F_to_C = Scaler(lambda f: (f - 32) * 5 / 9, lambda c: (c * 9 / 5) + 32)
-    neper_to_db = Scaler(lambda x_db: x_db / (20 / math.log(TEN)), lambda x_n: x_n * 20 / math.log(TEN))
+class ScaleFNs:
+    Unit = ScaleFN(unit, unit)
+    F_to_C = ScaleFN(lambda f: (f - 32) * 5 / 9, lambda c: (c * 9 / 5) + 32)
+    neper_to_db = ScaleFN(lambda x_db: x_db / (20 / math.log(TEN)), lambda x_n: x_n * 20 / math.log(TEN))
 
-    Base = Scaler(gen_base, pos_base)
-    Square = Scaler(lambda x: gen_base(x) / 2, lambda p: pos_base(p * 2))
-    Cube = Scaler(lambda x: gen_base(x) / 3, lambda p: pos_base(p * 3))
-    Inverse = Scaler(lambda x: 1 - gen_base(x), lambda p: pos_base(1 - p), is_increasing=False)
-    InverseSquare = Scaler(lambda x: 1 - gen_base(x) / 2, lambda p: pos_base(1 - p * 2), is_increasing=False)
-    SquareRoot = Scaler(lambda x: gen_base(x) * 2, lambda p: pos_base(p / 2))
-    CubeRoot = Scaler(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3))
-    Log10 = Scaler(lambda x: x / TEN, lambda p: p * TEN)
-    Ln = Scaler(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
-    Sin = Scaler(lambda x: gen_base(TEN * math.sin(math.radians(x))), math.asin)
-    CoSin = Scaler(lambda x: gen_base(TEN * math.cos(math.radians(x))), math.acos, is_increasing=False)
-    Tan = Scaler(lambda x: gen_base(TEN * math.tan(math.radians(x))), lambda p: math.atan(pos_base(p)))
-    SinTan = Scaler(lambda x: scale_sin_tan_radians(math.radians(x)), lambda p: math.atan(pos_base(p)))
-    SinTanRadians = Scaler(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))))
-    CoTan = Scaler(lambda x: gen_base(TEN * math.tan(math.radians(angle_opp(x)))),
-                   lambda p: math.atan(pos_base(angle_opp(p))), is_increasing=False)
-    SinH = Scaler(lambda x: gen_base(math.sinh(x)), lambda p: math.asinh(pos_base(p)))
-    CosH = Scaler(lambda x: gen_base(math.cosh(x)), lambda p: math.acosh(pos_base(p)))
-    TanH = Scaler(lambda x: gen_base(math.tanh(x)), lambda p: math.atanh(pos_base(p)))
-    Pythagorean = Scaler(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2), is_increasing=False)
-    Chi = Scaler(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
-    Theta = Scaler(lambda x: x / DEG_RT, lambda p: p * DEG_RT)
-    LogLog = Scaler(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)))
-    LogLogNeg = Scaler(lambda x: gen_base(-math.log(x)), lambda p: math.exp(pos_base(-p)), is_increasing=False)
-    Hyperbolic = Scaler(scale_hyperbolic, lambda p: math.hypot(1, pos_base(p)))
+    Base = ScaleFN(gen_base, pos_base)
+    Square = ScaleFN(lambda x: gen_base(x) / 2, lambda p: pos_base(p * 2))
+    Cube = ScaleFN(lambda x: gen_base(x) / 3, lambda p: pos_base(p * 3))
+    Inverse = ScaleFN(lambda x: 1 - gen_base(x), lambda p: pos_base(1 - p), is_increasing=False)
+    InverseSquare = ScaleFN(lambda x: 1 - gen_base(x) / 2, lambda p: pos_base(1 - p * 2), is_increasing=False)
+    SquareRoot = ScaleFN(lambda x: gen_base(x) * 2, lambda p: pos_base(p / 2))
+    CubeRoot = ScaleFN(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3))
+    Log10 = ScaleFN(lambda x: x / TEN, lambda p: p * TEN)
+    Ln = ScaleFN(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
+    Sin = ScaleFN(lambda x: gen_base(TEN * math.sin(math.radians(x))), math.asin)
+    CoSin = ScaleFN(lambda x: gen_base(TEN * math.cos(math.radians(x))), math.acos, is_increasing=False)
+    Tan = ScaleFN(lambda x: gen_base(TEN * math.tan(math.radians(x))), lambda p: math.atan(pos_base(p)))
+    SinTan = ScaleFN(lambda x: scale_sin_tan_radians(math.radians(x)), lambda p: math.atan(pos_base(p)))
+    SinTanRadians = ScaleFN(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))))
+    CoTan = ScaleFN(lambda x: gen_base(TEN * math.tan(math.radians(angle_opp(x)))),
+                    lambda p: math.atan(pos_base(angle_opp(p))), is_increasing=False)
+    SinH = ScaleFN(lambda x: gen_base(math.sinh(x)), lambda p: math.asinh(pos_base(p)))
+    CosH = ScaleFN(lambda x: gen_base(math.cosh(x)), lambda p: math.acosh(pos_base(p)))
+    TanH = ScaleFN(lambda x: gen_base(math.tanh(x)), lambda p: math.atanh(pos_base(p)))
+    Pythagorean = ScaleFN(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2), is_increasing=False)
+    Chi = ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
+    Theta = ScaleFN(lambda x: x / DEG_RT, lambda p: p * DEG_RT)
+    LogLog = ScaleFN(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)))
+    LogLogNeg = ScaleFN(lambda x: gen_base(-math.log(x)), lambda p: math.exp(pos_base(-p)), is_increasing=False)
+    Hyperbolic = ScaleFN(scale_hyperbolic, lambda p: math.hypot(1, pos_base(p)))
 
 
 @dataclass
@@ -926,7 +926,7 @@ class Scale:
     """left scale symbol"""
     right_sym: str
     """right scale symbol"""
-    scaler: Scaler
+    scaler: ScaleFN
     gen_fn: callable = None
     """generating function (producing a fraction of output width)"""
     pos_fn: callable = None
@@ -968,10 +968,10 @@ class Scale:
         return self.key == other.key
 
     def displays_cyclic(self):
-        return self.scaler in {Scalers.Base, Scalers.Inverse, Scalers.Square, Scalers.Cube}
+        return self.scaler in {ScaleFNs.Base, ScaleFNs.Inverse, ScaleFNs.Square, ScaleFNs.Cube}
 
     def can_spiral(self):
-        return self.scaler in {Scalers.LogLog, Scalers.LogLogNeg}
+        return self.scaler in {ScaleFNs.LogLog, ScaleFNs.LogLogNeg}
 
     def can_overhang(self):
         return ((self.ex_end_value and self.frac_pos_of(self.ex_end_value) > 1 + self.min_overhang_frac)
@@ -1060,76 +1060,76 @@ class Scale:
         r.fill_rect(li + start_pos, y_off, self.pos_of(end_value, geom) - start_pos, geom.scale_h(self), color)
 
 
-pi_fold_shift = Scalers.Inverse(PI)
+pi_fold_shift = ScaleFNs.Inverse(PI)
 
 
 class Scales:
-    A = Scale('A', 'x²', Scalers.Square, opp_key='B')
-    B = Scale('B', 'x²_y', Scalers.Square, on_slide=True, opp_key='A')
-    BI = Scale('BI', '1/x²_y', Scalers.InverseSquare, on_slide=True)
-    C = Scale('C', 'x_y', Scalers.Base, on_slide=True, opp_key='D')
-    DF = Scale('DF', 'πx', Scalers.Base, shift=pi_fold_shift, opp_key='CF')
-    CF = Scale('CF', 'πx_y', Scalers.Base, shift=pi_fold_shift, on_slide=True, opp_key='DF')
-    CI = Scale('CI', '1/x_y', Scalers.Inverse, on_slide=True, opp_key='DI')
-    CIF = Scale('CIF', '1/πx_y', Scalers.Inverse, shift=pi_fold_shift - 1, on_slide=True)
-    D = Scale('D', 'x', Scalers.Base, opp_key='C')
-    DI = Scale('DI', '1/x', Scalers.Inverse, opp_key='CI')
-    K = Scale('K', 'x³', Scalers.Cube)
-    L = Scale('L', 'log x', Scalers.Log10)
-    Ln = Scale('Ln', 'ln x', Scalers.Ln)
-    LL0 = Scale('LL₀', 'e^0.001x', Scalers.LogLog, shift=3, key='LL0',
+    A = Scale('A', 'x²', ScaleFNs.Square, opp_key='B')
+    B = Scale('B', 'x²_y', ScaleFNs.Square, on_slide=True, opp_key='A')
+    BI = Scale('BI', '1/x²_y', ScaleFNs.InverseSquare, on_slide=True)
+    C = Scale('C', 'x_y', ScaleFNs.Base, on_slide=True, opp_key='D')
+    DF = Scale('DF', 'πx', ScaleFNs.Base, shift=pi_fold_shift, opp_key='CF')
+    CF = Scale('CF', 'πx_y', ScaleFNs.Base, shift=pi_fold_shift, on_slide=True, opp_key='DF')
+    CI = Scale('CI', '1/x_y', ScaleFNs.Inverse, on_slide=True, opp_key='DI')
+    CIF = Scale('CIF', '1/πx_y', ScaleFNs.Inverse, shift=pi_fold_shift - 1, on_slide=True)
+    D = Scale('D', 'x', ScaleFNs.Base, opp_key='C')
+    DI = Scale('DI', '1/x', ScaleFNs.Inverse, opp_key='CI')
+    K = Scale('K', 'x³', ScaleFNs.Cube)
+    L = Scale('L', 'log x', ScaleFNs.Log10)
+    Ln = Scale('Ln', 'ln x', ScaleFNs.Ln)
+    LL0 = Scale('LL₀', 'e^0.001x', ScaleFNs.LogLog, shift=3, key='LL0',
                 dividers=[1.002, 1.005], ex_start_value=1.00095, ex_end_value=1.0105)
-    LL1 = Scale('LL₁', 'e^0.01x', Scalers.LogLog, shift=2, key='LL1',
+    LL1 = Scale('LL₁', 'e^0.01x', ScaleFNs.LogLog, shift=2, key='LL1',
                 dividers=[1.02, 1.05], ex_start_value=1.0095, ex_end_value=1.11)
-    LL2 = Scale('LL₂', 'e^0.1x', Scalers.LogLog, shift=1, key='LL2',
+    LL2 = Scale('LL₂', 'e^0.1x', ScaleFNs.LogLog, shift=1, key='LL2',
                 dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3)
-    LL3 = Scale('LL₃', 'e^x', Scalers.LogLog, key='LL3',
+    LL3 = Scale('LL₃', 'e^x', ScaleFNs.LogLog, key='LL3',
                 dividers=[10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=60000)
-    LL00 = Scale('LL₀₀', 'e^-0.001x', Scalers.LogLogNeg, shift=3, key='LL00',
+    LL00 = Scale('LL₀₀', 'e^-0.001x', ScaleFNs.LogLogNeg, shift=3, key='LL00',
                  dividers=[0.998], ex_start_value=0.989, ex_end_value=0.9991)
-    LL01 = Scale('LL₀₁', 'e^-0.01x', Scalers.LogLogNeg, shift=2, key='LL01',
+    LL01 = Scale('LL₀₁', 'e^-0.01x', ScaleFNs.LogLogNeg, shift=2, key='LL01',
                  dividers=[0.95, 0.98], ex_start_value=0.9, ex_end_value=0.9906)
-    LL02 = Scale('LL₀₂', 'e^-0.1x', Scalers.LogLogNeg, shift=1, key='LL02',
+    LL02 = Scale('LL₀₂', 'e^-0.1x', ScaleFNs.LogLogNeg, shift=1, key='LL02',
                  dividers=[0.75], ex_start_value=0.35, ex_end_value=0.91)
-    LL03 = Scale('LL₀₃', 'e^-x', Scalers.LogLogNeg, key='LL03',
+    LL03 = Scale('LL₀₃', 'e^-x', ScaleFNs.LogLogNeg, key='LL03',
                  dividers=[0.001, 0.01, 0.1], ex_start_value=0.0001, ex_end_value=0.39)
-    P = Scale('P', '√1-(0.1x)²', Scalers.Pythagorean, key='P',
+    P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
               dividers=[0.3, 0.7, 0.9, 0.98], ex_start_value=0.1, ex_end_value=.995)
-    R1 = Scale('R₁', '√x', Scalers.SquareRoot, key='R1')
-    R2 = Scale('R₂', '√10x', Scalers.SquareRoot, key='R2', shift=-1)
-    S = Scale('S', '∡sin x°', Scalers.Sin, mirror_key='CoS')
-    CoS = Scale('C', '∡cos x°', Scalers.CoSin, key='CoS', mirror_key='S')
-    # SRT = Scale('SRT', '∡tan 0.01x', Scalers.SinTanRadians)
-    ST = Scale('ST', '∡tan 0.01x°', Scalers.SinTan)
-    T = Scale('T', '∡tan x°', Scalers.Tan, mirror_key='CoT')
-    CoT = Scale('CoT', '∡cot x°', Scalers.CoTan, key='CoT', is_increasing=True, mirror_key='T', shift=-1)
+    R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1')
+    R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1)
+    S = Scale('S', '∡sin x°', ScaleFNs.Sin, mirror_key='CoS')
+    CoS = Scale('C', '∡cos x°', ScaleFNs.CoSin, key='CoS', mirror_key='S')
+    # SRT = Scale('SRT', '∡tan 0.01x', ScaleFNs.SinTanRadians)
+    ST = Scale('ST', '∡tan 0.01x°', ScaleFNs.SinTan)
+    T = Scale('T', '∡tan x°', ScaleFNs.Tan, mirror_key='CoT')
+    CoT = Scale('CoT', '∡cot x°', ScaleFNs.CoTan, key='CoT', is_increasing=True, mirror_key='T', shift=-1)
     T1 = replace(T, left_sym='T₁', key='T1')
     T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1)
-    W1 = Scale('W₁', '√x', Scalers.SquareRoot, key='W1', opp_key='W1Prime', dividers=[2],
+    W1 = Scale('W₁', '√x', ScaleFNs.SquareRoot, key='W1', opp_key='W1Prime', dividers=[2],
                ex_start_value=0.95, ex_end_value=3.38)
     W1Prime = replace(W1, left_sym="W'₁", key='W1Prime', opp_key='W1')
-    W2 = Scale('W₂', '√10x', Scalers.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5],
+    W2 = Scale('W₂', '√10x', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5],
                ex_start_value=3, ex_end_value=10.66)
     W2Prime = replace(W2, left_sym="W'₂", key='W2Prime', opp_key='W2')
 
-    H1 = Scale('H₁', '√1+0.1x²', Scalers.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1])
-    H2 = Scale('H₂', '√1+x²', Scalers.Hyperbolic, key='H2', dividers=[4])
-    Sh1 = Scale('Sh₁', 'sinh x', Scalers.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
-    Sh2 = Scale('Sh₂', 'sinh x', Scalers.SinH, key='Sh2')
-    Ch1 = Scale('Ch', 'cosh x', Scalers.CosH, dividers=[1, 2], ex_start_value=0.01)
-    Th = Scale('Th', 'tanh x', Scalers.TanH, shift=1, dividers=[0.2, 0.4, 1], ex_end_value=3)
+    H1 = Scale('H₁', '√1+0.1x²', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1])
+    H2 = Scale('H₂', '√1+x²', ScaleFNs.Hyperbolic, key='H2', dividers=[4])
+    Sh1 = Scale('Sh₁', 'sinh x', ScaleFNs.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
+    Sh2 = Scale('Sh₂', 'sinh x', ScaleFNs.SinH, key='Sh2')
+    Ch1 = Scale('Ch', 'cosh x', ScaleFNs.CosH, dividers=[1, 2], ex_start_value=0.01)
+    Th = Scale('Th', 'tanh x', ScaleFNs.TanH, shift=1, dividers=[0.2, 0.4, 1], ex_end_value=3)
 
     # EE-specific
     # Hemmi 153:
-    Chi = Scale('χ', '', Scalers.Chi)
-    Theta = Scale('θ', '°', Scalers.Theta, key='Theta')
+    Chi = Scale('χ', '', ScaleFNs.Chi)
+    Theta = Scale('θ', '°', ScaleFNs.Theta, key='Theta')
     # Pickett N-515-T:
-    f_x = Scale('f_x', 'x/2π', Scalers.Base, shift=gen_base(TAU), dividers=[0.2, 0.5, 1])
-    L_r = Scale('L_r', '1/(2πx)²', Scalers.InverseSquare, shift=gen_base(1 / TAU),
+    f_x = Scale('f_x', 'x/2π', ScaleFNs.Base, shift=gen_base(TAU), dividers=[0.2, 0.5, 1])
+    L_r = Scale('L_r', '1/(2πx)²', ScaleFNs.InverseSquare, shift=gen_base(1 / TAU),
                 dividers=[0.05, 0.1, 0.2, 0.5, 1, 2], ex_start_value=0.025, ex_end_value=2.55)
 
 
-shift_360 = Scalers.Inverse(3.6)
+shift_360 = ScaleFNs.Inverse(3.6)
 
 
 class AristoCommerzScales:
@@ -1143,8 +1143,8 @@ class AristoCommerzScales:
     P2 = replace(Scales.CIF, left_sym='P₂', right_sym='', key='P2', shift=shift_360 - 1, on_slide=True,
                  ex_start_value=0.25, ex_end_value=3.3, dividers=[0.4, 1, 2])
     Pct = Scale(left_sym='p%', right_sym='', on_slide=True, shift=shift_360,
-                scaler=Scaler(lambda x: gen_base((x + HUNDRED) / HUNDRED),
-                              lambda p: pos_base(p) * HUNDRED - HUNDRED),
+                scaler=ScaleFN(lambda x: gen_base((x + HUNDRED) / HUNDRED),
+                               lambda p: pos_base(p) * HUNDRED - HUNDRED),
                 dividers=[0], ex_start_value=-50, ex_end_value=100)
     # meta-scale showing % with 100% over 1/unity
     # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
@@ -1563,7 +1563,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     ths3 = (th_med, th_sm, th_sm, th_xs)
     ths4 = (th_med, th_xl, th_sm, th_dot)
     fonts_no = (None, None, None)
-    if (sc.scaler in {Scalers.Base, Scalers.Inverse}) and sc.shift == 0:  # C/D and CI/DI
+    if (sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse}) and sc.shift == 0:  # C/D and CI/DI
         sf = 100
         fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
         r.pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
@@ -1576,7 +1576,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             for mark in (Marks.deg_per_rad, Marks.tau):
                 r.draw_mark(mark, y_off, sc, f_lbl, al, col=sym_col, side=side)
 
-    elif sc.scaler == Scalers.Square or sc == Scales.BI:
+    elif sc.scaler == ScaleFNs.Square or sc == Scales.BI:
         sf = 100
         for b in (sf * 10 ** n for n in range(0, 2)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
@@ -1630,7 +1630,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.draw_numeral(1.5, y_off, sym_col, scale_h, sc.pos_of(1.5, geom), geom.tick_h(HMod.XL), f_lgn, al)
         sc.grad_pat_default(r, y_off, al)
 
-    elif (sc.scaler == Scalers.Base and sc.shift == pi_fold_shift) or sc == Scales.CIF:  # CF/DF/CIF
+    elif (sc.scaler == ScaleFNs.Base and sc.shift == pi_fold_shift) or sc == Scales.CIF:  # CF/DF/CIF
         is_cif = sc == Scales.CIF
         sf = 1000
         fp1 = 310 if is_cif else 314
@@ -1654,9 +1654,9 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     elif sc == Scales.Ln:
         sc.grad_pat_default(r, y_off, al)
 
-    elif sc.scaler in {Scalers.Sin, Scalers.CoSin} or sc in {Scales.T, Scales.T1, Scales.CoT}:
+    elif sc.scaler in {ScaleFNs.Sin, ScaleFNs.CoSin} or sc in {Scales.T, Scales.T1, Scales.CoT}:
         sf = 100
-        is_tan = sc.scaler in {Scalers.Tan, Scalers.CoTan}
+        is_tan = sc.scaler in {ScaleFNs.Tan, ScaleFNs.CoTan}
         ths_z = (th_xl, th_sm, th_xs, th_xs)
         if is_tan:
             fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))

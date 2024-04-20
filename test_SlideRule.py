@@ -1,11 +1,12 @@
 import math
 import unittest
+from dataclasses import replace
 
-from SlideRule import (Scales, Scalers, Layout, Models,
+from SlideRule import (Scales, ScaleFNs, Layout, Models,
                        symbol_parts, symbol_with_expon,
-                       last_digit_of, first_digit_of)
+                       last_digit_of, first_digit_of, keys_of, render_diagnostic_mode)
 
-scale_base = Scalers.Base
+scale_base = ScaleFNs.Base
 
 
 class ScaleBaseTestCase(unittest.TestCase):
@@ -59,7 +60,7 @@ class ScaleSqrtTenTestCase(unittest.TestCase):
 
 class ScaleLogTestCase(unittest.TestCase):
     def test_fenceposts(self):
-        scale_log = Scalers.Log10
+        scale_log = ScaleFNs.Log10
         self.assertEqual(scale_log(0), 0)
         self.assertEqual(scale_log(1), 0.1)
         self.assertEqual(scale_log(2), 0.2)
@@ -73,7 +74,7 @@ class ScaleLogTestCase(unittest.TestCase):
         self.assertEqual(scale_log(10), 1.0)
 
     def test_value_at(self):
-        s = Scalers.Log10
+        s = ScaleFNs.Log10
         self.assertEqual(s.value_at(0), 0)
         self.assertEqual(s.value_at(1), 10)
         self.assertEqual(s.value_at(0.1), 1)
@@ -89,18 +90,18 @@ class ScaleBasePiFoldedTestCase(unittest.TestCase):
 
 class ScaleSquareTestCase(unittest.TestCase):
     def test_fenceposts(self):
-        scale_square = Scalers.Square
+        scale_square = ScaleFNs.Square
         self.assertEqual(scale_square(1), 0)
         self.assertEqual(scale_square(10), 0.5)
         self.assertEqual(scale_square(100), 1)
 
     def test_against_base(self):
-        scale_square = Scalers.Square
+        scale_square = ScaleFNs.Square
         self.assertEqual(scale_square(47), scale_base(math.sqrt(47)))
         self.assertEqual(scale_square(16), scale_base(4))
 
     def test_value_at(self):
-        s = Scalers.Square
+        s = ScaleFNs.Square
         self.assertEqual(s.value_at(0), 1)
         self.assertEqual(s.value_at(0.25), math.sqrt(10))
         self.assertEqual(s.value_at(0.5), 10)
@@ -110,7 +111,7 @@ class ScaleSquareTestCase(unittest.TestCase):
 
 class ScaleSqrtTestCase(unittest.TestCase):
     def test_fenceposts(self):
-        scale_sqrt = Scalers.SquareRoot
+        scale_sqrt = ScaleFNs.SquareRoot
         self.assertEqual(scale_sqrt(1), 0)
         self.assertEqual(scale_sqrt(math.sqrt(10)), 1)
         self.assertEqual(scale_sqrt(10), 2)
@@ -120,8 +121,8 @@ class ScaleSqrtTestCase(unittest.TestCase):
 
 class ScaleHyperbolicTestCase(unittest.TestCase):
     def test_fenceposts(self):
-        self.assertAlmostEqual(Scalers.Hyperbolic(1.4142135), scale_base(1))
-        self.assertAlmostEqual(Scalers.Hyperbolic(10.049875), scale_base(10))
+        self.assertAlmostEqual(ScaleFNs.Hyperbolic(1.4142135), scale_base(1))
+        self.assertAlmostEqual(ScaleFNs.Hyperbolic(10.049875), scale_base(10))
 
 
 class ScaleThetaTestCase(unittest.TestCase):
@@ -132,36 +133,36 @@ class ScaleThetaTestCase(unittest.TestCase):
 
 class ScaleLogLogTestCase(unittest.TestCase):
     def test_fenceposts(self):
-        self.assertAlmostEqual(Scalers.LogLog.position_of(math.e), 0)
+        self.assertAlmostEqual(ScaleFNs.LogLog.position_of(math.e), 0)
 
     def test_ends(self):
-        self.assertAlmostEqual(Scalers.LogLog.position_of(math.e), 0)
-        self.assertAlmostEqual(Scalers.LogLog.position_of(22026), 1, 5)
-        self.assertAlmostEqual(Scalers.LogLog.position_of(1.105171), -1, 5)
-        self.assertAlmostEqual(Scalers.LogLog.position_of(1.0100501), -2, 5)
-        self.assertAlmostEqual(Scalers.LogLog.position_of(1.105171), -1, 5)
-        self.assertAlmostEqual(Scalers.LogLogNeg.position_of(1/math.e), 0)
-        self.assertAlmostEqual(Scalers.LogLogNeg.position_of(0.0000454), 1, 5)
-        self.assertAlmostEqual(Scalers.LogLogNeg.position_of(0.904837), -1, 5)
-        self.assertAlmostEqual(Scalers.LogLogNeg.position_of(0.9900498), -2, 5)
-        self.assertAlmostEqual(Scalers.LogLogNeg.position_of(0.904837), -1, 5)
+        self.assertAlmostEqual(ScaleFNs.LogLog.position_of(math.e), 0)
+        self.assertAlmostEqual(ScaleFNs.LogLog.position_of(22026), 1, 5)
+        self.assertAlmostEqual(ScaleFNs.LogLog.position_of(1.105171), -1, 5)
+        self.assertAlmostEqual(ScaleFNs.LogLog.position_of(1.0100501), -2, 5)
+        self.assertAlmostEqual(ScaleFNs.LogLog.position_of(1.105171), -1, 5)
+        self.assertAlmostEqual(ScaleFNs.LogLogNeg.position_of(1 / math.e), 0)
+        self.assertAlmostEqual(ScaleFNs.LogLogNeg.position_of(0.0000454), 1, 5)
+        self.assertAlmostEqual(ScaleFNs.LogLogNeg.position_of(0.904837), -1, 5)
+        self.assertAlmostEqual(ScaleFNs.LogLogNeg.position_of(0.9900498), -2, 5)
+        self.assertAlmostEqual(ScaleFNs.LogLogNeg.position_of(0.904837), -1, 5)
 
 
 class ScaleCubeTestCase(unittest.TestCase):
     def test_fenceposts(self):
-        scale_cube = Scalers.Cube
+        scale_cube = ScaleFNs.Cube
         self.assertEqual(scale_cube(1), 0)
         self.assertEqual(scale_cube(10), 1/3)
         self.assertEqual(scale_cube(100), 2/3)
         self.assertEqual(scale_cube(1000), 1)
 
     def test_against_base(self):
-        scale_cube = Scalers.Cube
+        scale_cube = ScaleFNs.Cube
         self.assertEqual(scale_cube(2**3), scale_base(2))
         self.assertAlmostEqual(scale_cube(5**3), scale_base(5))
 
     def test_value_at(self):
-        s = Scalers.Cube
+        s = ScaleFNs.Cube
         self.assertEqual(s.value_at(0), 1)
         self.assertAlmostEqual(s.value_at(1/3), 10)
         self.assertAlmostEqual(s.value_at(2/3), 100)
@@ -170,22 +171,22 @@ class ScaleCubeTestCase(unittest.TestCase):
 
 class ScalePythagoreanTestCase(unittest.TestCase):
     def test_top(self):
-        scale_pythagorean = Scalers.Pythagorean
+        scale_pythagorean = ScaleFNs.Pythagorean
         self.assertEqual(scale_pythagorean(0), scale_base(10))
 
     def test_scale_at_45deg(self):
-        scale_pythagorean = Scalers.Pythagorean
+        scale_pythagorean = ScaleFNs.Pythagorean
         x_rad = math.radians(45)
         x_cos = math.cos(x_rad)
         self.assertAlmostEqual(scale_pythagorean(x_cos), scale_base(x_cos * 10))
 
     def test_fenceposts(self):
-        scale_pythagorean = Scalers.Pythagorean
+        scale_pythagorean = ScaleFNs.Pythagorean
         self.assertAlmostEqual(scale_pythagorean(0.8), scale_base(6))
         self.assertAlmostEqual(scale_pythagorean(0.6), scale_base(8))
 
     def test_against_base(self):
-        scale_pythagorean = Scalers.Pythagorean
+        scale_pythagorean = ScaleFNs.Pythagorean
         self.assertEqual(scale_pythagorean(0), scale_base(10))
         self.assertAlmostEqual(scale_pythagorean(0.9), scale_base(4.3588985))
         self.assertAlmostEqual(scale_pythagorean(0.8), scale_base(6))
@@ -197,13 +198,13 @@ class ScalePythagoreanTestCase(unittest.TestCase):
         self.assertAlmostEqual(scale_pythagorean(0.2), scale_base(9.797958))
 
     def test_bottom(self):
-        scale_pythagorean = Scalers.Pythagorean
+        scale_pythagorean = ScaleFNs.Pythagorean
         bottom = 0.99498743710662
         self.assertAlmostEqual(bottom, math.sqrt(1 - 0.1**2))
         self.assertAlmostEqual(scale_pythagorean(bottom), 0)
 
     def test_value_at(self):
-        scale_pythagorean = Scalers.Pythagorean
+        scale_pythagorean = ScaleFNs.Pythagorean
         self.assertAlmostEqual(scale_pythagorean.value_at(0), 0.99498743710662)
         self.assertAlmostEqual(scale_pythagorean.value_at(1), 0)
 
