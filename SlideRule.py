@@ -485,6 +485,10 @@ class Renderer:
     geometry: Geometry = None
     style: Style = None
 
+    @classmethod
+    def make(cls, i: Image.Image, g: Geometry, s: Style):
+        return cls(ImageDraw.Draw(i), g, s)
+
     def draw_box(self, x0, y0, dx, dy, col, width=1):
         self.r.rectangle((x0, y0, x0 + dx, y0 + dy), outline=pil_color(col), width=width)
 
@@ -1880,7 +1884,7 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
     geom = model.geometry
     layout = model.layout
     y_front_start = geom.oY
-    r = Renderer(ImageDraw.Draw(sliderule_img), geom, model.style)
+    r = Renderer.make(sliderule_img, geom, model.style)
     y_rear_start = y_front_start + geom.side_h + geom.oY
     if render_mode == Mode.RENDER:
         for side in Side:
@@ -1955,7 +1959,7 @@ def render_stickerprint_mode(model, sliderule_img):
     total_w = scale_w + 2 * o_x2
     total_h = 5075
     stickerprint_img = image_for_rendering(model, w=total_w, h=total_h)
-    r = Renderer(ImageDraw.Draw(stickerprint_img), geom_s, style)
+    r = Renderer.make(stickerprint_img, geom_s, style)
     # fsUM,MM,LM:
     y = 0
     y += o_y2 + o_a
@@ -2057,7 +2061,7 @@ def render_diagnostic_mode(model: Model, all_scales=False):
         480
     )
     diagnostic_img = image_for_rendering(model, w=geom_d.total_w, h=total_h)
-    r = Renderer(ImageDraw.Draw(diagnostic_img), geom_d, style)
+    r = Renderer.make(diagnostic_img, geom_d, style)
     title_x = geom_d.midpoint_x - geom_d.li
     title = 'Diagnostic Test Print of Available Scales'
     r.draw_sym_al(title, 50, style.fg, 0, title_x, 0, style.font_for(FontSize.TITLE), upper)
