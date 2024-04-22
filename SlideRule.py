@@ -134,32 +134,27 @@ class Style:
     """foreground color black"""
     bg: Colors = Colors.WHITE
     """background color white"""
-    dec_color: Colors = Colors.RED
+    decreasing_color: Colors = Colors.RED
     """color for a decreasing value scale"""
     decimal_color: Colors = Colors.BLACK
     """color for sub-decimal points"""
-    sc_bg_colors: dict = field(default_factory=dict)
+    bg_colors: dict = field(default_factory=dict)
     """background color overrides for particular scale keys"""
     font_family: [str] = Font.CMUTypewriter
-    overrides_by_sc_key: dict[str, dict] = field(default_factory=dict)
+    overrides: dict[str, dict[str, object]] = field(default_factory=dict)
 
-    def scale_fg_col(self, sc, mirror=False):
-        """:type sc: Scale|Ruler"""
-        return self.override_for(sc, 'color',
-                                 self.fg if sc.is_increasing != mirror else self.dec_color)
+    def fg_col(self, element: str, is_increasing=True):
+        return self.override_for(element, 'color',
+                                 self.fg if is_increasing else self.decreasing_color)
 
-    def scale_bg_col(self, sc):
-        """:type sc: Scale"""
-        return self.sc_bg_colors.get(sc.key)
+    def bg_col(self, element: str):
+        return self.bg_colors.get(element)
 
-    def overrides_for(self, sc) -> dict:
-        """
-        :type sc: Scale
-        """
-        return self.overrides_by_sc_key.get(sc.key)
+    def overrides_for(self, element: str) -> dict:
+        return self.overrides.get(element)
 
-    def override_for(self, sc, key, default):
-        sc_overrides = self.overrides_for(sc)
+    def override_for(self, element: str, key: str, default):
+        sc_overrides = self.overrides_for(element)
         return sc_overrides.get(key, default) if sc_overrides else default
 
     def numeral_decimal_color(self):
@@ -530,7 +525,7 @@ class Renderer:
         font1, font2, font3 = steps_font
         scale_w = self.geometry.SL
         scale_h = self.geometry.scale_h(sc)
-        sym_col = self.style.scale_fg_col(sc)
+        sym_col = self.style.fg_col(sc.key, is_increasing=sc.is_increasing)
         tenth_col = self.style.decimal_color
         for i in range(i_start, i_end, step4):
             num = i / i_sf
@@ -708,7 +703,7 @@ class Renderer:
 
     def draw_mark(self, mark: GaugeMark, y_off: int, sc, font, al, col=None, shift_adj=0, side=None):
         if not col:
-            col = self.style.scale_fg_col(sc)
+            col = self.style.fg_col(sc.key, is_increasing=sc.is_increasing)
         g = self.geometry
         x = sc.scale_to(mark.value, g.SL, shift_adj=shift_adj)
         scale_h = g.scale_h(sc, side=side)
@@ -1332,7 +1327,7 @@ class Ruler:
         th1, th2, th3, th4 = (g.tick_h(HMod.LG), g.tick_h(HMod.MED), g.tick_h(HMod.XS), g.tick_h(HMod.DOT))
         font1, font2 = (r.style.font_for(FontSize.N_LG), None)
         scale_h = g.scale_h(self)
-        sym_col = r.style.scale_fg_col(self)
+        sym_col = r.style.fg_col(self.key, is_increasing=self.is_increasing)
         tenth_col = r.style.decimal_color
         i_sf = self.tick_pattern[0] * self.tick_pattern[1] * self.tick_pattern[2]
         step1, step2, step3, _ = t_s(i_sf, *self.tick_pattern)
@@ -1454,8 +1449,8 @@ class Models:
                                ),
                       Layout('Pct KZ [T2 P2 P1 T1] Z', '', scale_ns=AristoCommerzScales,
                              align_overrides={Side.FRONT: {'P2': Align.UPPER}}),
-                      Style(dec_color=Colors.SYM_GREEN, font_family=Font.CMUBright,
-                            overrides_by_sc_key={
+                      Style(decreasing_color=Colors.SYM_GREEN, font_family=Font.CMUBright,
+                            overrides={
                                 'T1': {'color': Colors.RED},
                                 'T2': {'color': Colors.RED}
                             }))
@@ -1495,7 +1490,7 @@ class Models:
                                 }
                             ),
                             Style(font_family=Font.CMUBright,
-                                  sc_bg_colors={
+                                  bg_colors={
                                       'C': Colors.FC_LIGHT_GREEN_BG,
                                       'CF': Colors.FC_LIGHT_GREEN_BG
                                   }
@@ -1535,7 +1530,7 @@ class Models:
                                      }
                                  }
                              ),
-                             Style(sc_bg_colors={
+                             Style(bg_colors={
                                  'C': Colors.FC_LIGHT_GREEN_BG,
                                  'CF': Colors.FC_LIGHT_GREEN_BG,
                                  'A': Colors.FC_LIGHT_BLUE_BG,
@@ -1563,7 +1558,7 @@ class Models:
 def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: Side = None):
     geom = r.geometry
     style = r.style
-    if style.override_for(sc, 'hide', False):
+    if style.override_for(sc.key, 'hide', False):
         return
 
     if not overhang:  # fraction of total width to overhang each side to label
@@ -1589,8 +1584,8 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     if DEBUG:
         r.draw_box(li, y_off, scale_w, scale_h, 'grey')
 
-    sym_col = style.scale_fg_col(sc)
-    bg_col = style.scale_bg_col(sc)
+    sym_col = style.fg_col(sc.key, is_increasing=sc.is_increasing)
+    bg_col = style.bg_col(sc.key)
     if bg_col:
         sc.band_bg(r, y_off, bg_col)
 
@@ -1612,7 +1607,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     # Special Symbols for S, and T
     sc_alt: Scale = getattr(Scales, sc.mirror_key) if sc.mirror_key else None
     if sc_alt:
-        alt_col = style.scale_fg_col(sc_alt, mirror=True)
+        alt_col = style.fg_col(sc_alt.key, is_increasing=not sc_alt.is_increasing)
         r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, scale_h, x_left - style.sym_width('__', f_lbl), y2, f_lbl, al)
         r.draw_sym_al(sc_alt.right_sym, y_off, alt_col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
     elif sc == Scales.ST:
@@ -1710,7 +1705,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         f = geom.STH * 1.1 if is_tan else th_med
         range1 = range(6, 16)
         range2 = range(16, 21)
-        alt_col = style.scale_fg_col(sc_alt, mirror=True)
+        alt_col = style.fg_col(sc_alt.key, is_increasing=not sc_alt.is_increasing)
         for x in chain(range1, range2, range(25, 41, 5), () if is_tan else range(50, 80, 10)):
             f_l = f_md2_i if x in range1 else f_mdn_i
             f_r = f_md2 if x in range1 else f_mdn
