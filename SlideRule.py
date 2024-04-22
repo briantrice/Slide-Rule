@@ -879,20 +879,13 @@ def scale_sin_tan_radians(x):
     return gen_base(HUNDRED * (math.sin(x) + math.tan(x)) / 2)
 
 
-def scale_pythagorean(x):
-    assert 0 <= x <= 1
-    return gen_base(math.sqrt(1 - (x ** 2))) + 1
-
-
-def scale_hyperbolic(x):
-    assert x > 1
-    # y = math.sqrt(1+x**2) = math.hypot(1, x)
-    return gen_base(math.sqrt((x ** 2) - 1))
-
-
 def angle_opp(x):
     """The opposite angle in degrees across a right triangle."""
     return DEG_RT - x
+
+
+def clamp(x, min_value, max_value):
+    return max(min(x, max_value), min_value)
 
 
 @dataclass(frozen=True)
@@ -906,9 +899,14 @@ class ScaleFN:
     fn: callable
     inverse: callable
     is_increasing: bool = True
+    min_input: float = -math.inf
+    max_input: float = math.inf
 
     def __call__(self, x):
         return self.fn(x)
+
+    def clamp_input(self, x):
+        return clamp(x, self.min_input, self.max_input)
 
     def inverted(self):
         return ScaleFN(self.inverse, self.fn, not self.is_increasing)
@@ -950,12 +948,16 @@ class ScaleFNs:
     SinH = ScaleFN(lambda x: gen_base(math.sinh(x)), lambda p: math.asinh(pos_base(p)))
     CosH = ScaleFN(lambda x: gen_base(math.cosh(x)), lambda p: math.acosh(pos_base(p)))
     TanH = ScaleFN(lambda x: gen_base(math.tanh(x)), lambda p: math.atanh(pos_base(p)))
-    Pythagorean = ScaleFN(scale_pythagorean, lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2), is_increasing=False)
+    Pythagorean = ScaleFN(lambda x: gen_base(math.sqrt(1 - (x ** 2))) + 1,
+                          lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2),
+                          is_increasing=False, min_input=-1 + 1e-16, max_input=1 - 1e-16)
     Chi = ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
     Theta = ScaleFN(lambda x: x / DEG_RT, lambda p: p * DEG_RT)
-    LogLog = ScaleFN(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)))
-    LogLogNeg = ScaleFN(lambda x: gen_base(-math.log(x)), lambda p: math.exp(pos_base(-p)), is_increasing=False)
-    Hyperbolic = ScaleFN(scale_hyperbolic, lambda p: math.hypot(1, pos_base(p)))
+    LogLog = ScaleFN(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)), min_input=1 + 1e-15)
+    LogLogNeg = ScaleFN(lambda x: gen_base(-math.log(x)), lambda p: math.exp(pos_base(-p)),
+                        is_increasing=False, min_input=1e-20, max_input=1 - 1e-16)
+    Hyperbolic = ScaleFN(lambda x: gen_base(math.sqrt((x ** 2) - 1)), lambda p: math.hypot(1, pos_base(p)),
+                         min_input=1 + 1e-15)
 
 
 @dataclass
@@ -1055,7 +1057,8 @@ class Scale:
         return round(geom.SL * self.frac_pos_of(x))
 
     def offset_between(self, x_start, x_end, scale_width):
-        return abs(self.frac_pos_of(x_end) - self.frac_pos_of(x_start)) * scale_width
+        return abs(self.frac_pos_of(self.scaler.clamp_input(x_end))
+                   - self.frac_pos_of(self.scaler.clamp_input(x_start))) * scale_width
 
     def smallest_diff_size_for_delta(self, x_start, x_end, x_delta, scale_width=1):
         return min(
