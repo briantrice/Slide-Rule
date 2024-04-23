@@ -1,10 +1,14 @@
 import math
 import unittest
 from dataclasses import replace
+from unittest.mock import patch
 
-from SlideRule import (Scales, ScaleFNs, Layout, Models, RulePart,
+from PIL import Image
+
+from SlideRule import (Scales, ScaleFNs, Layout, RulePart, Side, Align,
+                       Renderer, Layouts, Colors, Styles, Models,
                        symbol_parts, symbol_with_expon,
-                       last_digit_of, first_digit_of, keys_of, render_diagnostic_mode, Side)
+                       last_digit_of, first_digit_of, render_diagnostic_mode)
 
 scale_base = ScaleFNs.Base
 
@@ -318,6 +322,38 @@ class ModelTestCase(unittest.TestCase):
             RulePart.STATOR_TOP: ['LL03', 'LL02', 'LL01', 'W2'],
             RulePart.SLIDE: ['W2Prime', 'L', 'C', 'W1Prime'],
             RulePart.STATOR_BOTTOM: ['W1', 'LL1', 'LL2', 'LL3']})
+
+
+class RendererTestCase(unittest.TestCase):
+    def setUp(self):
+        self.mock_image = Image.new('RGB', (1, 1), Colors.WHITE.value)
+
+    def test_pat_auto(self):
+        with patch.object(Renderer, 'pat', return_value=None) as mock_pat:
+            r = Renderer.make(self.mock_image, Models.Demo.geometry, Styles.Default)
+            Scales.LL3.grad_pat_default(r, 0, Align.LOWER)
+            self.assertEquals(r.pat.call_count, len(Scales.LL3.dividers) + 1)
+            call_args_list = [(args[3:8]) for (args, _) in r.pat.call_args_list]
+            th1 = (70, 35, 35, 18)
+            th2 = (70, 35, 18, 18)
+            self.assertListEqual(call_args_list, [
+                (25000, 30000, 10000, (10000, 5000, 1000, 200), th1),
+                (30000, 60000, 10000, (10000, 10000, 2000, 400), th1),
+                (60000, 100000, 10000, (10000, 5000, 1000, 1000), th2),
+                (100000, 500000, 10000, (100000, 50000, 10000, 10000), th2),
+                (500000, 1000000, 10000, (100000, 100000, 20000, 20000), th2),
+                (1000000, 10000000, 10000, (1000000, 1000000, 500000, 500000), th2),
+                (10000000, 100000000, 10000, (10000000, 10000000, 5000000, 5000000), th2),
+                (100000000, 1000000001, 10000, (100000000, 100000000, 50000000, 50000000), th2)
+            ])
+
+
+class ScaleGenTestCase(unittest.TestCase):
+    def test_scales(self):
+        test_model = replace(Models.Demo, layout=Layouts.MannheimOriginal)
+        test_image = render_diagnostic_mode(test_model, all_scales=True)
+        self.assertEquals(test_image.width, 7000)
+        self.assertGreater(test_image.height, 3000)
 
 
 if __name__ == '__main__':
