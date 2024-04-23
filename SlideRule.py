@@ -874,6 +874,7 @@ def extend(image, geom, y, direction, amplitude):
 
 LOG_TEN = math.log(TEN)
 LOG_ZERO = -math.inf
+ε = 1e-20
 
 
 def unit(x): return x
@@ -905,14 +906,14 @@ class ScaleFN:
     fn: callable
     inverse: callable
     is_increasing: bool = True
-    min_input: float = -math.inf
-    max_input: float = math.inf
+    min_x: float = -math.inf
+    max_x: float = math.inf
 
     def __call__(self, x):
         return self.fn(x)
 
     def clamp_input(self, x):
-        return clamp(x, self.min_input, self.max_input)
+        return clamp(x, self.min_x, self.max_x)
 
     def inverted(self):
         return ScaleFN(self.inverse, self.fn, not self.is_increasing)
@@ -935,35 +936,35 @@ class ScaleFNs:
     F_to_C = ScaleFN(lambda f: (f - 32) * 5 / 9, lambda c: (c * 9 / 5) + 32)
     neper_to_db = ScaleFN(lambda x_db: x_db / (20 / math.log(TEN)), lambda x_n: x_n * 20 / math.log(TEN))
 
-    Base = ScaleFN(gen_base, pos_base)
+    Base = ScaleFN(gen_base, pos_base, min_x=ε)
     Square = ScaleFN(lambda x: gen_base(x) / 2, lambda p: pos_base(p * 2))
     Cube = ScaleFN(lambda x: gen_base(x) / 3, lambda p: pos_base(p * 3))
-    Inverse = ScaleFN(lambda x: 1 - gen_base(x), lambda p: pos_base(1 - p), is_increasing=False)
-    InverseSquare = ScaleFN(lambda x: 1 - gen_base(x) / 2, lambda p: pos_base(1 - p * 2), is_increasing=False)
-    SquareRoot = ScaleFN(lambda x: gen_base(x) * 2, lambda p: pos_base(p / 2))
-    CubeRoot = ScaleFN(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3))
-    Log10 = ScaleFN(lambda x: x / TEN, lambda p: p * TEN)
-    Ln = ScaleFN(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN)
+    Inverse = ScaleFN(lambda x: 1 - gen_base(x), lambda p: pos_base(1 - p), is_increasing=False, min_x=ε)
+    InverseSquare = ScaleFN(lambda x: 1 - gen_base(x) / 2, lambda p: pos_base(1 - p * 2), is_increasing=False, min_x=ε)
+    SquareRoot = ScaleFN(lambda x: gen_base(x) * 2, lambda p: pos_base(p / 2), min_x=ε)
+    CubeRoot = ScaleFN(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3), min_x=ε)
+    Log10 = ScaleFN(lambda x: x / TEN, lambda p: p * TEN, min_x=ε)
+    Ln = ScaleFN(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN, min_x=ε)
     Sin = ScaleFN(lambda x: gen_base(TEN * math.sin(math.radians(x))), math.asin)
     CoSin = ScaleFN(lambda x: gen_base(TEN * math.cos(math.radians(x))), math.acos, is_increasing=False)
     Tan = ScaleFN(lambda x: gen_base(TEN * math.tan(math.radians(x))), lambda p: math.atan(pos_base(p)))
     SinTan = ScaleFN(lambda x: scale_sin_tan_radians(math.radians(x)), lambda p: math.atan(pos_base(p)))
-    SinTanRadians = ScaleFN(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))))
+    SinTanRadians = ScaleFN(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))), min_x=1e-5)
     CoTan = ScaleFN(lambda x: gen_base(TEN * math.tan(math.radians(angle_opp(x)))),
                     lambda p: math.atan(pos_base(angle_opp(p))), is_increasing=False)
-    SinH = ScaleFN(lambda x: gen_base(math.sinh(x)), lambda p: math.asinh(pos_base(p)))
-    CosH = ScaleFN(lambda x: gen_base(math.cosh(x)), lambda p: math.acosh(pos_base(p)))
-    TanH = ScaleFN(lambda x: gen_base(math.tanh(x)), lambda p: math.atanh(pos_base(p)))
+    SinH = ScaleFN(lambda x: gen_base(math.sinh(x)), lambda p: math.asinh(pos_base(p)), min_x=ε)
+    CosH = ScaleFN(lambda x: gen_base(math.cosh(x)), lambda p: math.acosh(pos_base(p)), min_x=ε)
+    TanH = ScaleFN(lambda x: gen_base(math.tanh(x)), lambda p: math.atanh(pos_base(p)), min_x=ε)
     Pythagorean = ScaleFN(lambda x: gen_base(math.sqrt(1 - (x ** 2))) + 1,
                           lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2),
-                          is_increasing=False, min_input=-1 + 1e-16, max_input=1 - 1e-16)
+                          is_increasing=False, min_x=-1 + 1e-16, max_x=1 - 1e-16)
     Chi = ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
     Theta = ScaleFN(lambda x: x / DEG_RT, lambda p: p * DEG_RT)
-    LogLog = ScaleFN(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)), min_input=1 + 1e-15)
+    LogLog = ScaleFN(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)), min_x=1 + 1e-15)
     LogLogNeg = ScaleFN(lambda x: gen_base(-math.log(x)), lambda p: math.exp(pos_base(-p)),
-                        is_increasing=False, min_input=1e-20, max_input=1 - 1e-16)
+                        is_increasing=False, min_x=ε, max_x=1 - 1e-16)
     Hyperbolic = ScaleFN(lambda x: gen_base(math.sqrt((x ** 2) - 1)), lambda p: math.hypot(1, pos_base(p)),
-                         min_input=1 + 1e-15)
+                         min_x=1 + 1e-15)
 
 
 @dataclass
@@ -1147,7 +1148,7 @@ class Scales:
     LL03 = Scale('LL₀₃', 'e^-x', ScaleFNs.LogLogNeg, key='LL03',
                  dividers=[5e-4, 1e-3, 1e-2, 0.1], ex_start_value=1e-4, ex_end_value=0.39, marks=[Marks.inv_e])
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
-              dividers=[0.3, 0.6, 0.8, 0.9, 0.98, 0.99], ex_start_value=0.1, ex_end_value=.995, numerals=[.995])
+              dividers=[0.3, 0.6, 0.8, 0.9, 0.98, 0.99], ex_start_value=0.1, ex_end_value=.995)
     R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
     R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
     S = Scale('S', '∡sin x°', ScaleFNs.Sin, mirror_key='CoS')
@@ -1157,7 +1158,7 @@ class Scales:
     T = Scale('T', '∡tan x°', ScaleFNs.Tan, mirror_key='CoT')
     CoT = Scale('CoT', '∡cot x°', ScaleFNs.CoTan, key='CoT', is_increasing=True, mirror_key='T', shift=-1)
     T1 = replace(T, left_sym='T₁', key='T1')
-    T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1, mirror_key=None)
+    T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1, mirror_key='CoT2')
     W1 = Scale('W₁', '√x', ScaleFNs.SquareRoot, key='W1', opp_key='W1Prime', dividers=[1, 2],
                ex_start_value=0.95, ex_end_value=3.38, marks=[Marks.sqrt_ten])
     W1Prime = replace(W1, left_sym="W'₁", key='W1Prime', opp_key='W1')
@@ -1166,11 +1167,11 @@ class Scales:
     W2Prime = replace(W2, left_sym="W'₂", key='W2Prime', opp_key='W2')
 
     H1 = Scale('H₁', '√1+0.1x²', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1], numerals=[1.005])
-    H2 = Scale('H₂', '√1+x²', ScaleFNs.Hyperbolic, key='H2', dividers=[4], numerals=[1.5])
+    H2 = Scale('H₂', '√1+x²', ScaleFNs.Hyperbolic, key='H2', dividers=[4])
     Sh1 = Scale('Sh₁', 'sinh x', ScaleFNs.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
     Sh2 = Scale('Sh₂', 'sinh x', ScaleFNs.SinH, key='Sh2')
     Ch1 = Scale('Ch', 'cosh x', ScaleFNs.CosH, dividers=[1, 2], ex_start_value=0.01)
-    Th = Scale('Th', 'tanh x', ScaleFNs.TanH, shift=1, dividers=[0.2, 0.4, 1], ex_end_value=3, numerals=[1, 1.5, 2, 3])
+    Th = Scale('Th', 'tanh x', ScaleFNs.TanH, shift=1, dividers=[0.2, 0.4, 1, 2], ex_end_value=3)
 
     # EE-specific
     # Hemmi 153:
@@ -1614,7 +1615,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     r.draw_sym_al(sc.left_sym, y_off, sym_col, scale_h, x_left, y1, f_lbl, al)
 
     # Special Symbols for S, and T
-    sc_alt: Scale = getattr(Scales, sc.mirror_key) if sc.mirror_key else None
+    sc_alt: Scale = getattr(Scales, sc.mirror_key, None) if sc.mirror_key else None
     if sc_alt:
         alt_col = style.fg_col(sc_alt.key, is_increasing=not sc_alt.is_increasing)
         r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, scale_h, x_left - style.sym_width('__', f_lbl), y2, f_lbl, al)
