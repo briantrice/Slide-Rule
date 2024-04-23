@@ -30,7 +30,7 @@ from itertools import chain
 from PIL import Image, ImageFont, ImageDraw
 
 
-def keys_of(obj):
+def keys_of(obj: object):
     return [k for k, _ in inspect.getmembers(obj) if not k.startswith('__')]
 
 
@@ -309,7 +309,7 @@ class Geometry:
     @property
     def min_tick_offset(self):
         """minimum tick horizontal offset"""
-        return self.STT * 2  # separate each tick by at least the space of its width
+        return self.STT * 3  # separate each tick by at least the space of its width
 
     def tick_h(self, h_mod: HMod = None, h_ratio=None) -> int:
         result = self.STH
@@ -469,6 +469,21 @@ def t_s(s1: int, f2: int, f3: int, f4: int):
     return s1, s2, s3, s4
 
 
+TS_MINS = [500, 100, 50, 20, 10, 5, 2, 1]
+TS_BY_MIN = {
+    500: (10, 10, 5),
+    250: (10, 5, 5),
+    100: (10, 2, 5),
+    50: (2, 5, 5),
+    25: (1, 5, 5),
+    20: (2, 5, 2),
+    10: (2, 5, 1),
+    5: (1, 5, 1),
+    2: (1, 2, 1),
+    1: (1, 1, 1)
+}
+
+
 def ts25(x): return t_s(x, 2, 5, 1)
 def ts252(x): return t_s(x, 2, 5, 2)
 def ts255(x): return t_s(x, 2, 5, 5)
@@ -551,66 +566,57 @@ class Renderer:
                     self.draw_numeral(last_digit_of(num), y_off, tenth_col, scale_h, x, th3, font3, al)
             self.draw_tick(y_off, x, tick_h, sym_col, scale_h, al)
 
-    def pat_auto(self, y_off, sc, al, start_value=None, end_value=None, include_last=False):
+    def pat_auto(self, y_off, sc, al, x_start=None, x_end=None, include_last=False):
         """
-        Draw a graduated pattern of tick marks across the scale range.
-        Determine the lowest digit tick mark spacing and work upwards from there.
-
-        Tick Patterns: 2-5-2, 2-5-5, 2-5-10
+        Draw a graduated pattern of tick marks across the scale range, by algorithmic selection.
+        From some tick patterns in order and by generic suitability, pick the most detailed with a sufficient tick gap.
         """
-        if not start_value:
-            start_value = sc.value_at_start()
-        if not end_value:
-            end_value = sc.value_at_end()
-        if start_value > end_value:
-            start_value, end_value = end_value, start_value
+        if not x_start:
+            x_start = sc.value_at_start()
+        if not x_end:
+            x_end = sc.value_at_end()
+        if x_start > x_end:
+            x_start, x_end = x_end, x_start
         g = self.geometry
         min_tick_offset = g.min_tick_offset
-        log_diff = abs(math.log10(abs((end_value - start_value) / max(start_value, end_value))))
+        log_diff = abs(math.log10(abs((x_end - x_start) / max(x_start, x_end))))
         num_digits = math.ceil(log_diff) + 3
         scale_w = g.SL
         sf = 10 ** num_digits  # ensure enough precision for int ranges
-        # Ensure between 6 and 15 numerals will display? Target log10 in 0.8..1.17
-        frac_width = sc.offset_between(start_value, end_value, 1)
-        step_numeral = 10 ** max((int(math.log10(abs(end_value - start_value)) - 0.5 * frac_width) + num_digits), 0)
-        step_half = step_numeral // 2
-        step_tenth = step_numeral // 10  # second level
-        tenth_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_tenth / sf, scale_w)
-        if tenth_tick_offset < min_tick_offset:
-            step_tenth = step_numeral
-        step_last = step_tenth  # last level
-        for tick_div in [10, 5, 2]:
-            v = step_tenth / tick_div / sf
-            smallest_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, v, scale_w)
-            if smallest_tick_offset >= min_tick_offset:
-                step_last = max(round(step_tenth / tick_div), 1)
-                break
-        scale_hf = g.scale_h_ratio(sc)
-        # Ticks and Labels
-        i_start = int(start_value * sf)
-        i_offset = i_start % step_last
+        # Ensure a reasonable visual density of numerals
+        frac_w = sc.offset_between(x_start, x_end, 1)
+        step_num = 10 ** max(int(math.log10(x_end - x_start) - 0.5 * frac_w) + num_digits, 0)
+        sub_div4 = next(TS_BY_MIN[i] for i in TS_MINS if i <= step_num
+                        and sc.min_offset_for_delta(x_start, x_end, step_num / i / sf, scale_w) >= min_tick_offset)
+        (_, step2, step3, step4) = t_s(step_num, *sub_div4)
+        # Iteration Setup
+        i_start = int(x_start * sf)
+        i_offset = i_start % step4
         if i_offset > 0:  # Align to first tick on or after start
-            i_start = i_start - i_offset + step_last
+            i_start = i_start - i_offset + step4
+        # Determine numeral font size
+        scale_hf = g.scale_h_ratio(sc)
         num_font = self.style.font_for(FontSize.N_LG, h_ratio=scale_hf)
-        numeral_tick_offset = sc.smallest_diff_size_for_delta(start_value, end_value, step_numeral / sf, scale_w)
-        max_num_chars = numeral_tick_offset / self.style.sym_width('_', num_font)
+        numeral_tick_offset = sc.min_offset_for_delta(x_start, x_end, step_num / sf, scale_w)
+        max_num_chars = numeral_tick_offset // self.style.sym_width('_', num_font)
         if max_num_chars < 4:
             num_font = self.style.font_for(FontSize.N_SM, h_ratio=scale_hf)
         # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
-        draw_tenth = (step_last < step_tenth < step_numeral) and max_num_chars > 8
-        i_end = int(end_value * sf + (1 if include_last else 0))
+        sub_num = (step4 < step3 < step_num) and max_num_chars > 8
         # Tick Heights:
         dot_th = g.tick_h(HMod.DOT, scale_hf)
         self.pat(y_off, sc, al,
-                 i_start, i_end, sf,
-                 (step_numeral, step_half, step_tenth, step_last),
+                 i_start, int(x_end * sf + (1 if include_last else 0)), sf,
+                 (step_num, step2, step3, step4),
                  (
                      g.tick_h(HMod.MED, scale_hf),
-                     g.tick_h(HMod.XL if step_tenth < step_numeral else HMod.XS, scale_hf),
-                     g.tick_h(HMod.XS, scale_hf) if step_last < step_tenth else dot_th,
+                     g.tick_h(HMod.XL if step3 == step_num // 2 and step4 < step3 else HMod.XS, scale_hf),
+                     g.tick_h(HMod.XS, scale_hf) if step4 < step3 else dot_th,
                      dot_th),
-                 (num_font, None, self.style.font_for(FontSize.N_XS, h_ratio=scale_hf) if draw_tenth else None),
-                 max_num_chars < 2)
+                 (num_font,
+                  self.style.font_for(FontSize.N_SM, h_ratio=scale_hf) if sub_num and step2 == step_num // 10 else None,
+                  self.style.font_for(FontSize.N_XS, h_ratio=scale_hf) if sub_num and step3 == step_num // 10 else None),
+                 sc.displays_cyclic() and max_num_chars < 2)
 
     def draw_symbol(self, symbol, color, x_left, y_top, font):
         """
@@ -1064,7 +1070,7 @@ class Scale:
         return abs(self.frac_pos_of(self.scaler.clamp_input(x_end))
                    - self.frac_pos_of(self.scaler.clamp_input(x_start))) * scale_width
 
-    def smallest_diff_size_for_delta(self, x_start, x_end, x_delta, scale_width=1):
+    def min_offset_for_delta(self, x_start, x_end, x_delta, scale_width=1):
         return min(
             self.offset_between(x_start, x_start + x_delta, scale_width=scale_width),
             self.offset_between(x_end - x_delta, x_end, scale_width=scale_width)
@@ -1090,14 +1096,14 @@ class Scale:
             if powers:
                 dividers = [10 ** n for n in powers]
         if dividers:
-            r.pat_auto(y_off, self, al, start_value=start_value, end_value=dividers[0])
+            r.pat_auto(y_off, self, al, x_start=start_value, x_end=dividers[0])
             last_i = len(dividers) - 1
             for i, di in enumerate(dividers):
                 is_last = i >= last_i
                 dj = end_value if is_last else dividers[i + 1]
-                r.pat_auto(y_off, self, al, start_value=di, end_value=dj, include_last=is_last)
+                r.pat_auto(y_off, self, al, x_start=di, x_end=dj, include_last=is_last)
         else:
-            r.pat_auto(y_off, self, al, start_value=start_value, end_value=end_value, include_last=True)
+            r.pat_auto(y_off, self, al, x_start=start_value, x_end=end_value, include_last=True)
 
     def band_bg(self, r, y_off, color, start_value=None, end_value=None):
         geom = r.geometry
@@ -1129,23 +1135,23 @@ class Scales:
     L = Scale('L', 'log x', ScaleFNs.Log10)
     Ln = Scale('Ln', 'ln x', ScaleFNs.Ln)
     LL0 = Scale('LL₀', 'e^0.001x', ScaleFNs.LogLog, shift=3, key='LL0',
-                dividers=[1.002, 1.005], ex_start_value=1.00095, ex_end_value=1.0105)
+                dividers=[1.002, 1.004, 1.010], ex_start_value=1.00095, ex_end_value=1.0105)
     LL1 = Scale('LL₁', 'e^0.01x', ScaleFNs.LogLog, shift=2, key='LL1',
-                dividers=[1.02, 1.05], ex_start_value=1.0095, ex_end_value=1.11)
+                dividers=[1.02, 1.05, 1.10], ex_start_value=1.0095, ex_end_value=1.11)
     LL2 = Scale('LL₂', 'e^0.1x', ScaleFNs.LogLog, shift=1, key='LL2',
                 dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3, marks=[Marks.e])
     LL3 = Scale('LL₃', 'e^x', ScaleFNs.LogLog, key='LL3',
-                dividers=[10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=60000, marks=[Marks.e])
+                dividers=[3, 6, 10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=1e5, marks=[Marks.e])
     LL00 = Scale('LL₀₀', 'e^-0.001x', ScaleFNs.LogLogNeg, shift=3, key='LL00',
                  dividers=[0.998], ex_start_value=0.989, ex_end_value=0.9991)
     LL01 = Scale('LL₀₁', 'e^-0.01x', ScaleFNs.LogLogNeg, shift=2, key='LL01',
                  dividers=[0.95, 0.98], ex_start_value=0.9, ex_end_value=0.9906)
     LL02 = Scale('LL₀₂', 'e^-0.1x', ScaleFNs.LogLogNeg, shift=1, key='LL02',
-                 dividers=[0.75], ex_start_value=0.35, ex_end_value=0.91, marks=[Marks.inv_e])
+                 dividers=[0.8, 0.9], ex_start_value=0.35, ex_end_value=0.91, marks=[Marks.inv_e])
     LL03 = Scale('LL₀₃', 'e^-x', ScaleFNs.LogLogNeg, key='LL03',
-                 dividers=[0.001, 0.01, 0.1], ex_start_value=0.0001, ex_end_value=0.39, marks=[Marks.inv_e])
+                 dividers=[5e-4, 1e-3, 1e-2, 0.1], ex_start_value=1e-4, ex_end_value=0.39, marks=[Marks.inv_e])
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
-              dividers=[0.3, 0.7, 0.9, 0.98], ex_start_value=0.1, ex_end_value=.995, numerals=[.995])
+              dividers=[0.3, 0.6, 0.8, 0.9, 0.98, 0.99], ex_start_value=0.1, ex_end_value=.995, numerals=[.995])
     R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
     R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
     S = Scale('S', '∡sin x°', ScaleFNs.Sin, mirror_key='CoS')
@@ -1155,8 +1161,8 @@ class Scales:
     T = Scale('T', '∡tan x°', ScaleFNs.Tan, mirror_key='CoT')
     CoT = Scale('CoT', '∡cot x°', ScaleFNs.CoTan, key='CoT', is_increasing=True, mirror_key='T', shift=-1)
     T1 = replace(T, left_sym='T₁', key='T1')
-    T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1)
-    W1 = Scale('W₁', '√x', ScaleFNs.SquareRoot, key='W1', opp_key='W1Prime', dividers=[2],
+    T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1, mirror_key=None)
+    W1 = Scale('W₁', '√x', ScaleFNs.SquareRoot, key='W1', opp_key='W1Prime', dividers=[1, 2],
                ex_start_value=0.95, ex_end_value=3.38, marks=[Marks.sqrt_ten])
     W1Prime = replace(W1, left_sym="W'₁", key='W1Prime', opp_key='W1')
     W2 = Scale('W₂', '√10x', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5],
@@ -1642,7 +1648,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
         r.pat(y_off, sc, al, fp2, fp4, sf, ts255(sf), ths1, fonts_lbl, False)
         r.pat(y_off, sc, al, fp4, fpe + 1, sf, ts252(sf), ths1, fonts_lbl, True)
-
     elif sc.scaler == ScaleFNs.Square or sc == Scales.BI:
         for b in (sf * 10 ** n for n in range(0, 2)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
@@ -2070,14 +2075,10 @@ def render_diagnostic_mode(model: Model, all_scales=False):
         sc = getattr(Scales, sc_name, None) or getattr(Rulers, sc_name, None)
         al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, RulePart.SLIDE)
         y_off = k + (n + 1) * sh_with_margins
-        try:
-            if isinstance(sc, Ruler):
-                sc.pat(r, y_off, al)
-            elif isinstance(sc, Scale):
-                gen_scale(r, y_off, sc, al)
-        except ValueError as e:
-            print(f"Error while generating scale {sc.key}: {e}")
-            sc.band_bg(r, y_off, Colors.CUTOFF2)
+        if isinstance(sc, Ruler):
+            sc.pat(r, y_off, al)
+        elif isinstance(sc, Scale):
+            gen_scale(r, y_off, sc, al)
     return diagnostic_img
 
 
