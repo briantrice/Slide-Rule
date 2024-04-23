@@ -581,8 +581,9 @@ class Renderer:
         # Ensure a reasonable visual density of numerals
         frac_w = sc.offset_between(x_start, x_end, 1)
         step_num = 10 ** max(int(math.log10(x_end - x_start) - 0.5 * frac_w) + num_digits, 0)
-        sub_div4 = next(TF_BY_MIN[i] for i in TF_MIN if i <= step_num
-                        and sc.min_offset_for_delta(x_start, x_end, step_num / i / sf, scale_w) >= min_tick_offset)
+        sub_div4 = next((TF_BY_MIN[i] for i in TF_MIN if i <= step_num
+                         and sc.min_offset_for_delta(x_start, x_end, step_num / i / sf, scale_w) >= min_tick_offset),
+                        TF_BY_MIN[1])
         (_, step2, step3, step4) = t_s(step_num, sub_div4)
         # Iteration Setup
         i_start = int(x_start * sf)
