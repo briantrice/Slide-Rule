@@ -1868,7 +1868,7 @@ def main():
             save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
 
     if render_mode == Mode.DIAGNOSTIC:
-        diagnostic_img = render_diagnostic_mode(model, all_scales=cli_args.debug)
+        diagnostic_img = render_diagnostic_mode(model, all_scales=model != Models.Demo)
         print(f'Diagnostic render finished at: {round(time.time() - start_time, 2)} seconds')
         save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
 
