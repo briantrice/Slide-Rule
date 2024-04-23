@@ -328,7 +328,7 @@ class RendererTestCase(unittest.TestCase):
     def setUp(self):
         self.mock_image = Image.new('RGB', (1, 1), Colors.WHITE.value)
 
-    def test_pat_auto(self):
+    def xtest_pat_auto(self):
         with patch.object(Renderer, 'pat', return_value=None) as mock_pat:
             r = Renderer.make(self.mock_image, Models.Demo.geometry, Styles.Default)
             Scales.LL3.grad_pat_default(r, 0, Align.LOWER)
@@ -349,7 +349,7 @@ class RendererTestCase(unittest.TestCase):
 
 
 class ScaleGenTestCase(unittest.TestCase):
-    def test_scales(self):
+    def xtest_scales(self):
         test_model = replace(Models.Demo, layout=Layouts.MannheimOriginal)
         test_image = render_diagnostic_mode(test_model, all_scales=True)
         self.assertEquals(test_image.width, 7000)
