@@ -519,7 +519,7 @@ class Renderer:
         self.fill_rect(x0, y0, self.geometry.STT, height, col)
 
     def pat(self, y_off: int, sc, al: Align,
-            i_start, i_end, i_sf, steps_i, steps_th, steps_font, single_digit):
+            i_start, i_end, i_sf, steps_i, steps_th, steps_font, digit1):
         """
         Place ticks in a graduated pattern. All options are given, not inferred.
         4 levels of tick steps and sizes needed, and three optional fonts for numerals.
@@ -532,7 +532,7 @@ class Renderer:
         :param tuple[int, int, int, int] steps_i: patterning steps, large to small
         :param tuple[int, int, int, int] steps_th: tick sizes, large to small, per step
         :param tuple[FreeTypeFont, FreeTypeFont, FreeTypeFont] steps_font: optional font sizes, for numerals above ticks
-        :param bool single_digit: whether to show the main numerals as the most relevant digit only
+        :param tuple[bool, bool, bool]|bool digit1: whether to show the numerals as the most relevant digit only
         """
         step1, step2, step3, step4 = steps_i
         th1, th2, th3, th4 = steps_th
@@ -540,25 +540,25 @@ class Renderer:
         scale_w = self.geometry.SL
         scale_h = self.geometry.scale_h(sc)
         sym_col = self.style.fg_col(sc.key, is_increasing=sc.is_increasing)
-        tenth_col = self.style.decimal_color
+        tenth_col = self.style.decimal_color if sc.is_increasing else sym_col
+        if isinstance(digit1, bool):
+            digit1 = [digit1, False, False]
         for i in range(i_start, i_end, step4):
-            num = i / i_sf
-            x = sc.scale_to(num, scale_w)
+            n = i / i_sf
+            x = sc.scale_to(n, scale_w)
             tick_h = th4
             if i % step1 == 0:
                 tick_h = th1
                 if font1:
-                    if single_digit:
-                        num = sig_digit_of(num)
-                    self.draw_numeral(num, y_off, sym_col, scale_h, x, th1, font1, al)
+                    self.draw_numeral(sig_digit_of(n) if digit1[0] else n, y_off, sym_col, scale_h, x, th1, font1, al)
             elif i % step2 == 0:
                 tick_h = th2
                 if font2:
-                    self.draw_numeral(last_digit_of(num), y_off, sym_col, scale_h, x, th2, font2, al)
+                    self.draw_numeral(sig_digit_of(n) if digit1[1] else n, y_off, sym_col, scale_h, x, th2, font2, al)
             elif i % step3 == 0:
                 tick_h = th3
                 if font3:
-                    self.draw_numeral(last_digit_of(num), y_off, tenth_col, scale_h, x, th3, font3, al)
+                    self.draw_numeral(sig_digit_of(n) if digit1[2] else n, y_off, tenth_col, scale_h, x, th3, font3, al)
             self.draw_tick(y_off, x, tick_h, sym_col, scale_h, al)
 
     def pat_auto(self, y_off, sc, al, x_start=None, x_end=None, include_last=False):
@@ -595,7 +595,7 @@ class Renderer:
         num_font = s.font_for(FontSize.N_LG, h_ratio=scale_hf)
         numeral_tick_offset = sc.min_offset_for_delta(x_start, x_end, step_num / sf, scale_w)
         max_num_chars = numeral_tick_offset // s.sym_width('_', num_font)
-        if max_num_chars < 4:
+        if max_num_chars < 2:
             num_font = s.font_for(FontSize.N_SM, h_ratio=scale_hf)
         # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
         sub_num = (step4 < step3 < step_num) and max_num_chars > 8
@@ -610,9 +610,9 @@ class Renderer:
                      g.tick_h(HMod.XS, scale_hf) if step4 < step3 else dot_th,
                      dot_th),
                  (num_font,
-                  s.font_for(FontSize.N_SM, h_ratio=scale_hf) if sub_num and step2 == step_num // 10 else None,
+                  s.font_for(FontSize.N_SM, h_ratio=scale_hf) if sub_num and step2 == step_num // 10 or step2 == step_num // 2 else None,
                   s.font_for(FontSize.N_XS, h_ratio=scale_hf) if sub_num and step3 == step_num // 10 else None),
-                 sc.displays_cyclic() and max_num_chars < 2)
+                 (max_num_chars < 3, max_num_chars < 16, max_num_chars < 128))
 
     def draw_symbol(self, symbol, color, x_left, y_top, font):
         """
