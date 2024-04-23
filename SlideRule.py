@@ -461,16 +461,8 @@ class ConversionMarks:
 # ----------------------2. Fundamental Functions----------------------------
 
 
-def t_s(s1: int, f2: int, f3: int, f4: int):
-    """tick iterative subdivision"""
-    s2 = s1 if f2 == 1 else s1 // f2
-    s3 = s2 if f3 == 1 else s2 // f3
-    s4 = s3 if f4 == 1 else s3 // f4
-    return s1, s2, s3, s4
-
-
-TS_MINS = [500, 100, 50, 20, 10, 5, 2, 1]
-TS_BY_MIN = {
+TickFactors = tuple[int, int, int]
+TF_BY_MIN: dict[int, TickFactors] = {  # Best tick subdivision pattern for a given minimum overall division
     500: (10, 10, 5),
     250: (10, 5, 5),
     100: (10, 2, 5),
@@ -482,12 +474,15 @@ TS_BY_MIN = {
     2: (1, 2, 1),
     1: (1, 1, 1)
 }
+TF_MIN = sorted(TF_BY_MIN.keys(), reverse=True)
 
 
-def ts25(x): return t_s(x, 2, 5, 1)
-def ts252(x): return t_s(x, 2, 5, 2)
-def ts255(x): return t_s(x, 2, 5, 5)
-def tst25(x): return t_s(x, 10, 2, 5)
+def t_s(s1: int, f: TickFactors):
+    """tick iterative subdivision"""
+    s2 = s1 if f[0] == 1 else s1 // f[0]
+    s3 = s2 if f[1] == 1 else s2 // f[1]
+    s4 = s3 if f[2] == 1 else s3 // f[2]
+    return s1, s2, s3, s4
 
 
 DEBUG = False
@@ -586,9 +581,9 @@ class Renderer:
         # Ensure a reasonable visual density of numerals
         frac_w = sc.offset_between(x_start, x_end, 1)
         step_num = 10 ** max(int(math.log10(x_end - x_start) - 0.5 * frac_w) + num_digits, 0)
-        sub_div4 = next(TS_BY_MIN[i] for i in TS_MINS if i <= step_num
+        sub_div4 = next(TF_BY_MIN[i] for i in TF_MIN if i <= step_num
                         and sc.min_offset_for_delta(x_start, x_end, step_num / i / sf, scale_w) >= min_tick_offset)
-        (_, step2, step3, step4) = t_s(step_num, *sub_div4)
+        (_, step2, step3, step4) = t_s(step_num, sub_div4)
         # Iteration Setup
         i_start = int(x_start * sf)
         i_offset = i_start % step4
@@ -596,11 +591,12 @@ class Renderer:
             i_start = i_start - i_offset + step4
         # Determine numeral font size
         scale_hf = g.scale_h_ratio(sc)
-        num_font = self.style.font_for(FontSize.N_LG, h_ratio=scale_hf)
+        s = self.style
+        num_font = s.font_for(FontSize.N_LG, h_ratio=scale_hf)
         numeral_tick_offset = sc.min_offset_for_delta(x_start, x_end, step_num / sf, scale_w)
-        max_num_chars = numeral_tick_offset // self.style.sym_width('_', num_font)
+        max_num_chars = numeral_tick_offset // s.sym_width('_', num_font)
         if max_num_chars < 4:
-            num_font = self.style.font_for(FontSize.N_SM, h_ratio=scale_hf)
+            num_font = s.font_for(FontSize.N_SM, h_ratio=scale_hf)
         # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
         sub_num = (step4 < step3 < step_num) and max_num_chars > 8
         # Tick Heights:
@@ -614,8 +610,8 @@ class Renderer:
                      g.tick_h(HMod.XS, scale_hf) if step4 < step3 else dot_th,
                      dot_th),
                  (num_font,
-                  self.style.font_for(FontSize.N_SM, h_ratio=scale_hf) if sub_num and step2 == step_num // 10 else None,
-                  self.style.font_for(FontSize.N_XS, h_ratio=scale_hf) if sub_num and step3 == step_num // 10 else None),
+                  s.font_for(FontSize.N_SM, h_ratio=scale_hf) if sub_num and step2 == step_num // 10 else None,
+                  s.font_for(FontSize.N_XS, h_ratio=scale_hf) if sub_num and step3 == step_num // 10 else None),
                  sc.displays_cyclic() and max_num_chars < 2)
 
     def draw_symbol(self, symbol, color, x_left, y_top, font):
@@ -1645,27 +1641,27 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     sf = 1000  # Reflects the minimum significant figures needed for standard scales to avoid FP inaccuracy
     if (sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse}) and sc.shift == 0:  # C/D and CI/DI
         fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
-        r.pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
-        r.pat(y_off, sc, al, fp2, fp4, sf, ts255(sf), ths1, fonts_lbl, False)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, ts252(sf), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, True)
+        r.pat(y_off, sc, al, fp2, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, False)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths1, fonts_lbl, True)
     elif sc.scaler == ScaleFNs.Square or sc == Scales.BI:
         for b in (sf * 10 ** n for n in range(0, 2)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
-            r.pat(y_off, sc, al, fp1, fp2, sf, ts255(b), ths1, fonts_lbl, True)
-            r.pat(y_off, sc, al, fp2, fp3, sf, ts252(b), ths1, fonts_lbl, True)
-            r.pat(y_off, sc, al, fp3, fpe + 1, sf, ts25(b), ths2, fonts_lbl, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(b, TF_BY_MIN[50]), ths1, fonts_lbl, True)
+            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(b, TF_BY_MIN[20]), ths1, fonts_lbl, True)
+            r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, TF_BY_MIN[10]), ths2, fonts_lbl, True)
 
     elif sc == Scales.K:
         for b in (sf * (10 ** n) for n in range(0, 3)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 3, 6, 10))
-            r.pat(y_off, sc, al, fp1, fp2, sf, ts252(b), ths1, fonts_xl, True)
-            r.pat(y_off, sc, al, fp2, fp3, sf, ts25(b), ths2, fonts_xl, True)
-            r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, 1, 5, 1), ths2, fonts_xl, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(b, TF_BY_MIN[20]), ths1, fonts_xl, True)
+            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(b, TF_BY_MIN[10]), ths2, fonts_xl, True)
+            r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, TF_BY_MIN[5]), ths2, fonts_xl, True)
 
     elif sc == Scales.R1:
         fp1, fp2, fpe = (int(fp * sf) for fp in (1, 2, 3.17))
-        r.pat(y_off, sc, al, fp1, fp2, sf, ts252(sf // 10), ths1, fonts_no, True)
-        r.pat(y_off, sc, al, fp2, fpe + 1, sf, tst25(sf), (th_med, th_med, th_sm, th_xs), fonts2, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf // 10, TF_BY_MIN[20]), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[100]), (th_med, th_med, th_sm, th_xs), fonts2, True)
 
         # 1-10 Labels
         for x in range(1, 2):
@@ -1676,8 +1672,8 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     elif sc == Scales.R2:
         fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
-        r.pat(y_off, sc, al, fp1, fp2, sf, tst25(sf), ths3, fonts2, True)
-        r.pat(y_off, sc, al, fp2, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, True)
+        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, True)
 
     elif (sc.scaler == ScaleFNs.Base and sc.shift == pi_fold_shift) or sc == Scales.CIF:  # CF/DF/CIF
         is_cif = sc == Scales.CIF
@@ -1685,13 +1681,13 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         i1 = sf // TEN
         fp2, fp3, fp4 = (fp * i1 for fp in (4, 10, 20))
         fpe = int(3.2 * sf) if is_cif else fp1 * TEN
-        r.pat(y_off, sc, al, fp1, fp2, sf, ts255(i1), ths1, fonts_lbl, True)
-        r.pat(y_off, sc, al, fp2, fp3, sf, ts252(i1), ths1, fonts_lbl, True)
-        r.pat(y_off, sc, al, fp3, fp4, sf, tst25(sf), ths3, fonts2, True)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, ts255(sf), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(i1, TF_BY_MIN[50]), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(i1, TF_BY_MIN[20]), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, True)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, True)
 
     elif sc == Scales.L:
-        r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, ts255(sf), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
+        r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, t_s(sf, TF_BY_MIN[50]), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
         for x in range(0, 11):
             r.draw_numeral(x / 10, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
 
@@ -1701,17 +1697,17 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         if is_tan:
             fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
             fpe += 1
-            r.pat(y_off, sc, al, fp1, fp2, sf, ts252(sf), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
-            r.pat(y_off, sc, al, fp2, fp3, sf, ts25(sf), ths_z, fonts_no, True)
-            r.pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, 5, 5, 1), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[20]), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[10]), ths_z, fonts_no, True)
+            r.pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, (5, 5, 1)), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
         else:
             fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, 90))
             fpe += 1
-            r.pat(y_off, sc, al, fp1, fp2, sf, ts25(sf), ths_z, fonts_no, True)
-            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, 5, 5, 1), ths_z, fonts_no, True)
-            r.pat(y_off, sc, al, fp3, fp4, sf, ts252(sf * 10), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
-            r.pat(y_off, sc, al, fp4, fp5, sf, ts25(sf * 10), ths_z, fonts_no, True)
-            r.pat(y_off, sc, al, fp5, fpe, sf, t_s(sf * 10, 2, 1, 1), (th_med, th_sm, th_xs, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[10]), ths_z, fonts_no, True)
+            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, (5, 5, 1)), ths_z, fonts_no, True)
+            r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf * 10, TF_BY_MIN[20]), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp4, fp5, sf, t_s(sf * 10, TF_BY_MIN[10]), ths_z, fonts_no, True)
+            r.pat(y_off, sc, al, fp5, fpe, sf, t_s(sf * 10, (2, 1, 1)), (th_med, th_sm, th_xs, th_xs), fonts_no, True)
 
         # Degree Labels
         f = geom.STH * 1.1 if is_tan else th_med
@@ -1732,15 +1728,15 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     elif sc == Scales.T2:
         fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, angle_opp(5.7)))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, 5, 2, 5), ths4, fonts_xl, False)
-        r.pat(y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, 5, 2, 10), ths4, fonts_xl, False)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, (5, 2, 5)), ths4, fonts_xl, False)
+        r.pat(y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, (5, 2, 10)), ths4, fonts_xl, False)
 
     elif sc == Scales.ST:
         fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.57, 1, 2, 4, 5.8))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, 20, 5, 2), ths1, fonts_no, True)
-        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf // 10, 1, 2, 5), ths1, fonts_no, True)
-        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf // 2, 1, 5, 5), ths1, fonts_no, True)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, 1, 10, 2), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, (20, 5, 2)), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf // 10, (1, 2, 5)), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf // 2, TF_BY_MIN[25]), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, (1, 10, 2)), ths1, fonts_no, True)
 
         # Degree Labels
         r.draw_sym_al('1°', y_off, sym_col, scale_h, sc.pos_of(1, geom), th_med, f_lbl, al)
