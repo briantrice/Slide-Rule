@@ -1575,6 +1575,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     ths2 = (th_med, th_xl, th_xs, th_xs)
     ths3 = (th_med, th_sm, th_sm, th_xs)
     ths4 = (th_med, th_xl, th_sm, th_dot)
+    ths5 = (th_med, th_med, th_sm, th_xs)
     fonts_no = (None, None, None)
     sf = 1000  # Reflects the minimum significant figures needed for standard scales to avoid FP inaccuracy
     if (sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse}) and sc.shift == 0:  # C/D and CI/DI
@@ -1599,7 +1600,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     elif sc == Scales.R1:
         fp1, fp2, fpe = (int(fp * sf) for fp in (1, 2, 3.17))
         r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf // 10, TF_BY_MIN[20]), ths1, fonts_no, True)
-        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[100]), (th_med, th_med, th_sm, th_xs), fonts2, True)
+        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[100]), ths5, fonts2, True)
 
         # 1-10 Labels
         for x in range(1, 2):
@@ -1631,11 +1632,12 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     elif sc.scaler in {ScaleFNs.Sin, ScaleFNs.CoSin} or sc in {Scales.T, Scales.T1, Scales.CoT}:
         is_tan = sc.scaler in {ScaleFNs.Tan, ScaleFNs.CoTan}
+        ths_y = (th_xl, th_xl, th_sm, th_xs)
         ths_z = (th_xl, th_sm, th_xs, th_xs)
         if is_tan:
             fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
             fpe += 1
-            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[20]), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[20]), ths_y, fonts_no, True)
             r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[10]), ths_z, fonts_no, True)
             r.pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, (5, 5, 1)), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
         else:
@@ -1643,9 +1645,9 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             fpe += 1
             r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[10]), ths_z, fonts_no, True)
             r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, (5, 5, 1)), ths_z, fonts_no, True)
-            r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf * 10, TF_BY_MIN[20]), (th_xl, th_xl, th_sm, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf * 10, TF_BY_MIN[20]), ths_y, fonts_no, True)
             r.pat(y_off, sc, al, fp4, fp5, sf, t_s(sf * 10, TF_BY_MIN[10]), ths_z, fonts_no, True)
-            r.pat(y_off, sc, al, fp5, fpe, sf, t_s(sf * 10, (2, 1, 1)), (th_med, th_sm, th_xs, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp5, fpe, sf, t_s(sf * 10, TF_BY_MIN[2]), ths1, fonts_no, True)
 
         # Degree Labels
         f = geom.STH * 1.1 if is_tan else th_med
@@ -1672,9 +1674,9 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     elif sc == Scales.ST:
         fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.57, 1, 2, 4, 5.8))
         r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, (20, 5, 2)), ths1, fonts_no, True)
-        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf // 10, (1, 2, 5)), ths1, fonts_no, True)
-        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf // 2, TF_BY_MIN[25]), ths1, fonts_no, True)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, (1, 10, 2)), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[100]), ths5, fonts_no, True)
+        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths5, fonts_no, True)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths5, fonts_no, True)
 
         # Degree Labels
         r.draw_sym_al('1°', y_off, sym_col, scale_h, sc.pos_of(1, geom), th_med, f_lbl, al)
