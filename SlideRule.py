@@ -71,6 +71,17 @@ def pil_color(col_spec):
     return col_spec.value if isinstance(col_spec, Colors) else col_spec
 
 
+class FontSize(Enum):
+    TITLE = 140
+    SUBTITLE = 120
+    SC_LBL = 90
+    N_XL = 75
+    N_LG = 60
+    N_MD = 55
+    N_SM = 45
+    N_XS = 35
+
+
 class FontStyle(Enum):
     REG = 0  # regular
     ITALIC = 1  # italic
@@ -79,50 +90,27 @@ class FontStyle(Enum):
 
 
 class Font:
-    """per https://cm-unicode.sourceforge.io/font_table.html"""
-    CMUTypewriter = (
-        'cmuntt.ttf',  # CMUTypewriter-Regular
-        'cmunit.ttf',  # CMUTypewriter-Italic
-        'cmuntb.ttf',  # CMUTypewriter-Bold
-        'cmuntx.ttf',  # CMUTypewriter-BoldItalic
-    )
-    CMUSansSerif = (
-        'cmunss.ttf',  # CMUSansSerif
-        'cmunsi.ttf',  # CMUSansSerif-Oblique
-        'cmunsx.ttf',  # CMUSansSerif-Bold
-        'cmunso.ttf',  # CMUSansSerif-BoldOblique
-    )
-    CMUConcrete = (
-        'cmunorm.ttf',  # CMUConcrete-Roman
-        'cmunoti.ttf',  # CMUConcrete-Italic
-        'cmunobx.ttf',  # CMUConcrete-Bold
-        'cmunobi.ttf',  # CMUConcrete-BoldItalic
-    )
-    CMUBright = (
-        # 'cmunbmr.ttf',  # CMUBright-Roman
-        # 'cmunbmo.ttf',  # CMUBright-Oblique
-        'cmunbsr.ttf',  # CMUBright-SemiBold
-        'cmunbso.ttf',  # CMUBright-SemiBoldOblique
-        'cmunbsr.ttf',  # CMUBright-SemiBold
-        'cmunbso.ttf',  # CMUBright-SemiBoldOblique
-    )
+    """Fonts are families per https://cm-unicode.sourceforge.io/font_table.html"""
+    Family = tuple[str, str, str, str]
+    CMUTypewriter: Family = ('cmuntt.ttf', 'cmunit.ttf', 'cmuntb.ttf', 'cmuntx.ttf')
+    # = CMUTypewriter-Regular, CMUTypewriter-Italic, CMUTypewriter-Bold, CMUTypewriter-BoldItalic
+    CMUSansSerif: Family = ('cmunss.ttf', 'cmunsi.ttf', 'cmunsx.ttf', 'cmunso.ttf')
+    # = CMUSansSerif, CMUSansSerif-Oblique, CMUSansSerif-Bold, CMUSansSerif-BoldOblique
+    CMUConcrete: Family = ('cmunorm.ttf', 'cmunoti.ttf', 'cmunobx.ttf', 'cmunobi.ttf')
+    # = CMUConcrete-Roman, CMUConcrete-Italic, CMUConcrete-Bold, CMUConcrete-BoldItalic
+    CMUBright: Family = ('cmunbsr.ttf', 'cmunbso.ttf', 'cmunbsr.ttf', 'cmunbso.ttf')
+    # = CMUBright-SemiBold, CMUBright-SemiBoldOblique, CMUBright-SemiBold, CMUBright-SemiBoldOblique
+    # 'cmunbmr.ttf', 'cmunbmo.ttf',  # CMUBright-Roman, CMUBright-Oblique
 
     @classmethod
     @cache
-    def get_font(cls, font_family: str, fs: int, font_style: int):
+    def get_font(cls, font_family: Family, fs: int, font_style: int):
         font_name = font_family[font_style]
         return ImageFont.truetype(font_name, fs)
 
     @classmethod
-    def font_for(cls, font_family, font_size, font_style=FontStyle.REG, h_ratio=None):
-        """
-        :param [str] font_family: font filenames indexed by font_style
-        :param FontStyle font_style: font style
-        :param FontSize|int font_size: font size
-        :param h_ratio: proportion of requested font size to downsize by
-        :returns: FreeTypeFont
-        """
-        fs = font_size if isinstance(font_size, int) else font_size.value
+    def font_for(cls, font_family: Family, font_size, font_style=FontStyle.REG, h_ratio: float = None):
+        fs = font_size.value if isinstance(font_size, FontSize) else font_size
         if h_ratio and h_ratio != 1:
             fs = round(fs * h_ratio)
         return cls.get_font(font_family, fs, font_style.value)
@@ -140,7 +128,7 @@ class Style:
     """color for sub-decimal points"""
     bg_colors: dict = field(default_factory=dict)
     """background color overrides for particular scale keys"""
-    font_family: [str] = Font.CMUTypewriter
+    font_family: Font.Family = Font.CMUTypewriter
     overrides: dict[str, dict[str, object]] = field(default_factory=dict)
 
     def fg_col(self, element: str, is_increasing=True):
@@ -164,23 +152,13 @@ class Style:
         return Font.font_for(self.font_family, font_size, font_style, h_ratio)
 
     @staticmethod
-    def sym_dims(symbol, font):
-        """
-        Gets the size dimensions (width, height) of the input text
-        :param str symbol: the text
-        :param FreeTypeFont font: font
-        :returns: tuple[int, int]
-        """
+    def sym_dims(symbol: str, font: ImageFont) -> tuple[int, int]:
+        """Gets the size dimensions (width, height) of the input text"""
         (x1, y1, x2, y2) = font.getbbox(symbol)
         return x2 - x1, y2 - y1 + 20
 
     @classmethod
-    def sym_width(cls, symbol, font):
-        """
-        :param str symbol:
-        :param FreeTypeFont font:
-        :return: int
-        """
+    def sym_width(cls, symbol: str, font: ImageFont) -> int:
         (x1, _, x2, _) = font.getbbox(symbol)
         return x2 - x1
 
@@ -221,9 +199,7 @@ class RulePart(Enum):
 
 
 class Geometry:
-    """
-    Slide Rule Geometric Parameters
-    """
+    """Slide Rule Geometric Parameters"""
     oX: int = 100  # x margins
     oY: int = 100  # y margins
     side_w: int = 8000  # 30cm = 11.8in
@@ -397,17 +373,6 @@ class Geometry:
         return [(x1, x2, mid_y - y2, mid_y - y1) for (x1, x2, y1, y2) in vectors]
 
 
-class FontSize(Enum):
-    TITLE = 140
-    SUBTITLE = 120
-    SC_LBL = 90
-    N_XL = 75
-    N_LG = 60
-    N_MD = 55
-    N_SM = 45
-    N_XS = 35
-
-
 class Align(Enum):
     """Scale Alignment (ticks and labels against upper or lower bounds)"""
     UPPER = 'upper'  # Upper alignment
@@ -508,10 +473,8 @@ class Renderer:
     def draw_circle(self, xc, yc, r, col):
         self.r.ellipse((xc - r, yc - r, xc + r, yc + r), outline=pil_color(col))
 
-    def draw_tick(self, y_off, x, height, col, scale_h, al):
-        """
-        Places an individual tick, aligned to top or bottom of scale
-        """
+    def draw_tick(self, y_off: int, x: int, height: int, col, scale_h: int, al: Align):
+        """Places an individual tick, aligned to top or bottom of scale"""
         x0 = x + self.geometry.li - 2
         y0 = y_off
         if al == Align.LOWER:
@@ -615,14 +578,7 @@ class Renderer:
                   s.font_for(FontSize.N_XS, h_ratio=scale_hf) if sub_num and step3 == step_num // 10 else None),
                  (max_num_chars < 3, max_num_chars < 16, max_num_chars < 128))
 
-    def draw_symbol(self, symbol, color, x_left, y_top, font):
-        """
-        :param str symbol:
-        :param str|Colors color:
-        :param Number x_left:
-        :param Number y_top:
-        :param FreeTypeFont font:
-        """
+    def draw_symbol(self, symbol: str, color, x_left: float, y_top: float, font: ImageFont):
         color = pil_color(color)
         if '∡' in symbol:
             symbol = symbol.replace('∡', '')
@@ -720,14 +676,8 @@ class Renderer:
 
     # ----------------------4. Line Drawing Functions----------------------------
 
-    def draw_borders(self, y0, side, color=Colors.BLACK):
-        """
-        Place initial borders around scales
-        :param y0: vertical offset
-        :param Side side:
-        :param string|tuple color:
-        """
-
+    def draw_borders(self, y0: int, side: Side, color=Colors.BLACK.value):
+        """Place initial borders around scales"""
         # Main Frame
         total_w = self.geometry.total_w
         side_w = self.geometry.side_w
@@ -749,12 +699,8 @@ class Renderer:
         for horizontal_x in [half_stock_height + o_x, (total_w - half_stock_height) - o_x]:
             self.fill_rect(horizontal_x, y_start, 1, stator_h, color)
 
-    def draw_metal_cutoffs(self, y_off, side):
-        """
-        Use to temporarily view the metal bracket locations
-        :param int y_off: vertical offset
-        :param Side side:
-        """
+    def draw_metal_cutoffs(self, y_off: int, side: Side):
+        """Draw the metal bracket locations for viewing"""
         # Initial Boundary verticals
         g = self.geometry
         verticals = [g.cutoff_w + g.oX, g.total_w - g.cutoff_w - g.oX]
@@ -851,22 +797,16 @@ class BleedDir(Enum):
     DOWN = 'down'
 
 
-def extend(image, geom, y, direction, amplitude):
+def extend(image: Image, geom: Geometry, y: int, direction: BleedDir, amplitude: int):
     """
     Used to create bleed for sticker cutouts
-    :param Image.Image image:
-    :param Geometry geom:
-    :param int y: y pixel row to duplicate
-    :param BleedDir direction: direction
-    :param int amplitude: number of pixels to extend
+    y: pixel row to duplicate
+    amplitude: number of pixels to extend
     """
-
     w = geom.total_w
     for x in range(0, w):
         bleed_color = image.getpixel((x, y))
-
-        y_range = range(y - amplitude, y) if direction == BleedDir.UP else range(y, y + amplitude)
-        for yi in y_range:
+        for yi in range(y - amplitude, y) if direction == BleedDir.UP else range(y, y + amplitude):
             image.putpixel((x, yi), bleed_color)
 
 
@@ -1030,16 +970,15 @@ class Scale:
         return ((self.ex_end_value and self.frac_pos_of(self.ex_end_value) > 1 + self.min_overhang_frac)
                 or (self.ex_start_value and self.frac_pos_of(self.ex_start_value) < -self.min_overhang_frac))
 
-    def frac_pos_of(self, x, shift_adj=0):
+    def frac_pos_of(self, x, shift_adj=0) -> float:
         """
-        Generating Function for the Scales
-        :param Number x: the dependent variable
-        :param Number shift_adj: how much the scale is shifted, as a fraction of the scale
-        :return: float scaled so 0 and 1 are the left and right of the scale
+        Generating Function for the Scales, scaled so 0..1 is the left to right of the scale
+        :param float x: the dependent variable
+        :param float shift_adj: how much the scale is shifted, as a fraction of the scale
         """
         return self.shift + shift_adj + self.gen_fn(x)
 
-    def value_at_frac_pos(self, frac_pos, shift_adj=0) -> float:
+    def value_at_frac_pos(self, frac_pos: float, shift_adj=0) -> float:
         return self.pos_fn(frac_pos - self.shift - shift_adj)
 
     def value_at_start(self):
@@ -1074,15 +1013,15 @@ class Scale:
             self.offset_between(x_end - x_delta, x_end, scale_width=scale_width)
         )
 
-    def scale_to(self, x, scale_width, shift_adj=0):
+    def scale_to(self, x, scale_w, shift_adj=0) -> int:
         """
         Generating Function for the Scales
-        :param Number x: the dependent variable
-        :param Number shift_adj: how much the scale is shifted, as a fraction of the scale
-        :param int scale_width: number of pixels of scale width
-        :return: int number of pixels across to the result position
+        :param float x: the dependent variable
+        :param float shift_adj: how much the scale is shifted, as a fraction of its width
+        :param int scale_w: scale width in pixels
+        :returns: The number of pixels across to the result position
         """
-        return round(scale_width * self.frac_pos_of(x, shift_adj=shift_adj))
+        return round(scale_w * self.frac_pos_of(x, shift_adj=shift_adj))
 
     def grad_pat_default(self, r, y_off, al, extended=True):
         """graduated pattern, with as many defaults as can be inferred from the scale itself"""
@@ -1247,11 +1186,7 @@ class Layout:
         return [side_layout, '', '']
 
     @classmethod
-    def parse_side_layout(cls, layout):
-        """
-        :param str layout:
-        :return: dict[RulePart, [str]]
-        """
+    def parse_side_layout(cls, layout: str) -> dict[RulePart, [str]]:
         top_scales = None
         bottom_scales = None
         slide_scales = None
@@ -1315,7 +1250,7 @@ class Ruler:
     Also, tick placement is physically-oriented, so we need to avoid numeric error.
     """
     key: str = 'pt'
-    tick_pattern: tuple[int, int, int] = (2, 5, 1)
+    tick_pattern: TickFactors = (2, 5, 1)
     left_offset: float = 0.0
     """margin from left side of Geometry in units"""
     num_units: int = 25 * 72
@@ -1796,18 +1731,8 @@ class Mode(Enum):
     STICKERPRINT = 'stickerprint'
 
 
-def transcribe(src_img, dst_img, src_x, src_y, size_x, size_y, target_x, target_y):
-    """
-    Transfer a pixel rectangle from a SOURCE (for rendering) to DESTINATION (for stickerprint)
-    :param src_img: SOURCE of pixels
-    :param dst_img: DESTINATION of pixels
-    :param src_x: First corner of SOURCE
-    :param src_y: First corner of SOURCE
-    :param size_x: Width of SOURCE chunk to transcribe
-    :param size_y: Length of SOURCE chunk to transcribe
-    :param target_x: Target corner of DESTINATION
-    :param target_y: Target corner of DESTINATION
-    """
+def transcribe(src_img: Image.Image, dst_img: Image.Image, src_x, src_y, size_x, size_y, target_x, target_y):
+    """Transfer a pixel rectangle from a SOURCE (for rendering) to DESTINATION (for stickerprint)"""
     src_box = src_img.crop((src_x, src_y, src_x + size_x, src_y + size_y))
     dst_img.paste(src_box, (target_x, target_y))
 
