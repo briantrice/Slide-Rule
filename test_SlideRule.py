@@ -1,12 +1,12 @@
 import math
 import unittest
-from dataclasses import replace
+from dataclasses import replace, dataclass
 from unittest.mock import patch
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from SlideRule import (Scales, ScaleFNs, Layout, RulePart, Side, Align,
-                       Renderer, Layouts, Colors, Styles, Models,
+                       Renderer, Layouts, Colors, Models, Font, Style,
                        symbol_parts, symbol_with_expon,
                        last_digit_of, first_digit_of, render_diagnostic_mode)
 
@@ -324,16 +324,31 @@ class ModelTestCase(unittest.TestCase):
             RulePart.STATOR_BOTTOM: ['W1', 'LL1', 'LL2', 'LL3']})
 
 
+@dataclass(frozen=True)
+class MockFont:
+    size: int
+
+    def getbbox(self, symbol: str):
+        return 0, 0, self.size, self.size * 2 // 3 * len(symbol)
+
+
 class RendererTestCase(unittest.TestCase):
     def setUp(self):
-        self.mock_image = Image.new('RGB', (1, 1), Colors.WHITE.value)
+        self.tmp_image = Image.new('RGB', (1, 1), Colors.WHITE.value)
+        self.mock_get_font = patch.object(Font, 'get_font', return_value=MockFont(72))
+        self.mock_get_font.start()
 
-    def xtest_pat_auto(self):
+    def tearDown(self):
+        self.mock_get_font.stop()
+
+    def test_pat_auto(self):
         with patch.object(Renderer, 'pat', return_value=None) as mock_pat:
-            r = Renderer.make(self.mock_image, Models.Demo.geometry, Styles.Default)
+            r = Renderer.make(self.tmp_image,
+                              Models.Demo.geometry,
+                              Style(font_family=(None, None, None, None)))
             Scales.LL3.grad_pat_default(r, 0, Align.LOWER)
-            self.assertEquals(r.pat.call_count, len(Scales.LL3.dividers) + 1)
-            call_args_list = [(args[3:8]) for (args, _) in r.pat.call_args_list]
+            self.assertEquals(mock_pat.call_count, len(Scales.LL3.dividers) + 1)
+            call_args_list = [(args[3:8]) for (args, _) in mock_pat.call_args_list]
             th1 = (70, 35, 35, 18)
             th2 = (70, 35, 18, 18)
             self.assertListEqual(call_args_list, [
@@ -349,7 +364,17 @@ class RendererTestCase(unittest.TestCase):
 
 
 class ScaleGenTestCase(unittest.TestCase):
-    def xtest_scales(self):
+    def setUp(self):
+        self.mock_get_font = patch.object(Font, 'get_font', return_value=MockFont(72))
+        self.mock_draw_text = patch.object(ImageDraw.ImageDraw, 'text', return_value=None)
+        self.mock_get_font.start()
+        self.mock_draw_text.start()
+
+    def tearDown(self):
+        self.mock_get_font.stop()
+        self.mock_draw_text.stop()
+
+    def test_scales(self):
         test_model = replace(Models.Demo, layout=Layouts.MannheimOriginal)
         test_image = render_diagnostic_mode(test_model, all_scales=True)
         self.assertEquals(test_image.width, 7000)
