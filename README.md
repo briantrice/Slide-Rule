@@ -2,6 +2,10 @@
 
 This Python 3 application helps generate complete slide rule patterns.
 
+This is via:
+- [Javier Lopez: Slide Rule for the Modern Day](https://jlopezengineer.com/home/sliderule)
+- [Instructables: A Vintage Calculator for the Modern Day](https://www.instructables.com/Slide-Rule-for-the-Modern-Day/)
+
 [![Python application](https://github.com/briantrice/Slide-Rule/actions/workflows/python-app.yml/badge.svg)](https://github.com/briantrice/Slide-Rule/actions/workflows/python-app.yml)
 
 ## Running
@@ -19,6 +23,7 @@ python3 -m pip install -r requirements.txt
 
 An installation of two fonts: `cmuntt.ttf` and `cmunit.ttf` (part of the infamous LaTeX fonts)
   - These can be found at: https://www.freebestfonts.com/computer-modern-font
+  - Install all of them if you want different typesetting options.
 
 ```wp-cli
 usage: SlideRule.py [-h] [--mode {render,diagnostic,stickerprint}]
@@ -54,7 +59,7 @@ The produced images are also saved.
 ## Troubleshooting
 - If you have trouble finding them, look in the location where your program is (that seemed to work for me)
 - `render` and `diagnostic` modes takes around 2 seconds to run, but the `stickerprint` mode usually takes 3 seconds to run.
-- If you run across issues, comment on Instructables or here, and I will attempt to explain myself.
+- If you run across issues, comment on [Javier Lopez' Instructables article](https://www.instructables.com/Slide-Rule-for-the-Modern-Day/) or here, and I will attempt to explain myself.
 
 The Excel file attached can help convert between pixels, inches, and millimeters when the slide rule is being built out of physical material.
 
