@@ -6,9 +6,9 @@ from unittest.mock import patch
 from PIL import Image, ImageDraw
 
 from SlideRule import (Scales, ScaleFNs, Layout, RulePart, Side, Align,
-                       Renderer, Layouts, Colors, Models, Font, Style,
-                       symbol_parts, symbol_with_expon,
-                       last_digit_of, first_digit_of, render_diagnostic_mode)
+                       Renderer, Layouts, Colors, Models, Font, Style, Mode,
+                       symbol_parts, symbol_with_expon, last_digit_of, first_digit_of, keys_of,
+                       render_diagnostic_mode, render_sliderule_mode)
 
 scale_base = ScaleFNs.Base
 
@@ -374,11 +374,23 @@ class ScaleGenTestCase(unittest.TestCase):
         self.mock_get_font.stop()
         self.mock_draw_text.stop()
 
-    def test_scales(self):
+    def test_mannheim_scales(self):
         test_model = replace(Models.Demo, layout=Layouts.MannheimOriginal)
         test_image = render_diagnostic_mode(test_model, all_scales=True)
         self.assertEquals(test_image.width, 7000)
         self.assertGreater(test_image.height, 3000)
+
+    def test_all_normalized_scales(self):
+        test_model = replace(Models.Demo, layout=Layout(' '.join(keys_of(Scales))))
+        test_image = render_diagnostic_mode(test_model, all_scales=True)
+        self.assertEquals(test_image.width, 7000)
+        self.assertGreater(test_image.height, 3000)
+
+    def test_demo_model(self):
+        model = Models.Demo
+        sliderule_img = render_sliderule_mode(model, Mode.RENDER)
+        self.assertEquals(sliderule_img.width, 8200)
+        self.assertGreater(sliderule_img.height, 3000)
 
 
 if __name__ == '__main__':
