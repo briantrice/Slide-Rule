@@ -1276,7 +1276,7 @@ class Ruler:
         sym_col = r.style.fg_col(self.key, is_increasing=self.is_increasing)
         tenth_col = r.style.decimal_color
         i_sf = self.tick_pattern[0] * self.tick_pattern[1] * self.tick_pattern[2]
-        step1, step2, step3, _ = t_s(i_sf, *self.tick_pattern)
+        step1, step2, step3, _ = t_s(i_sf, self.tick_pattern)
         num_units = min(self.num_units, int(g.side_w / self.pixels_per_unit - self.left_offset))
         for i in range(0, num_units * i_sf + 1):
             num = i / i_sf
