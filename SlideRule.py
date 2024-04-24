@@ -1202,14 +1202,13 @@ class Layout:
                 (top_scales, slide_scales, bottom_scales) = major_parts
         return {RulePart.STATOR_TOP: top_scales, RulePart.SLIDE: slide_scales, RulePart.STATOR_BOTTOM: bottom_scales}
 
-    def sc_keys_at(self, side: Side, part: RulePart):
-        return self.sc_keys[side][part]
+    def sc_keys_at(self, side: Side, part: RulePart, fallback=None):
+        return self.sc_keys[side].get(part, fallback) or fallback
 
     def sc_keys_in_order(self):
         for side in Side:
             for part in RulePart:
-                for sc_key in self.sc_keys_at(side, part) or ():
-                    yield sc_key
+                yield from self.sc_keys_at(side, part, [])
 
     def check_scales(self):
         for scale_name in self.sc_keys_in_order():
