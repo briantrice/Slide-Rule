@@ -1636,6 +1636,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         is_tan = sc.scaler in {ScaleFNs.Tan, ScaleFNs.CoTan}
         ths_y = (th_xl, th_xl, th_sm, th_xs)
         ths_z = (th_xl, th_sm, th_xs, th_xs)
+        sc_t = Scales.S if sc.scaler == ScaleFNs.CoSin else sc
         if is_tan:
             fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
             fpe += 1
@@ -1643,27 +1644,27 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
             r.pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, (5, 5, 1)), (th_xl, th_med, th_xs, th_xs), r.no_fonts, True)
         else:
-            fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, 90))
+            fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, DEG_RT))
             fpe += 1
-            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
-            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, (5, 5, 1)), ths_z, r.no_fonts, True)
-            r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf * 10, TF_BY_MIN[20]), ths_y, r.no_fonts, True)
-            r.pat(y_off, sc, al, fp4, fp5, sf, t_s(sf * 10, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
-            r.pat(y_off, sc, al, fp5, fpe, sf, t_s(sf * 10, TF_BY_MIN[2]), ths1, r.no_fonts, True)
+            r.pat(y_off, sc_t, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
+            r.pat(y_off, sc_t, al, fp2, fp3, sf, t_s(sf * 5, (5, 5, 1)), ths_z, r.no_fonts, True)
+            r.pat(y_off, sc_t, al, fp3, fp4, sf, t_s(sf * 10, TF_BY_MIN[20]), ths_y, r.no_fonts, True)
+            r.pat(y_off, sc_t, al, fp4, fp5, sf, t_s(sf * 10, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
+            r.pat(y_off, sc_t, al, fp5, fpe, sf, t_s(sf * 10, TF_BY_MIN[2]), ths1, r.no_fonts, True)
 
         # Degree Labels
         f = geom.STH * 1.1 if is_tan else th_med
         range1 = range(6, 16)
         range2 = range(16, 21)
-        alt_col = style.fg_col(sc_alt.key, is_increasing=not sc_alt.is_increasing)
+        alt_col = style.fg_col(sc_alt.key, is_increasing=sc_alt.is_increasing)
         for x in chain(range1, range2, range(25, 41, 5), () if is_tan else range(50, 80, 10)):
             f_l = f_md2_i if x in range1 else f_mdn_i
             f_r = f_md2 if x in range1 else f_mdn
-            x_coord = sc.pos_of(x, geom) + 1.2 / 2 * style.sym_width(str(x), f_l)
+            x_coord = sc_t.pos_of(x, geom) + 1.2 / 2 * style.sym_width(str(x), f_l)
             r.draw_numeral(x, y_off, sym_col, scale_h, x_coord, f, f_r, al)
             if x not in range2:
                 xi = angle_opp(x)
-                x_coord_opp = sc.pos_of(x, geom) - 1.4 / 2 * style.sym_width(str(xi), f_l)
+                x_coord_opp = sc_t.pos_of(x, geom) - 1.4 / 2 * style.sym_width(str(xi), f_l)
                 r.draw_numeral(xi, y_off, alt_col, scale_h, x_coord_opp, f, f_l, al)
 
         r.draw_numeral(45 if is_tan else DEG_RT, y_off, sym_col, scale_h, scale_w, f, f_lgn, al)
