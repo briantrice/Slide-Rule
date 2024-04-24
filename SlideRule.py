@@ -673,7 +673,7 @@ class Renderer:
         g = self.geometry
         x = sc.scale_to(mark.value, g.SL, shift_adj=shift_adj)
         scale_h = g.scale_h(sc, side=side)
-        tick_h = g.tick_h(HMod.MED, h_ratio=g.scale_h_ratio(sc, side=side))
+        tick_h = g.tick_h(HMod.XL, h_ratio=g.scale_h_ratio(sc, side=side))
         self.draw_tick(y_off, x, tick_h, col, scale_h, al)
         self.draw_sym_al(mark.sym, y_off, col, scale_h, x, tick_h, font, al)
 
