@@ -110,7 +110,7 @@ class Font:
 
     @classmethod
     def font_for(cls, font_family: Family, font_size, font_style=FontStyle.REG, h_ratio: float = None):
-        fs = font_size.value if isinstance(font_size, FontSize) else font_size
+        fs: int = font_size.value if isinstance(font_size, FontSize) else font_size
         if h_ratio and h_ratio != 1:
             fs = round(fs * h_ratio)
         return cls.get_font(font_family, fs, font_style.value)
@@ -440,6 +440,7 @@ TF_BY_MIN: dict[int, TickFactors] = {  # Best tick subdivision pattern for a giv
     1: (1, 1, 1)
 }
 TF_MIN = sorted(TF_BY_MIN.keys(), reverse=True)
+TF_BIN: TickFactors = (4, 4, 4)
 
 
 def t_s(s1: int, f: TickFactors):
@@ -1249,13 +1250,13 @@ class Ruler:
     Like a scale, it has a tick pattern. Unlike a scale, it only aligns with the geometry itself.
     Also, tick placement is physically-oriented, so we need to avoid numeric error.
     """
-    key: str = 'pt'
-    tick_pattern: TickFactors = (2, 5, 1)
+    key: str = 'px'
+    tick_pattern: TickFactors = TF_BY_MIN[1]
     left_offset: float = 0.0
     """margin from left side of Geometry in units"""
-    num_units: int = 25 * 72
+    num_units: int = 1000
     """number of units to show; should be generated or at least limited from geometry"""
-    pixels_per_unit: float = Geometry.PixelsPerIN * 72
+    pixels_per_unit: float = 1
 
     def pos_of(self, x_cm):
         return (self.left_offset + x_cm) * self.pixels_per_unit
@@ -1296,10 +1297,10 @@ class Ruler:
 
 
 class Rulers:
-    PT = Ruler()
-    CM = Ruler('cm', (2, 5, 2), 1.5, 30, Geometry.PixelsPerCM)
-    IN_DEC = Ruler('in', (2, 5, 4), 0.5, 12, Geometry.PixelsPerIN)
-    IN_BIN = Ruler('in', (4, 4, 4), 0.5, 12, Geometry.PixelsPerIN)
+    PT = Ruler('pt', TF_BY_MIN[10], num_units=25 * 72, pixels_per_unit=Geometry.PixelsPerIN // 72)
+    CM = Ruler('cm', TF_BY_MIN[20], 1.5, 30, Geometry.PixelsPerCM)
+    IN_DEC = Ruler('in', TF_BY_MIN[50], 0.5, 12, Geometry.PixelsPerIN)
+    IN_BIN = Ruler('in', TF_BIN, 0.5, 12, Geometry.PixelsPerIN)
     IN = IN_DEC
 
 
