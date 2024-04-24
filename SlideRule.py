@@ -78,6 +78,7 @@ class FontSize(Enum):
     N_XL = 75
     N_LG = 60
     N_MD = 55
+    N_MD2 = 50
     N_SM = 45
     N_XS = 35
 
@@ -1523,8 +1524,8 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     f_mdn = style.font_for(FontSize.N_MD, h_ratio=scale_h_ratio)
     f_smn = style.font_for(FontSize.N_SM, h_ratio=scale_h_ratio)
     f_mdn_i = style.font_for(FontSize.N_MD, h_ratio=scale_h_ratio, italic=True)
-    f_md2 = style.font_for(50, h_ratio=scale_h_ratio)
-    f_md2_i = style.font_for(50, h_ratio=scale_h_ratio, italic=True)
+    f_md2 = style.font_for(FontSize.N_MD2, h_ratio=scale_h_ratio)
+    f_md2_i = style.font_for(FontSize.N_MD2, h_ratio=scale_h_ratio, italic=True)
 
     li = geom.li
     scale_w = geom.SL
