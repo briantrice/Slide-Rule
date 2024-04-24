@@ -1820,12 +1820,6 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
     y_front_start = geom.oY
     r = Renderer.make(sliderule_img, geom, model.style)
     y_rear_start = y_front_start + geom.side_h + geom.oY
-    if render_mode == Mode.RENDER:
-        for side in Side:
-            y0 = y_front_start if side == Side.FRONT else y_rear_start
-            r.draw_borders(y0, side)
-            if render_cutoffs:
-                r.draw_metal_cutoffs(y0, side)
     # Front Scale
     # Titling
     style = model.style
@@ -1865,6 +1859,13 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
         y_off = y_rear_start
         y_side_start = y_rear_start
         y_off += geom.top_margin
+    # Borders and (optionally) cutoffs
+    if render_mode == Mode.RENDER:
+        for side in Side:
+            y0 = y_front_start if side == Side.FRONT else y_rear_start
+            r.draw_borders(y0, side)
+            if render_cutoffs:
+                r.draw_metal_cutoffs(y0, side)
     return sliderule_img
 
 
