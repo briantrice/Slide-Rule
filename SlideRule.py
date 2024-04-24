@@ -148,8 +148,8 @@ class Style:
     def numeral_decimal_color(self):
         return self.decimal_color
 
-    def font_for(self, font_size, font_style=FontStyle.REG, h_ratio=None):
-        return Font.font_for(self.font_family, font_size, font_style, h_ratio)
+    def font_for(self, font_size, h_ratio=None, italic=False):
+        return Font.font_for(self.font_family, font_size, FontStyle.ITALIC if italic else FontStyle.REG, h_ratio)
 
     @staticmethod
     def sym_dims(symbol: str, font: ImageFont) -> tuple[int, int]:
@@ -1518,16 +1518,15 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     scale_h_ratio = geom.scale_h_ratio(sc, side=side)
 
     # Place Index Symbols (Left and Right)
-    italic = FontStyle.ITALIC
     f_lbl = style.font_for(FontSize.SC_LBL if scale_h > FontSize.SC_LBL.value * 1.5 else scale_h // 2)
     f_lbl_s = style.font_for(FontSize.N_XL if scale_h > FontSize.N_XL.value * 2 else scale_h // 2)
     f_xln = style.font_for(FontSize.N_XL, h_ratio=scale_h_ratio)
     f_lgn = style.font_for(FontSize.N_LG, h_ratio=scale_h_ratio)
     f_mdn = style.font_for(FontSize.N_MD, h_ratio=scale_h_ratio)
     f_smn = style.font_for(FontSize.N_SM, h_ratio=scale_h_ratio)
-    f_mdn_i = style.font_for(FontSize.N_MD, font_style=italic, h_ratio=scale_h_ratio)
+    f_mdn_i = style.font_for(FontSize.N_MD, h_ratio=scale_h_ratio, italic=True)
     f_md2 = style.font_for(50, h_ratio=scale_h_ratio)
-    f_md2_i = style.font_for(50, font_style=italic, h_ratio=scale_h_ratio)
+    f_md2_i = style.font_for(50, h_ratio=scale_h_ratio, italic=True)
 
     li = geom.li
     scale_w = geom.SL
