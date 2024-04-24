@@ -21,14 +21,15 @@ An installation of two fonts: `cmuntt.ttf` and `cmunit.ttf` (part of the infamou
   - These can be found at: https://www.freebestfonts.com/computer-modern-font
 
 ```wp-cli
-usage: SlideRule.py [-h] [--mode {render,diagnostic,stickerprint}] [--model {Aristo868,Demo,EV,FaberCastell283,FaberCastell283N,Graphoplex621,MannheimOriginal,PickettN515T}] [--suffix SUFFIX] [--test]
-                    [--cutoffs] [--debug]
+usage: SlideRule.py [-h] [--mode {render,diagnostic,stickerprint}]
+                    [--model {Aristo868,Aristo965,Demo,FaberCastell283,FaberCastell283N,Graphoplex621,MannheimOriginal,MannheimWithRuler,PickettN515T,Ruler}]
+                    [--suffix SUFFIX] [--test] [--cutoffs] [--debug]
 
 optional arguments:
   -h, --help            show this help message and exit
   --mode {render,diagnostic,stickerprint}
                         What to render
-  --model {Aristo868,Demo,EV,FaberCastell283,FaberCastell283N,Graphoplex621,MannheimOriginal,PickettN515T}
+  --model {Aristo868,Aristo965,Demo,FaberCastell283,FaberCastell283N,Graphoplex621,MannheimOriginal,MannheimWithRuler,PickettN515T,Ruler}
                         Which sliderule model
   --suffix SUFFIX       Output filename suffix for variations
   --test                Output filename for test comparisons
