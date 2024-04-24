@@ -1822,18 +1822,14 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
     y_rear_start = y_front_start + geom.side_h + geom.oY
     # Front Scale
     # Titling
-    style = model.style
-    f_lbl = style.font_for(FontSize.SC_LBL)
-    side_w_q = geom.side_w // 4
-    li = geom.li
     y_off = y_side_start = y_front_start
     if model == Models.Demo:
-        upper = Align.UPPER
         y_off_titling = 25 + y_off
         title_col = Colors.RED
-        r.draw_sym_al(model.name, y_off_titling, title_col, 0, side_w_q - li, 0, f_lbl, upper)
-        r.draw_sym_al(model.subtitle, y_off_titling, title_col, 0, side_w_q * 2 - li + geom.oX, 0, f_lbl, upper)
-        r.draw_sym_al(model.brand, y_off_titling, title_col, 0, side_w_q * 3 - li, 0, f_lbl, upper)
+        f_lbl = model.style.font_for(FontSize.SC_LBL)
+        side_w_q = geom.side_w // 4
+        for sym, x in ((model.name, side_w_q), (model.subtitle, side_w_q * 2 + geom.oX), (model.brand, side_w_q * 3)):
+            r.draw_sym_al(sym, y_off_titling, title_col, 0, x - geom.li, 0, f_lbl, Align.UPPER)
         y_off = y_off_titling + f_lbl.size
     # Scales
     for side in Side:
