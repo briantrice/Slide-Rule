@@ -1577,9 +1577,10 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     ths4 = (th_med, th_xl, th_sm, th_dot)
     ths5 = (th_med, th_med, th_sm, th_xs)
     sf = 1000  # Reflects the minimum significant figures needed for standard scales to avoid FP inaccuracy
+    digits2 = (True, True, False)
     if (sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse}) and sc.shift == 0:  # C/D and CI/DI
         fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, digits2)
         r.pat(y_off, sc, al, fp2, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, False)
         r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths1, fonts_lbl, True)
     elif sc.scaler == ScaleFNs.Square or sc == Scales.BI:
@@ -1599,7 +1600,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     elif sc == Scales.R1:
         fp1, fp2, fpe = (int(fp * sf) for fp in (1, 2, 3.17))
         r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf // 10, TF_BY_MIN[20]), ths1, r.no_fonts, True)
-        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[100]), ths5, fonts2, True)
+        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[100]), ths5, fonts2, digits2)
 
         # 1-10 Labels
         for x in range(1, 2):
@@ -1610,8 +1611,8 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     elif sc == Scales.R2:
         fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, True)
-        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, digits2)
+        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, digits2)
 
     elif (sc.scaler == ScaleFNs.Base and sc.shift == pi_fold_shift) or sc == Scales.CIF:  # CF/DF/CIF
         is_cif = sc == Scales.CIF
@@ -1619,10 +1620,10 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         i1 = sf // TEN
         fp2, fp3, fp4 = (fp * i1 for fp in (4, 10, 20))
         fpe = int(3.2 * sf) if is_cif else fp1 * TEN
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(i1, TF_BY_MIN[50]), ths1, fonts_lbl, True)
-        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(i1, TF_BY_MIN[20]), ths1, fonts_lbl, True)
-        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, True)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(i1, TF_BY_MIN[50]), ths1, fonts_lbl, digits2)
+        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(i1, TF_BY_MIN[20]), ths1, fonts_lbl, digits2)
+        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, digits2)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, digits2)
 
     elif sc == Scales.L:
         r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, t_s(sf, TF_BY_MIN[50]),
@@ -1721,7 +1722,7 @@ def sig_digit_of(num):
     if not (num > 0 and math.log10(num).is_integer()):
         if num % 10 == 0:
             num = first_digit_of(num)
-        elif num < 1:
+        else:
             num = last_digit_of(num)
     else:
         num = first_digit_of(num)
