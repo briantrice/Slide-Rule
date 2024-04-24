@@ -461,6 +461,8 @@ class Renderer:
     geometry: Geometry = None
     style: Style = None
 
+    no_fonts = (None, None, None)
+
     @classmethod
     def make(cls, i: Image.Image, g: Geometry, s: Style):
         return cls(ImageDraw.Draw(i), g, s)
@@ -1576,7 +1578,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     ths3 = (th_med, th_sm, th_sm, th_xs)
     ths4 = (th_med, th_xl, th_sm, th_dot)
     ths5 = (th_med, th_med, th_sm, th_xs)
-    fonts_no = (None, None, None)
     sf = 1000  # Reflects the minimum significant figures needed for standard scales to avoid FP inaccuracy
     if (sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse}) and sc.shift == 0:  # C/D and CI/DI
         fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
@@ -1599,7 +1600,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     elif sc == Scales.R1:
         fp1, fp2, fpe = (int(fp * sf) for fp in (1, 2, 3.17))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf // 10, TF_BY_MIN[20]), ths1, fonts_no, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf // 10, TF_BY_MIN[20]), ths1, r.no_fonts, True)
         r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[100]), ths5, fonts2, True)
 
         # 1-10 Labels
@@ -1626,7 +1627,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, True)
 
     elif sc == Scales.L:
-        r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, t_s(sf, TF_BY_MIN[50]), (th_lg, th_xl, th_med, th_xs), fonts_no, True)
+        r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, t_s(sf, TF_BY_MIN[50]), (th_lg, th_xl, th_med, th_xs), r.no_fonts, True)
         for x in range(0, 11):
             r.draw_numeral(x / 10, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
 
@@ -1637,17 +1638,17 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         if is_tan:
             fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
             fpe += 1
-            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[20]), ths_y, fonts_no, True)
-            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[10]), ths_z, fonts_no, True)
-            r.pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, (5, 5, 1)), (th_xl, th_med, th_xs, th_xs), fonts_no, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[20]), ths_y, r.no_fonts, True)
+            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
+            r.pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, (5, 5, 1)), (th_xl, th_med, th_xs, th_xs), r.no_fonts, True)
         else:
             fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, 90))
             fpe += 1
-            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[10]), ths_z, fonts_no, True)
-            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, (5, 5, 1)), ths_z, fonts_no, True)
-            r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf * 10, TF_BY_MIN[20]), ths_y, fonts_no, True)
-            r.pat(y_off, sc, al, fp4, fp5, sf, t_s(sf * 10, TF_BY_MIN[10]), ths_z, fonts_no, True)
-            r.pat(y_off, sc, al, fp5, fpe, sf, t_s(sf * 10, TF_BY_MIN[2]), ths1, fonts_no, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
+            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf * 5, (5, 5, 1)), ths_z, r.no_fonts, True)
+            r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf * 10, TF_BY_MIN[20]), ths_y, r.no_fonts, True)
+            r.pat(y_off, sc, al, fp4, fp5, sf, t_s(sf * 10, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
+            r.pat(y_off, sc, al, fp5, fpe, sf, t_s(sf * 10, TF_BY_MIN[2]), ths1, r.no_fonts, True)
 
         # Degree Labels
         f = geom.STH * 1.1 if is_tan else th_med
@@ -1673,10 +1674,10 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     elif sc == Scales.ST:
         fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.57, 1, 2, 4, 5.8))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, (20, 5, 2)), ths1, fonts_no, True)
-        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[100]), ths5, fonts_no, True)
-        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths5, fonts_no, True)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths5, fonts_no, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, (20, 5, 2)), ths1, r.no_fonts, True)
+        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[100]), ths5, r.no_fonts, True)
+        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths5, r.no_fonts, True)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths5, r.no_fonts, True)
 
         # Degree Labels
         r.draw_sym_al('1°', y_off, sym_col, scale_h, sc.pos_of(1, geom), th_med, f_lbl, al)
