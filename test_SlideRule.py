@@ -6,7 +6,7 @@ from unittest.mock import patch
 from PIL import Image, ImageDraw
 
 from SlideRule import (Scales, ScaleFNs, Layout, RulePart, Side, Align,
-                       Renderer, Layouts, Colors, Models, Font, Style, Mode,
+                       Renderer, Layouts, Colors, Models, Font, Style,
                        symbol_parts, symbol_with_expon, last_digit_of, first_digit_of, keys_of,
                        render_diagnostic_mode, render_sliderule_mode)
 
@@ -386,7 +386,7 @@ class ScaleGenTestCase(unittest.TestCase):
 
     def test_demo_model(self):
         model = Models.Demo
-        sliderule_img = render_sliderule_mode(model, Mode.RENDER)
+        sliderule_img = render_sliderule_mode(model, borders=True)
         self.assertEquals(sliderule_img.width, 8200)
         self.assertGreater(sliderule_img.height, 3000)
 

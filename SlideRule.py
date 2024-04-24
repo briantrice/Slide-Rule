@@ -1794,7 +1794,8 @@ def main():
 
     sliderule_img = None
     if render_mode in {Mode.RENDER, Mode.STICKERPRINT}:
-        sliderule_img = render_sliderule_mode(model, render_mode, sliderule_img, render_cutoffs=render_cutoffs)
+        sliderule_img = render_sliderule_mode(model, sliderule_img,
+                                              borders=render_mode == Mode.RENDER, cutoffs=render_cutoffs)
         print(f'Slide Rule render finished at: {round(time.time() - start_time, 2)} seconds')
         if render_mode == Mode.RENDER:
             save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
@@ -1812,7 +1813,7 @@ def main():
     print(f'Program finished at: {round(time.time() - start_time, 2)} seconds')
 
 
-def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, render_cutoffs: bool = False):
+def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = False, cutoffs: bool = False):
     if not sliderule_img:
         sliderule_img = image_for_rendering(model)
     geom = model.geometry
@@ -1856,11 +1857,11 @@ def render_sliderule_mode(model: Model, render_mode: Mode, sliderule_img=None, r
         y_side_start = y_rear_start
         y_off += geom.top_margin
     # Borders and (optionally) cutoffs
-    if render_mode == Mode.RENDER:
+    if borders:
         for side in Side:
             y0 = y_front_start if side == Side.FRONT else y_rear_start
             r.draw_borders(y0, side)
-            if render_cutoffs:
+            if cutoffs:
                 r.draw_metal_cutoffs(y0, side)
     return sliderule_img
 
