@@ -889,8 +889,9 @@ class ScaleFNs:
     CubeRoot = ScaleFN(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3), min_x=ε)
     Log10 = ScaleFN(lambda x: x / TEN, lambda p: p * TEN, min_x=ε)
     Ln = ScaleFN(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN, min_x=ε)
-    Sin = ScaleFN(lambda x: gen_base(TEN * math.sin(math.radians(x))), math.asin)
-    CoSin = ScaleFN(lambda x: gen_base(TEN * math.cos(math.radians(x))), math.acos, is_increasing=False)
+    Sin = ScaleFN(lambda x: gen_base(TEN * math.sin(math.radians(x))), lambda p: math.asin(pos_base(p)))
+    CoSin = ScaleFN(lambda x: gen_base(TEN * math.cos(math.radians(x))), lambda p: math.acos(pos_base(p)),
+                    is_increasing=False)
     Tan = ScaleFN(lambda x: gen_base(TEN * math.tan(math.radians(x))), lambda p: math.atan(pos_base(p)))
     SinTan = ScaleFN(lambda x: scale_sin_tan_radians(math.radians(x)), lambda p: math.atan(pos_base(p)))
     SinTanRadians = ScaleFN(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))), min_x=1e-5)
