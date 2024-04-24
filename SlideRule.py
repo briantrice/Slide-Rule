@@ -577,7 +577,8 @@ class Renderer:
                      g.tick_h(HMod.XS, scale_hf) if step4 < step3 else dot_th,
                      dot_th),
                  (num_font,
-                  s.font_for(FontSize.N_SM, h_ratio=scale_hf) if sub_num and step2 == step_num // 10 or step2 == step_num // 2 else None,
+                  s.font_for(FontSize.N_SM, h_ratio=scale_hf) if (sub_num and step2 == step_num // 10
+                                                                  or step2 == step_num // 2) else None,
                   s.font_for(FontSize.N_XS, h_ratio=scale_hf) if sub_num and step3 == step_num // 10 else None),
                  (max_num_chars < 3, max_num_chars < 16, max_num_chars < 128))
 
@@ -1627,7 +1628,8 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, True)
 
     elif sc == Scales.L:
-        r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, t_s(sf, TF_BY_MIN[50]), (th_lg, th_xl, th_med, th_xs), r.no_fonts, True)
+        r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, t_s(sf, TF_BY_MIN[50]),
+              (th_lg, th_xl, th_med, th_xs), r.no_fonts, True)
         for x in range(0, 11):
             r.draw_numeral(x / 10, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
 
