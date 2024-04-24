@@ -287,13 +287,11 @@ class Geometry:
         """minimum tick horizontal offset"""
         return self.STT * 3  # separate each tick by at least the space of its width
 
-    def tick_h(self, h_mod: HMod = None, h_ratio=None) -> int:
-        result = self.STH
-        if h_mod:
-            result *= h_mod.value
+    def tick_h(self, h_mod: HMod, h_ratio=None) -> int:
+        result = self.STH * h_mod.value
         if h_ratio and h_ratio != 1:
             result *= h_ratio
-        return round(result)
+        return math.ceil(result)
 
     def edge_h(self, part: RulePart, top):
         if part == RulePart.STATOR_TOP:
