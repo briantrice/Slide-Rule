@@ -1372,7 +1372,7 @@ class Models:
                              Layouts.MannheimOriginal)
 
     Ruler = replace(MannheimOriginal,
-                    layout=Layout('IN [] CM'))
+                    layout=Layout('IN_DEC [IN_BIN] CM'))
     MannheimWithRuler = replace(MannheimOriginal,
                                 layout=Layout('A/B C/D', 'IN [] CM'))
 
