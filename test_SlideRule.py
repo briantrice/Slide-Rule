@@ -373,7 +373,7 @@ class ScaleGenTestCase(unittest.TestCase):
         self.mock_draw_text.stop()
 
     def test_mannheim_scales(self):
-        test_model = replace(Models.Demo, layout=Layouts.MannheimOriginal)
+        test_model = replace(Models.Demo, layout=Models.MannheimOriginal.layout)
         test_image = render_diagnostic_mode(test_model, all_scales=True)
         self.assertEquals(test_image.width, 7000)
         self.assertGreater(test_image.height, 3000)
