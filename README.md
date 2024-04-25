@@ -15,6 +15,10 @@ To run the program, you can download the one file as:
 ```shell
 python3 -m pip install Pillow
 ```
+- Install TOML via:
+```shell
+python3 -m pip install toml
+```
 
 Or clone this git repository locally and install per the requirements file as:
 ```shell
