@@ -1,0 +1,13 @@
+brand = 'Pickett'
+name = 'N-515-T'
+[geometry]
+side_wh = [8000, 2000]  # 30cm (8000px) x 7.5cm (2000px)
+margins_xy = [100, 100]
+slide_h = 800  # scale_h * 5 = 1.7cm (480px)
+[layout]
+front = 'L_r f_x A/B S T CI C/D L Ln'
+[layout.align_overrides]
+front = { P2 = 'upper' }
+[style]
+font_family = 'CMUBright'
+bg = 'PICKETT_EYE_SAVER_YELLOW'

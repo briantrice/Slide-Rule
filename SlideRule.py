@@ -182,10 +182,6 @@ class Style:
 
 class Styles:
     Default = Style()
-    PickettEyeSaver = Style(
-        font_family=Font.CMUBright,
-        bg=Colors.PICKETT_EYE_SAVER_YELLOW
-    )
     Graphoplex = Style(
         font_family=Font.CMUBright,
         decimal_color=Colors.LIGHT_BLUE
@@ -1409,17 +1405,7 @@ class Models:
 
     Aristo868 = Model.from_toml_file('examples/Model-Aristo868.toml')
     Aristo965 = Model.from_toml_file('examples/Model-Aristo965.toml')
-
-    PickettN515T = Model('Pickett', '', 'N-515-T',
-                         Geometry((8000, 2000),
-                                  (100, 100),
-                                  Geometry.DEFAULT_SCALE_WH,
-                                  Geometry.DEFAULT_TICK_WH,
-                                  Geometry.SH * 5),
-                         Layout(
-                             'L_r f_x A/B S T CI C/D L Ln', ''
-                         ),
-                         Styles.PickettEyeSaver)
+    PickettN515T = Model.from_toml_file('examples/Model-PickettN515T.toml')
     FaberCastell283 = Model('Faber-Castell', '', '2/83',
                             Geometry((8800, 1280),  # 33cm (px) x 4.8cm (1280px)
                                      (100, 100),
