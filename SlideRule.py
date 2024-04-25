@@ -129,7 +129,7 @@ class Style:
     """color for a decreasing value scale"""
     decimal_color: Colors = Colors.BLACK
     """color for sub-decimal points"""
-    bg_colors: dict = field(default_factory=dict)
+    bg_colors: dict[str, Colors] = field(default_factory=dict)
     """background color overrides for particular scale keys"""
     font_family: Font.Family = Font.CMUTypewriter
     overrides: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -146,6 +146,9 @@ class Style:
                 for attr, value in v.items():
                     if attr == 'color':
                         style_def['overrides'][k][attr] = getattr(Colors, value.upper())
+        if 'bg_colors' in style_def:
+            for k, v in style_def['bg_colors'].items():
+                style_def['bg_colors'][k] = getattr(Colors, v.upper())
         return cls(**style_def)
 
     def fg_col(self, element: str, is_increasing=True):
@@ -178,14 +181,6 @@ class Style:
     def sym_w(cls, symbol: str, font: ImageFont) -> int:
         (x1, _, x2, _) = font.getbbox(symbol)
         return x2 - x1
-
-
-class Styles:
-    Default = Style()
-    Graphoplex = Style(
-        font_family=Font.CMUBright,
-        decimal_color=Colors.LIGHT_BLUE
-    )
 
 
 class HMod(Enum):
@@ -1364,7 +1359,7 @@ class Model:
     name: str
     geometry: Geometry
     layout: Layout
-    style: Style = Styles.Default
+    style: Style = Style()
 
     @classmethod
     def from_dict(cls, model_def: dict):
@@ -1406,94 +1401,9 @@ class Models:
     Aristo868 = Model.from_toml_file('examples/Model-Aristo868.toml')
     Aristo965 = Model.from_toml_file('examples/Model-Aristo965.toml')
     PickettN515T = Model.from_toml_file('examples/Model-PickettN515T.toml')
-    FaberCastell283 = Model('Faber-Castell', '', '2/83',
-                            Geometry((8800, 1280),  # 33cm (px) x 4.8cm (1280px)
-                                     (100, 100),
-                                     (6666, 101),  # 25cm (6666.7px) x 3.5mm (93px)
-                                     Geometry.DEFAULT_TICK_WH,
-                                     400,  # 1.5cm (400px)
-                                     top_margin=0,
-                                     scale_h_overrides={
-                                         Side.FRONT: {72: ['K', 'T1', 'T2', 'P']},
-                                         Side.REAR: {90: ['LL03', 'LL02', 'LL01', 'LL1', 'LL2', 'LL3']}
-                                     }),
-                            Layout(
-                                'K T1 T2 DF/CF CIF CI C/D S ST P',
-                                'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3',
-                                align_overrides={
-                                    Side.FRONT: {
-                                        'T2': Align.UPPER,
-                                        'CI': Align.UPPER,
-                                        'DF': Align.LOWER,
-                                        'S': Align.LOWER,
-                                    },
-                                    Side.REAR: {'C': Align.UPPER}
-                                }
-                            ),
-                            Style(font_family=Font.CMUBright,
-                                  bg_colors={
-                                      'C': Colors.FC_LIGHT_GREEN_BG,
-                                      'CF': Colors.FC_LIGHT_GREEN_BG
-                                  }
-                                  ))
-    FaberCastell283N = Model('Faber-Castell', '', '2/83N',
-                             Geometry((9866, 1520),  # 37cm (9866px) x 5.7cm (1520px)
-                                      (0, 0),
-                                      (6666, 101),  # 25cm (6666.7px) x 3.5mm (93px)
-                                      (Geometry.STT, 50),
-                                      510,  # 1.9cm (506.6px)
-                                      top_margin=0,
-                                      scale_h_overrides={
-                                          Side.REAR: {
-                                              74: ['LL0', 'LL1', 'LL2', 'LL3',
-                                                   'LL00', 'LL01', 'LL02', 'LL03']
-                                          }
-                                      }),
-                             Layout(
-                                 'T1 T2 K A DF [CF B CIF CI C] D DI S ST P',
-                                 'LL03 LL02 LL01 LL00 W2 [W2Prime CI L C W1Prime] W1 D LL0 LL1 LL2 LL3',
-                                 align_overrides={
-                                     Side.FRONT: {
-                                         'T2': Align.UPPER,
-                                         'CI': Align.UPPER,
-                                         'S': Align.LOWER,
-                                     },
-                                     Side.REAR: {
-                                         'LL03': Align.LOWER,
-                                         'LL02': Align.UPPER,
-                                         'LL01': Align.LOWER,
-                                         'LL00': Align.UPPER,
-                                         'C': Align.UPPER,
-                                         'LL0': Align.LOWER,
-                                         'LL1': Align.UPPER,
-                                         'LL2': Align.LOWER,
-                                         'LL3': Align.UPPER,
-                                     }
-                                 }
-                             ),
-                             Style(bg_colors={
-                                 'C': Colors.FC_LIGHT_GREEN_BG,
-                                 'CF': Colors.FC_LIGHT_GREEN_BG,
-                                 'A': Colors.FC_LIGHT_BLUE_BG,
-                                 'B': Colors.FC_LIGHT_BLUE_BG,
-                                 'LL0': Colors.FC_LIGHT_GREEN_BG
-                             }, font_family=Font.CMUBright))
-
-    Graphoplex621 = Model('Graphoplex', '', '621',
-                          Geometry((7740, 1070),  # 29cm (7733px) x 40cm (1066px)
-                                   (100, 100),
-                                   (6666, 80),  # 25cm (6666.7px) x 3.5mm (93px)
-                                   Geometry.DEFAULT_TICK_WH,
-                                   480,  # 1.8cm
-                                   scale_h_overrides={
-                                       Side.FRONT: {
-                                           70: ['P', 'ST', 'K', 'L']
-                                       }
-                                   }),
-                          Layout(
-                              'P ST A [ B T1 S CI C ] D K L',  # 'P SRT A [ B T1 S CI C ] D K L'
-                              ''
-                          ), Styles.Graphoplex)
+    FaberCastell283 = Model.from_toml_file('examples/Model-FaberCastell283.toml')
+    FaberCastell283N = Model.from_toml_file('examples/Model-FaberCastell283N.toml')
+    Graphoplex621 = Model.from_toml_file('examples/Model-Graphoplex621.toml')
 
 
 def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: Side = None):

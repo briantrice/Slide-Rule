@@ -1,0 +1,20 @@
+brand = 'Faber-Castell'
+name = '2/83N'
+[geometry]
+side_wh = [9866, 1520]  # 37cm x 5.7cm
+margins_xy = [0, 0]
+scale_wh = [6666, 101]  # 25cm (6666.7px) x 3.5mm (93px)
+tick_wh = [3, 50]
+slide_h = 510  # 1.9cm (506.6px)
+top_margin = 0
+[geometry.scale_h_overrides]
+rear = {74 = ['LL03', 'LL02', 'LL01', 'LL00', 'LL0', 'LL1', 'LL2', 'LL3']}
+[layout]
+front = 'T1 T2 K A DF [CF B CIF CI C] D DI S ST P'
+rear = 'LL03 LL02 LL01 LL00 W2 [W2Prime CI L C W1Prime] W1 D LL0 LL1 LL2 LL3'
+[layout.align_overrides]
+front = { T2 = 'upper', CI = 'upper', S = 'lower' }
+rear = { C = 'upper', LL03 = 'lower', LL02 = 'upper', LL01 = 'lower', LL00 = 'upper', LL0 = 'lower', LL1 = 'upper', LL2 = 'lower', LL3 = 'upper'}
+[style]
+font_family = 'CMUBright'
+bg_colors = { C = 'FC_LIGHT_GREEN_BG', CF = 'FC_LIGHT_GREEN_BG', A = 'FC_LIGHT_BLUE_BG', B = 'FC_LIGHT_BLUE_BG', LL0 = 'FC_LIGHT_GREEN_BG' }

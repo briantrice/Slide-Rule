@@ -1,0 +1,14 @@
+brand = 'Graphoplex'
+name = '621'
+[geometry]
+side_wh = [7740, 1070]  # 29cm (7733px) x 40cm (1066px)
+margins_xy = [100, 100]
+scale_wh = [6666, 80]  # 25cm (6666.7px) x 3.5mm (93px)
+slide_h = 480  # 1.8cm
+[geometry.scale_h_overrides]
+front = { 70 = ['P', 'ST', 'K', 'L']}
+[layout]
+front = 'P ST A [ B T1 S CI C ] D K L'  # 'P SRT A [ B T1 S CI C ] D K L'
+[style]
+font_family = 'CMUBright'
+decimal_color = 'light_blue'
