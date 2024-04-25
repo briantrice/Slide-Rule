@@ -27,6 +27,7 @@ from enum import Enum
 from functools import cache
 from itertools import chain
 
+import toml
 from PIL import Image, ImageFont, ImageDraw
 
 
@@ -132,6 +133,10 @@ class Style:
     """background color overrides for particular scale keys"""
     font_family: Font.Family = Font.CMUTypewriter
     overrides: dict[str, dict[str, object]] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, style_def):
+        return cls(**style_def)
 
     def fg_col(self, element: str, is_increasing=True):
         return self.override_for(element, 'color',
@@ -249,14 +254,28 @@ class Geometry:
                 side_overrides = scale_h_overrides.get(side, {})
                 for h, sc_keys in side_overrides.items():
                     for sc_key in sc_keys:
-                        self.scale_h_overrides[side][sc_key] = h
+                        self.scale_h_overrides[side][sc_key] = int(h)
         self.margin_overrides = {Side.FRONT: {}, Side.REAR: {}}
         if margin_overrides:
             for side in Side:
                 side_overrides = margin_overrides.get(side, {})
                 for h, sc_keys in side_overrides.items():
                     for sc_key in sc_keys:
-                        self.margin_overrides[side][sc_key] = h
+                        self.margin_overrides[side][sc_key] = int(h)
+
+    @classmethod
+    def from_dict(cls, geometry_def):
+        for key in ('scale_h_overrides', 'margin_overrides'):
+            if key in geometry_def:
+                result = {}
+                for side in Side:
+                    result[side] = geometry_def[key].get(side.value, {})
+                geometry_def[key] = result
+        if 'scale_wh' not in geometry_def:
+            geometry_def['scale_wh'] = cls.DEFAULT_SCALE_WH
+        if 'tick_wh' not in geometry_def:
+            geometry_def['tick_wh'] = cls.DEFAULT_TICK_WH
+        return cls(**geometry_def)
 
     @property
     def total_w(self):
@@ -1154,14 +1173,14 @@ SCALE_NAMES = set(keys_of(Scales) + keys_of(AristoCommerzScales))
 
 
 class Layout:
-    def __init__(self, front_str: str, rear_str: str = None, scale_ns: object = Scales, align_overrides=None):
+    def __init__(self, front: str, rear: str = None, scale_ns: object = Scales, align_overrides=None):
         if align_overrides is None:
             align_overrides = {}
-        if not rear_str and '\n' in front_str:
-            (front_str, rear_str) = front_str.splitlines()
+        if not rear and '\n' in front:
+            (front, rear) = front.splitlines()
         self.sc_keys: dict[Side, dict[RulePart, list[str]]] = {
-            Side.FRONT: self.parse_side_layout(front_str),
-            Side.REAR: self.parse_side_layout(rear_str)
+            Side.FRONT: self.parse_side_layout(front),
+            Side.REAR: self.parse_side_layout(rear)
         }
         self.scale_ns: object = scale_ns
         self.check_scales()
@@ -1171,6 +1190,16 @@ class Layout:
 
     def __repr__(self):
         return f'Layout({self.sc_keys})'
+
+    @classmethod
+    def from_dict(cls, layout_def):
+        if 'align_overrides' in layout_def:
+            result = {Side.FRONT: {}, Side.REAR: {}}
+            for k, v in layout_def['align_overrides'].items():
+                for sc_key, al in v.items():
+                    result[Side[k.upper()]][sc_key] = Align[al.upper()]
+            layout_def['align_overrides'] = result
+        return cls(**layout_def)
 
     @classmethod
     def parse_segment_layout(cls, segment_layout: str) -> [str]:
@@ -1311,7 +1340,6 @@ class Rulers:
 
 
 class Layouts:
-    MannheimOriginal = Layout('A/B C/D', '')
     RegleDesEcoles = Layout('DF/CF C/D', '')
     Mannheim = Layout('A/B CI C/D K', '[S L T]')
     Rietz = Layout('K A/B CI C/D L', '[S ST T]')
@@ -1327,6 +1355,16 @@ class Model:
     geometry: Geometry
     layout: Layout
     style: Style = Styles.Default
+
+    @classmethod
+    def from_dict(cls, model_def: dict):
+        return cls(brand=model_def.get('brand'), subtitle=model_def.get('subtitle'), name=model_def.get('name'),
+                   layout=Layout.from_dict(model_def['layout']), geometry=Geometry.from_dict(model_def['geometry']),
+                   style=Style.from_dict(model_def.get('style', {})))
+
+    @classmethod
+    def from_toml_file(cls, toml_filename: str):
+        return cls.from_dict(toml.load(toml_filename))
 
     def scale_h_per(self, side: Side, part: RulePart):
         result = 0
@@ -1350,32 +1388,10 @@ class Model:
 
 
 class Models:
-    Demo = Model('KWENA & TOOR CO.', 'LEFT HANDED LIMAÇON 2020', 'BOGELEX 1000',
-                 Geometry((8000, 1600),
-                          (100, 100),
-                          Geometry.DEFAULT_SCALE_WH,
-                          Geometry.DEFAULT_TICK_WH,
-                          640,
-                          top_margin=109,
-                          margin_overrides={Side.REAR: {80: ['DI']}}),
-                 Layout('|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |',
-                        '|  K,  A  [ B, T, ST, S ] D,  DI    |',
-                        align_overrides={Side.FRONT: {'CIF': Align.UPPER},
-                                         Side.REAR: {'D': Align.UPPER, 'DI': Align.UPPER}}))
-
-    MannheimOriginal = Model('Mannheim', 'Demo', 'Original',
-                             Geometry((8000, 1000),
-                                      (100, 100),
-                                      Geometry.DEFAULT_SCALE_WH,
-                                      Geometry.DEFAULT_TICK_WH,
-                                      round(Geometry.SH * 2.5),
-                                      top_margin=109),
-                             Layouts.MannheimOriginal)
-
-    Ruler = replace(MannheimOriginal,
-                    layout=Layout('IN_DEC [IN_BIN] CM'))
-    MannheimWithRuler = replace(MannheimOriginal,
-                                layout=Layout('A/B C/D', 'IN [] CM'))
+    Demo = Model.from_toml_file('examples/Model-Demo.toml')
+    MannheimOriginal = Model.from_toml_file('examples/Model-MannheimOriginal.toml')
+    Ruler = replace(MannheimOriginal, layout=Layout('IN_DEC [IN_BIN] CM'))
+    MannheimWithRuler = replace(MannheimOriginal, layout=Layout('A/B C/D', 'IN [] CM'))
 
     Aristo868 = Model('Aristo', '', '868',
                       Geometry((8000, 1860),
