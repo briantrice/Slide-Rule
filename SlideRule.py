@@ -136,6 +136,16 @@ class Style:
 
     @classmethod
     def from_dict(cls, style_def):
+        if 'font_family' in style_def:
+            style_def['font_family'] = getattr(Font, style_def['font_family'])
+        for key in ('fg', 'bg', 'decreasing_color', 'decimal_color'):
+            if key in style_def:
+                style_def[key] = getattr(Colors, style_def[key].upper())
+        if 'overrides' in style_def:
+            for k, v in style_def['overrides'].items():
+                for attr, value in v.items():
+                    if attr == 'color':
+                        style_def['overrides'][k][attr] = getattr(Colors, value.upper())
         return cls(**style_def)
 
     def fg_col(self, element: str, is_increasing=True):
@@ -1150,30 +1160,30 @@ class Scales:
 shift_360 = ScaleFNs.Inverse(3.6)
 
 
-class AristoCommerzScales:
-    """scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest"""
-    Z = replace(Scales.D, left_sym='Z', right_sym='', opp_key='T1', dividers=[2, 4])
-    T1 = replace(Z, left_sym='T₁', key='T1', opp_key='Z', on_slide=True)
-    P1 = replace(Scales.CI, left_sym='P₁', right_sym='', key='P1', on_slide=True, dividers=[2, 4])
-    KZ = replace(Scales.CF, left_sym='KZ', right_sym='', key='KZ', shift=shift_360,
-                 ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2])
-    T2 = replace(KZ, left_sym='T₂', key='T2', on_slide=True)
-    P2 = replace(Scales.CIF, left_sym='P₂', right_sym='', key='P2', shift=shift_360 - 1, on_slide=True,
-                 ex_start_value=0.25, ex_end_value=3.3, dividers=[0.4, 1, 2])
-    Pct = Scale(left_sym='p%', right_sym='', on_slide=True, shift=shift_360,
-                scaler=ScaleFN(lambda x: gen_base((x + HUNDRED) / HUNDRED),
-                               lambda p: pos_base(p) * HUNDRED - HUNDRED),
-                dividers=[0], ex_start_value=-50, ex_end_value=100)
-    # meta-scale showing % with 100% over 1/unity
-    # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
-    Libra = replace(Scales.L, left_sym='£', right_sym='', key='Libra')
-
-
-SCALE_NAMES = set(keys_of(Scales) + keys_of(AristoCommerzScales))
+custom_scale_sets = {
+    'AristoCommerz': {  # scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest
+        'Z': replace(Scales.D, left_sym='Z', right_sym='', opp_key='T1', dividers=[2, 4]),
+        'T1': replace(Scales.D, left_sym='T₁', right_sym='', key='T1', opp_key='Z', on_slide=True),
+        'P1': replace(Scales.CI, left_sym='P₁', right_sym='', key='P1', on_slide=True, dividers=[2, 4]),
+        'KZ': replace(Scales.CF, left_sym='KZ', right_sym='', key='KZ', shift=shift_360,
+                      ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2]),
+        'T2': replace(Scales.CF, left_sym='T₂', key='T2', shift=shift_360, on_slide=True,
+                      ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2]),
+        'P2': replace(Scales.CIF, left_sym='P₂', right_sym='', key='P2', shift=shift_360 - 1, on_slide=True,
+                      ex_start_value=0.25, ex_end_value=3.3, dividers=[0.4, 1, 2]),
+        'Pct': Scale(left_sym='p%', right_sym='', key='Pct', on_slide=True, shift=shift_360,
+                     scaler=ScaleFN(lambda x: gen_base((x + HUNDRED) / HUNDRED),
+                                    lambda p: pos_base(p) * HUNDRED - HUNDRED),
+                     dividers=[0], ex_start_value=-50, ex_end_value=100),
+        # meta-scale showing % with 100% over 1/unity
+        # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
+        'Libra': replace(Scales.L, left_sym='£', right_sym='', key='Libra'),
+    }
+}
 
 
 class Layout:
-    def __init__(self, front: str, rear: str = None, scale_ns: object = Scales, align_overrides=None):
+    def __init__(self, front: str, rear: str = None, scale_ns: dict = None, align_overrides=None):
         if align_overrides is None:
             align_overrides = {}
         if not rear and '\n' in front:
@@ -1182,7 +1192,7 @@ class Layout:
             Side.FRONT: self.parse_side_layout(front),
             Side.REAR: self.parse_side_layout(rear)
         }
-        self.scale_ns: object = scale_ns
+        self.scale_ns: dict[str, Scale] = scale_ns or {}
         self.check_scales()
         self.scale_aligns: dict[Side, dict[str, Align]] = {
             Side.FRONT: align_overrides.get(Side.FRONT, {}), Side.REAR: align_overrides.get(Side.REAR, {})}
@@ -1199,6 +1209,8 @@ class Layout:
                 for sc_key, al in v.items():
                     result[Side[k.upper()]][sc_key] = Align[al.upper()]
             layout_def['align_overrides'] = result
+        if 'scale_ns' in layout_def:
+            layout_def['scale_ns'] = custom_scale_sets[layout_def['scale_ns']]
         return cls(**layout_def)
 
     @classmethod
@@ -1243,12 +1255,14 @@ class Layout:
 
     def check_scales(self):
         for scale_name in self.sc_keys_in_order():
-            if not (hasattr(self.scale_ns, scale_name) or hasattr(Rulers, scale_name)):
+            if not (hasattr(Scales, scale_name) or hasattr(Rulers, scale_name) or scale_name in self.scale_ns):
                 raise ValueError(f'Unrecognized front scale name: {scale_name}')
 
+    def scale_named(self, sc_name: str):
+        return self.scale_ns.get(sc_name, getattr(Scales, sc_name, getattr(Rulers, sc_name, None)))
+
     def scales_at(self, side: Side, part: RulePart) -> list[Scale]:
-        return [getattr(self.scale_ns, sc_name, None) or getattr(Rulers, sc_name, None)
-                for sc_name in self.sc_keys[side][part] or []]
+        return [self.scale_named(sc_name) for sc_name in self.sc_keys[side][part] or []]
 
     def infer_aligns(self):
         """Fill scale alignments per the layout into the overrides."""
@@ -1393,33 +1407,8 @@ class Models:
     Ruler = replace(MannheimOriginal, layout=Layout('IN_DEC [IN_BIN] CM'))
     MannheimWithRuler = replace(MannheimOriginal, layout=Layout('A/B C/D', 'IN [] CM'))
 
-    Aristo868 = Model('Aristo', '', '868',
-                      Geometry((8000, 1860),
-                               (100, 100),
-                               (Geometry.SL, 120),
-                               Geometry.DEFAULT_TICK_WH,
-                               590,
-                               top_margin=0),
-                      Layout(
-                          'ST T1 T2 DF/CF CIF CI C/D P S',
-                          'LL01 LL02 LL03 A/B L K C/D LL3 LL2 LL1'
-                      ),
-                      Style(font_family=Font.CMUBright))
-
-    Aristo965 = Model('Aristo', 'Commerz II', '965',
-                      Geometry((8000, 1200),  # 30cm (8000px) x 5cm (1333px)
-                               (100, 100),
-                               (6666, 80),  # 25cm (6666.7px) x 3.5mm (93px)
-                               Geometry.DEFAULT_TICK_WH,
-                               480  # 1.7cm (450px)
-                               ),
-                      Layout('Pct KZ [T2 P2 P1 T1] Z', '', scale_ns=AristoCommerzScales,
-                             align_overrides={Side.FRONT: {'P2': Align.UPPER}}),
-                      Style(decreasing_color=Colors.SYM_GREEN, font_family=Font.CMUBright,
-                            overrides={
-                                'T1': {'color': Colors.RED},
-                                'T2': {'color': Colors.RED}
-                            }))
+    Aristo868 = Model.from_toml_file('examples/Model-Aristo868.toml')
+    Aristo965 = Model.from_toml_file('examples/Model-Aristo965.toml')
 
     PickettN515T = Model('Pickett', '', 'N-515-T',
                          Geometry((8000, 2000),
@@ -1703,7 +1692,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         for x in chain((x / 10 for x in range(6, 10)), (x + 0.5 for x in range(1, 4)), range(2, 6)):
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
 
-    elif sc == AristoCommerzScales.Pct:
+    elif sc == custom_scale_sets['AristoCommerz']['Pct']:
         if DEBUG:
             sc.grad_pat_default(r, y_off, al)
         for pct_value in (0, 5, 10, 15, 20, 35, 30, 40):
@@ -2016,7 +2005,7 @@ def render_diagnostic_mode(model: Model, all_scales=False):
     r.draw_sym_al(title, 50, style.fg, 0, title_x, 0, style.font_for(FontSize.TITLE), upper)
     r.draw_sym_al(' '.join(scale_names), 200, style.fg, 0, title_x, 0, style.font_for(FontSize.SUBTITLE), upper)
     for n, sc_name in enumerate(scale_names):
-        sc = getattr(Scales, sc_name, getattr(Rulers, sc_name, getattr(model.layout.scale_ns, sc_name, None)))
+        sc = model.layout.scale_named(sc_name)
         assert sc, f'Scale not found: {sc_name}'
         al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, RulePart.SLIDE)
         y_off = k + (n + 1) * sh_with_margins

@@ -1,0 +1,13 @@
+brand = 'Aristo'
+name = '868'
+[geometry]
+side_wh = [8000, 1860]
+margins_xy = [100, 100]
+scale_wh = [5600, 120]
+slide_h = 590
+top_margin = 0
+[layout]
+front = 'ST T1 T2 DF/CF CIF CI C/D P S'
+rear = 'LL01 LL02 LL03 A/B L K C/D LL3 LL2 LL1'
+[style]
+font_family = 'CMUBright'
