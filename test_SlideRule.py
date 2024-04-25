@@ -6,7 +6,7 @@ from unittest.mock import patch
 from PIL import Image, ImageDraw
 
 from SlideRule import (Scales, ScaleFNs, Layout, RulePart, Side, Align,
-                       Renderer, Layouts, Colors, Models, Font, Style,
+                       Renderer, Colors, Models, Font, Style,
                        symbol_parts, symbol_with_expon, last_digit_of, first_digit_of, keys_of,
                        render_diagnostic_mode, render_sliderule_mode)
 
