@@ -43,6 +43,7 @@ DEG_SEMI = DEG_FULL // 2
 DEG_RT = DEG_SEMI // 2
 
 BYTE_MAX = 255
+WH = tuple[int, int]
 
 
 class Colors(Enum):
@@ -153,13 +154,13 @@ class Style:
         return Font.font_for(self.font_family, font_size, FontStyle.ITALIC if italic else FontStyle.REG, h_ratio)
 
     @staticmethod
-    def sym_dims(symbol: str, font: ImageFont) -> tuple[int, int]:
+    def sym_dims(symbol: str, font: ImageFont) -> WH:
         """Gets the size dimensions (width, height) of the input text"""
         (x1, y1, x2, y2) = font.getbbox(symbol)
         return x2 - x1, y2 - y1 + 20
 
     @classmethod
-    def sym_width(cls, symbol: str, font: ImageFont) -> int:
+    def sym_w(cls, symbol: str, font: ImageFont) -> int:
         (x1, _, x2, _) = font.getbbox(symbol)
         return x2 - x1
 
@@ -211,7 +212,7 @@ class Geometry:
     """scale height"""
     SL: int = 5600  # 21cm = 8.27in
     """scale length"""
-    DEFAULT_SCALE_WH = (SL, SH)
+    DEFAULT_SCALE_WH: WH = (SL, SH)
     SM: int = 0
     """Scale margin"""
 
@@ -223,14 +224,14 @@ class Geometry:
     PixelsPerCM = 1600 / 6
     PixelsPerIN = PixelsPerCM * 2.54
 
-    NO_MARGINS = (0, 0)
-    DEFAULT_TICK_WH = (STT, STH)
+    NO_MARGINS: WH = (0, 0)
+    DEFAULT_TICK_WH: WH = (STT, STH)
 
     top_margin = 110
     scale_h_overrides: dict[Side, dict[str, int]] = {Side.FRONT: {}, Side.REAR: {}}
     margin_overrides: dict[Side, dict[str, int]] = {Side.FRONT: {}, Side.REAR: {}}
 
-    def __init__(self, side_wh: (int, int), margins_xy: (int, int), scale_wh: (int, int), tick_wh: (int, int),
+    def __init__(self, side_wh: WH, margins_xy: WH, scale_wh: WH, tick_wh: WH,
                  slide_h: int, top_margin: int = None,
                  scale_h_overrides: dict[Side, dict[int: [str]]] = None,
                  margin_overrides: dict[Side, dict[int: [str]]] = None):
@@ -266,7 +267,7 @@ class Geometry:
         return self.total_w // 2
 
     @property
-    def print_height(self):
+    def print_h(self):
         return self.side_h * 2 + 3 * self.oY
 
     @property
@@ -475,13 +476,13 @@ class Renderer:
     def draw_circle(self, xc, yc, r, col):
         self.r.ellipse((xc - r, yc - r, xc + r, yc + r), outline=pil_color(col))
 
-    def draw_tick(self, y_off: int, x: int, height: int, col, scale_h: int, al: Align):
+    def draw_tick(self, y_off: int, x: int, h: int, col, scale_h: int, al: Align):
         """Places an individual tick, aligned to top or bottom of scale"""
         x0 = x + self.geometry.li - 2
         y0 = y_off
         if al == Align.LOWER:
-            y0 += scale_h - height
-        self.fill_rect(x0, y0, self.geometry.STT, height, col)
+            y0 += scale_h - h
+        self.fill_rect(x0, y0, self.geometry.STT, h, col)
 
     def pat(self, y_off: int, sc, al: Align,
             i_start, i_end, i_sf, steps_i, steps_th, steps_font, digit1):
@@ -560,7 +561,7 @@ class Renderer:
         s = self.style
         num_font = s.font_for(FontSize.N_LG, h_ratio=scale_hf)
         numeral_tick_offset = sc.min_offset_for_delta(x_start, x_end, step_num / sf, scale_w)
-        max_num_chars = numeral_tick_offset // s.sym_width('_', num_font)
+        max_num_chars = numeral_tick_offset // s.sym_w('_', num_font)
         if max_num_chars < 2:
             num_font = s.font_for(FontSize.N_SM, h_ratio=scale_hf)
         # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
@@ -1007,14 +1008,14 @@ class Scale:
     def pos_of(self, x, geom) -> int:
         return round(geom.SL * self.frac_pos_of(x))
 
-    def offset_between(self, x_start, x_end, scale_width):
+    def offset_between(self, x_start, x_end, scale_w):
         return abs(self.frac_pos_of(self.scaler.clamp_input(x_end))
-                   - self.frac_pos_of(self.scaler.clamp_input(x_start))) * scale_width
+                   - self.frac_pos_of(self.scaler.clamp_input(x_start))) * scale_w
 
-    def min_offset_for_delta(self, x_start, x_end, x_delta, scale_width=1):
+    def min_offset_for_delta(self, x_start, x_end, x_delta, scale_w=1):
         return min(
-            self.offset_between(x_start, x_start + x_delta, scale_width=scale_width),
-            self.offset_between(x_end - x_delta, x_end, scale_width=scale_width)
+            self.offset_between(x_start, x_start + x_delta, scale_w=scale_w),
+            self.offset_between(x_end - x_delta, x_end, scale_w=scale_w)
         )
 
     def scale_to(self, x, scale_w, shift_adj=0) -> int:
@@ -1556,7 +1557,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     sc_alt: Scale = getattr(Scales, sc.mirror_key, None) if sc.mirror_key else None
     if sc_alt:
         alt_col = style.fg_col(sc_alt.key, is_increasing=not sc_alt.is_increasing)
-        r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, scale_h, x_left - style.sym_width('__', f_lbl), y2, f_lbl, al)
+        r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, scale_h, x_left - style.sym_w('__', f_lbl), y2, f_lbl, al)
         r.draw_sym_al(sc_alt.right_sym, y_off, alt_col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
     elif sc == Scales.ST:
         r.draw_sym_al('∡sin 0.01x°', y_off, sym_col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
@@ -1660,11 +1661,11 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         for x in chain(range1, range2, range(25, 41, 5), () if is_tan else range(50, 80, 10)):
             f_l = f_md2_i if x in range1 else f_mdn_i
             f_r = f_md2 if x in range1 else f_mdn
-            x_coord = sc_t.pos_of(x, geom) + 1.2 / 2 * style.sym_width(str(x), f_l)
+            x_coord = sc_t.pos_of(x, geom) + 1.2 / 2 * style.sym_w(str(x), f_l)
             r.draw_numeral(x, y_off, sym_col, scale_h, x_coord, f, f_r, al)
             if x not in range2:
                 xi = angle_opp(x)
-                x_coord_opp = sc_t.pos_of(x, geom) - 1.4 / 2 * style.sym_width(str(xi), f_l)
+                x_coord_opp = sc_t.pos_of(x, geom) - 1.4 / 2 * style.sym_w(str(xi), f_l)
                 r.draw_numeral(xi, y_off, alt_col, scale_h, x_coord_opp, f, f_l, al)
 
         r.draw_numeral(45 if is_tan else DEG_RT, y_off, sym_col, scale_h, scale_w, f, f_lgn, al)
@@ -1745,7 +1746,7 @@ def transcribe(src_img: Image.Image, dst_img: Image.Image, src_x, src_y, size_x,
 
 def image_for_rendering(model: Model, w=None, h=None):
     geom = model.geometry
-    return Image.new('RGB', (w or geom.total_w, h or geom.print_height), model.style.bg.value)
+    return Image.new('RGB', (w or geom.total_w, h or geom.print_h), model.style.bg.value)
 
 
 def save_png(img_to_save: Image, basename: str, output_suffix=None):
