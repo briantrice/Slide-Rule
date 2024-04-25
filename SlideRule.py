@@ -1999,7 +1999,8 @@ def render_diagnostic_mode(model: Model, all_scales=False):
     r.draw_sym_al(title, 50, style.fg, 0, title_x, 0, style.font_for(FontSize.TITLE), upper)
     r.draw_sym_al(' '.join(scale_names), 200, style.fg, 0, title_x, 0, style.font_for(FontSize.SUBTITLE), upper)
     for n, sc_name in enumerate(scale_names):
-        sc = getattr(Scales, sc_name, None) or getattr(Rulers, sc_name, None)
+        sc = getattr(Scales, sc_name, getattr(Rulers, sc_name, getattr(model.layout.scale_ns, sc_name, None)))
+        assert sc, f'Scale not found: {sc_name}'
         al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, RulePart.SLIDE)
         y_off = k + (n + 1) * sh_with_margins
         if isinstance(sc, Ruler):
