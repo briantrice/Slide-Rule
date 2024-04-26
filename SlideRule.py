@@ -1171,8 +1171,7 @@ class Scales:
 
 shift_360 = ScaleFNs.Inverse(3.6)
 
-
-custom_scale_sets = {
+custom_scale_sets: dict[str, dict[str, Scale]] = {
     'AristoCommerz': {  # scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest
         'Z': replace(Scales.D, left_sym='Z', right_sym='', opp_key='T1', dividers=[2, 4]),
         'T1': replace(Scales.D, left_sym='T₁', right_sym='', key='T1', opp_key='Z', on_slide=True),
