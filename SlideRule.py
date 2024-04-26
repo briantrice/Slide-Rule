@@ -526,30 +526,29 @@ class Renderer:
         """
         step1, step2, step3, step4 = steps_i
         th1, th2, th3, th4 = steps_th
-        font1, font2, font3 = steps_font
+        f1, f2, f3 = steps_font
         scale_w = self.geometry.SL
         scale_h = self.geometry.scale_h(sc)
-        sym_col = self.style.fg_col(sc.key, is_increasing=sc.is_increasing)
-        tenth_col = self.style.decimal_color if sc.is_increasing else sym_col
-        if isinstance(digit1, bool):
-            digit1 = [digit1, False, False]
+        col = self.style.fg_col(sc.key, is_increasing=sc.is_increasing)
+        tenth_col = self.style.decimal_color if sc.is_increasing else col
+        d1 = (digit1, False, False) if isinstance(digit1, bool) else digit1
         for i in range(i_start, i_end, step4):
             n = i / i_sf
             x = sc.scale_to(n, scale_w)
             tick_h = th4
             if i % step1 == 0:
                 tick_h = th1
-                if font1:
-                    self.draw_numeral(sig_digit_of(n) if digit1[0] else n, y_off, sym_col, scale_h, x, th1, font1, al)
+                if f1:
+                    self.draw_numeral(Sym.sig_digit_of(n) if d1[0] else n, y_off, col, scale_h, x, th1, f1, al)
             elif i % step2 == 0:
                 tick_h = th2
-                if font2:
-                    self.draw_numeral(sig_digit_of(n) if digit1[1] else n, y_off, sym_col, scale_h, x, th2, font2, al)
+                if f2:
+                    self.draw_numeral(Sym.sig_digit_of(n) if d1[1] else n, y_off, col, scale_h, x, th2, f2, al)
             elif i % step3 == 0:
                 tick_h = th3
-                if font3:
-                    self.draw_numeral(sig_digit_of(n) if digit1[2] else n, y_off, tenth_col, scale_h, x, th3, font3, al)
-            self.draw_tick(y_off, x, tick_h, sym_col, scale_h, al)
+                if f3:
+                    self.draw_numeral(Sym.sig_digit_of(n) if d1[2] else n, y_off, tenth_col, scale_h, x, th3, f3, al)
+            self.draw_tick(y_off, x, tick_h, col, scale_h, al)
 
     def pat_auto(self, y_off, sc, al, x_start=None, x_end=None, include_last=False):
         """
@@ -641,7 +640,7 @@ class Renderer:
 
         if not symbol:
             return
-        (base_sym, exponent, subscript) = symbol_parts(symbol)
+        (base_sym, exponent, subscript) = Sym.parts_of(symbol)
         w, h = Style.sym_dims(base_sym, font)
 
         y_top = y_off
@@ -687,7 +686,7 @@ class Renderer:
     def draw_symbol_sup(self, sup_sym, color, h_base, x_left, y_base, font):
         if len(sup_sym) == 1 and unicodedata.category(sup_sym) == 'No':
             sup_sym = str(unicodedata.digit(sup_sym))
-        self.draw_symbol(sup_sym, color, x_left, y_base - (0 if sup_sym in PRIMES else h_base / 2), font)
+        self.draw_symbol(sup_sym, color, x_left, y_base - (0 if sup_sym in Sym.PRIMES else h_base / 2), font)
 
     def draw_symbol_sub(self, sub_sym, color, h_base, x_left, y_base, font):
         self.draw_symbol(sub_sym, color, x_left, y_base + h_base / 2, font)
@@ -770,54 +769,76 @@ class Renderer:
         self.r.line((x2, y2 - arm_w, x2, y2 + arm_w), col)
 
 
-RE_EXPON_CARET = re.compile(r'^(.+)\^([-0-9.A-Za-z]+)$')
-RE_SUB_UNDERSCORE = re.compile(r'^(.+)_([-0-9.A-Za-z]+)$')
-RE_EXPON_UNICODE = re.compile(r'^([^⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)$')
-RE_SUB_UNICODE = re.compile(r'^([^₀₁₂₃]+)([₀₁₂₃]+)$')
+class Sym:
+    RE_EXPON_CARET = re.compile(r'^(.+)\^([-0-9.A-Za-z]+)$')
+    RE_SUB_UNDERSCORE = re.compile(r'^(.+)_([-0-9.A-Za-z]+)$')
+    RE_EXPON_UNICODE = re.compile(r'^([^⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)$')
+    RE_SUB_UNICODE = re.compile(r'^([^₀₁₂₃]+)([₀₁₂₃]+)$')
 
+    @staticmethod
+    def num_char_convert(char):
+        if char == '⁻':
+            return '-'
+        return unicodedata.digit(char)
 
-def num_char_convert(char):
-    if char == '⁻':
-        return '-'
-    return unicodedata.digit(char)
+    @classmethod
+    def unicode_sub_convert(cls, symbol: str):
+        return ''.join(map(str, map(cls.num_char_convert, symbol)))
 
-
-def unicode_sub_convert(symbol: str):
-    return ''.join(map(str, map(num_char_convert, symbol)))
-
-
-def split_symbol_by(symbol: str, text_re: re.Pattern, unicode_re: re.Pattern):
-    base_sym = symbol
-    subpart_sym = None
-    matches = re.match(text_re, symbol)
-    if matches:
-        base_sym = matches.group(1)
-        subpart_sym = matches.group(2)
-    else:
-        matches = re.match(unicode_re, symbol)
+    @classmethod
+    def split_by(cls, symbol: str, text_re: re.Pattern, unicode_re: re.Pattern):
+        base_sym = symbol
+        subpart_sym = None
+        matches = re.match(text_re, symbol)
         if matches:
             base_sym = matches.group(1)
-            subpart_sym = unicode_sub_convert(matches.group(2))
-    return base_sym, subpart_sym
+            subpart_sym = matches.group(2)
+        else:
+            matches = re.match(unicode_re, symbol)
+            if matches:
+                base_sym = matches.group(1)
+                subpart_sym = cls.unicode_sub_convert(matches.group(2))
+        return base_sym, subpart_sym
 
+    PRIMES = "'ʹʺ′″‴"
 
-PRIMES = "'ʹʺ′″‴"
+    @classmethod
+    def split_expon(cls, symbol: str):
+        if len(symbol) > 1 and symbol[-1] in cls.PRIMES:
+            return symbol[:-1], symbol[-1:]
+        return cls.split_by(symbol, cls.RE_EXPON_CARET, cls.RE_EXPON_UNICODE)
 
+    @classmethod
+    def split_subscript(cls, symbol: str):
+        return cls.split_by(symbol, cls.RE_SUB_UNDERSCORE, cls.RE_SUB_UNICODE)
 
-def symbol_with_expon(symbol: str):
-    if len(symbol) > 1 and symbol[-1] in PRIMES:
-        return symbol[:-1], symbol[-1:]
-    return split_symbol_by(symbol, RE_EXPON_CARET, RE_EXPON_UNICODE)
+    @classmethod
+    def parts_of(cls, symbol: str):
+        (base_sym, subscript) = cls.split_subscript(symbol)
+        (base_sym, expon) = cls.split_expon(base_sym)
+        return base_sym, expon, subscript
 
+    @staticmethod
+    def first_digit_of(x) -> int:
+        return int(str(x)[0])
 
-def symbol_with_subscript(symbol: str):
-    return split_symbol_by(symbol, RE_SUB_UNDERSCORE, RE_SUB_UNICODE)
+    @staticmethod
+    def last_digit_of(x) -> int:
+        if int(x) == x:
+            x = int(x)
+        return int(str(x)[-1])
 
-
-def symbol_parts(symbol: str):
-    (base_sym, subscript) = symbol_with_subscript(symbol)
-    (base_sym, expon) = symbol_with_expon(base_sym)
-    return base_sym, expon, subscript
+    @classmethod
+    def sig_digit_of(cls, num):
+        """When only one digit will fit on a major scale's numerals, pick the most significant."""
+        if not (num > 0 and math.log10(num).is_integer()):
+            if num % 10 == 0:
+                num = cls.first_digit_of(num)
+            else:
+                num = cls.last_digit_of(num)
+        else:
+            num = cls.first_digit_of(num)
+        return num
 
 
 class BleedDir(Enum):
@@ -1331,7 +1352,7 @@ class Ruler:
             elif i % step2 == 0:
                 tick_h = th2
                 if font2:
-                    r.draw_numeral(last_digit_of(num), y_off, tenth_col, scale_h, x, th2, font2, al)
+                    r.draw_numeral(Sym.last_digit_of(num), y_off, tenth_col, scale_h, x, th2, font2, al)
             elif i % step3 == 0:
                 tick_h = th3
             r.draw_tick(y_off, x, tick_h, sym_col, scale_h, al)
@@ -1445,14 +1466,14 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
     # Right
     f_lbl_r = f_lbl_s if len(sc.right_sym) > 6 or '^' in sc.right_sym else f_lbl
-    (right_sym, _, _) = symbol_parts(sc.right_sym)
+    (right_sym, _, _) = Sym.parts_of(sc.right_sym)
     w2, h2 = style.sym_dims(right_sym, f_lbl_r)
     y2 = (geom.SH - h2) / 2  # Ignore custom height/spacing for legend symbols
     x_right = (1 + overhang) * scale_w + w2 / 2
     r.draw_sym_al(sc.right_sym, y_off, sym_col, scale_h, x_right, y2, f_lbl_r, al)
 
     # Left
-    (left_sym, _, _) = symbol_parts(sc.left_sym)
+    (left_sym, _, _) = Sym.parts_of(sc.left_sym)
     w1, h1 = style.sym_dims(left_sym, f_lbl)
     y1 = (geom.SH - h1) / 2  # Ignore custom height/spacing for legend symbols
     x_left = (0 - overhang) * scale_w - w1 / 2
@@ -1514,7 +1535,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
         # 1.1-1.9 Labels
         for x in (x / 10 for x in range(11, 20)):
-            r.draw_numeral(last_digit_of(x), y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lgn, al)
+            r.draw_numeral(Sym.last_digit_of(x), y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lgn, al)
 
     elif sc == Scales.R2:
         fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
@@ -1611,30 +1632,6 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     if sc.numerals:
         for x in sc.numerals:
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
-
-
-def first_digit_of(x) -> int:
-    """First numeral in the digital representation of a number."""
-    return int(str(x)[0])
-
-
-def last_digit_of(x) -> int:
-    """Last numeral in the digital representation of a number."""
-    if int(x) == x:
-        x = int(x)
-    return int(str(x)[-1])
-
-
-def sig_digit_of(num):
-    """When only one digit will fit on a major scale's numerals, pick the most significant."""
-    if not (num > 0 and math.log10(num).is_integer()):
-        if num % 10 == 0:
-            num = first_digit_of(num)
-        else:
-            num = last_digit_of(num)
-    else:
-        num = first_digit_of(num)
-    return num
 
 
 class Mode(Enum):

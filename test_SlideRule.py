@@ -6,7 +6,6 @@ from unittest.mock import patch
 from PIL import Image, ImageDraw
 
 from SlideRule import (Scales, ScaleFNs, Layout, RulePart, Side, Align,
-                       symbol_parts, symbol_with_expon, last_digit_of, first_digit_of, keys_of,
                        Renderer, Color, Models, Font, Style, Sym, keys_of,
                        render_diagnostic_mode, render_sliderule_mode)
 
@@ -211,43 +210,43 @@ class ScalePythagoreanTestCase(unittest.TestCase):
         self.assertAlmostEqual(scale_pythagorean.value_at(1), 0)
 
 
-class UtilsTestCase(unittest.TestCase):
+class SymTestCase(unittest.TestCase):
     def test_symbol_with_expon_caret(self):
-        self.assertEqual(('x', 'y'), symbol_with_expon('x^y'))
-        self.assertEqual(('10', '4'), symbol_with_expon('10^4'))
-        self.assertEqual(('10', '-3'), symbol_with_expon('10^-3'))
-        self.assertEqual(('10', '-3.4'), symbol_with_expon('10^-3.4'))
-        self.assertEqual(('10', '0'), symbol_with_expon('10^0'))
+        self.assertEqual(('x', 'y'), Sym.split_expon('x^y'))
+        self.assertEqual(('10', '4'), Sym.split_expon('10^4'))
+        self.assertEqual(('10', '-3'), Sym.split_expon('10^-3'))
+        self.assertEqual(('10', '-3.4'), Sym.split_expon('10^-3.4'))
+        self.assertEqual(('10', '0'), Sym.split_expon('10^0'))
 
     def test_symbol_with_expon_unicode(self):
-        self.assertEqual(('10', '4'), symbol_with_expon('10⁴'))
-        self.assertEqual(('10', '-4'), symbol_with_expon('10⁻⁴'))
-        self.assertEqual(('10', '04'), symbol_with_expon('10⁰⁴'))
+        self.assertEqual(('10', '4'), Sym.split_expon('10⁴'))
+        self.assertEqual(('10', '-4'), Sym.split_expon('10⁻⁴'))
+        self.assertEqual(('10', '04'), Sym.split_expon('10⁰⁴'))
 
     def test_symbol_with_expon_prime(self):
-        self.assertEqual(('W', "'"), symbol_with_expon("W'"))
-        self.assertEqual(('x', "'"), symbol_with_expon("x'"))
+        self.assertEqual(('W', "'"), Sym.split_expon("W'"))
+        self.assertEqual(('x', "'"), Sym.split_expon("x'"))
 
-    def test_symbol_with_expon_subscript(self):
-        self.assertEqual(('x', 'y', 'z'), symbol_parts('x^y_z'))
-        self.assertEqual(('W', "'", '2'), symbol_parts("W'₂"))
+    def test_parts_of(self):
+        self.assertEqual(('x', 'y', 'z'), Sym.parts_of('x^y_z'))
+        self.assertEqual(('W', "'", '2'), Sym.parts_of("W'₂"))
 
     def test_last_digit_of(self):
-        self.assertEqual(5, last_digit_of(5))
-        self.assertEqual(5, last_digit_of(15))
-        self.assertEqual(5, last_digit_of(65))
-        self.assertEqual(5, last_digit_of(105))
-        self.assertEqual(5, last_digit_of(0.5))
-        self.assertEqual(5, last_digit_of(0.15))
-        self.assertEqual(5, last_digit_of(0.65))
-        self.assertEqual(5, last_digit_of(10.5))
-        self.assertEqual(1, last_digit_of(11.0))
+        self.assertEqual(5, Sym.last_digit_of(5))
+        self.assertEqual(5, Sym.last_digit_of(15))
+        self.assertEqual(5, Sym.last_digit_of(65))
+        self.assertEqual(5, Sym.last_digit_of(105))
+        self.assertEqual(5, Sym.last_digit_of(0.5))
+        self.assertEqual(5, Sym.last_digit_of(0.15))
+        self.assertEqual(5, Sym.last_digit_of(0.65))
+        self.assertEqual(5, Sym.last_digit_of(10.5))
+        self.assertEqual(1, Sym.last_digit_of(11.0))
 
     def test_first_digit_of(self):
-        self.assertEqual(5, first_digit_of(5))
-        self.assertEqual(1, first_digit_of(15))
-        self.assertEqual(6, first_digit_of(65))
-        self.assertEqual(1, first_digit_of(105))
+        self.assertEqual(5, Sym.first_digit_of(5))
+        self.assertEqual(1, Sym.first_digit_of(15))
+        self.assertEqual(6, Sym.first_digit_of(65))
+        self.assertEqual(1, Sym.first_digit_of(105))
 
 
 class LayoutTestCase(unittest.TestCase):
