@@ -21,18 +21,21 @@ def main():
         print(f'Building example outputs for: {model_name}')
         model = getattr(Models, model_name) or Model.from_toml_file(os.path.join(base_dir, f'Model-{model_name}.toml'))
 
-        print(f'Building Diagnostic output for: {model_name}')
         diagnostic_img = render_diagnostic_mode(model)
-        diagnostic_img.save(os.path.join(base_dir, f'{model_name}.Diagnostic.png'))
+        diagnostic_filename = os.path.join(base_dir, f'{model_name}.Diagnostic.png')
+        diagnostic_img.save(diagnostic_filename)
+        print(f' Diagnostic output for: {model_name} at: {diagnostic_filename}')
 
-        print(f'Building SlideRuleScales output for: {model_name}')
         sliderule_img = render_sliderule_mode(model, borders=True, cutoffs=True)
-        sliderule_img.save(os.path.join(base_dir, f'{model_name}.SlideRuleScales.png'), 'PNG')
+        sliderule_filename = os.path.join(base_dir, f'{model_name}.SlideRuleScales.png')
+        sliderule_img.save(sliderule_filename, 'PNG')
+        print(f' SlideRuleScales output for: {model_name} at: {sliderule_filename}')
 
-        print(f'Building StickerCut output for: {model_name}')
         sliderule_stickers_img = render_sliderule_mode(model)
         stickers_img = render_stickerprint_mode(model, sliderule_stickers_img)
-        stickers_img.save(os.path.join(base_dir, f'{model_name}.StickerCut.png'))
+        stickers_filename = os.path.join(base_dir, f'{model_name}.StickerCut.png')
+        stickers_img.save(stickers_filename)
+        print(f' StickerCut output for: {model_name} at: {stickers_filename}')
 
 
 if __name__ == '__main__':
