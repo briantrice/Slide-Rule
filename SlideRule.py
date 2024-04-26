@@ -47,7 +47,7 @@ BYTE_MAX = 255
 WH = tuple[int, int]
 
 
-class Colors(Enum):
+class Color(Enum):
     WHITE = (BYTE_MAX, BYTE_MAX, BYTE_MAX)
     RED = (BYTE_MAX, 0, 0)
     GREEN = (0, BYTE_MAX, 0)
@@ -67,10 +67,14 @@ class Colors(Enum):
     RED_WHITE_2 = (BYTE_MAX, 192, 192)
     RED_WHITE_3 = (BYTE_MAX, 160, 160)
 
+    @staticmethod
+    @cache
+    def to_pil(col_spec):
+        return col_spec.value if isinstance(col_spec, Color) else col_spec
 
-@cache
-def pil_color(col_spec):
-    return col_spec.value if isinstance(col_spec, Colors) else col_spec
+    @classmethod
+    def from_str(cls, color: str):
+        return getattr(cls, color.upper(), color)
 
 
 class FontSize(Enum):
@@ -121,15 +125,15 @@ class Font:
 
 @dataclass(frozen=True)
 class Style:
-    fg: Colors = Colors.BLACK
+    fg: Color = Color.BLACK
     """foreground color black"""
-    bg: Colors = Colors.WHITE
+    bg: Color = Color.WHITE
     """background color white"""
-    decreasing_color: Colors = Colors.RED
+    decreasing_color: Color = Color.RED
     """color for a decreasing value scale"""
-    decimal_color: Colors = Colors.BLACK
+    decimal_color: Color = Color.BLACK
     """color for sub-decimal points"""
-    bg_colors: dict[str, Colors] = field(default_factory=dict)
+    bg_colors: dict[str, Color] = field(default_factory=dict)
     """background color overrides for particular scale keys"""
     font_family: Font.Family = Font.CMUTypewriter
     overrides: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -140,15 +144,15 @@ class Style:
             style_def['font_family'] = getattr(Font, style_def['font_family'])
         for key in ('fg', 'bg', 'decreasing_color', 'decimal_color'):
             if key in style_def:
-                style_def[key] = getattr(Colors, style_def[key].upper())
+                style_def[key] = Color.from_str(style_def[key])
         if 'overrides' in style_def:
             for k, v in style_def['overrides'].items():
                 for attr, value in v.items():
                     if attr == 'color':
-                        style_def['overrides'][k][attr] = getattr(Colors, value.upper())
+                        style_def['overrides'][k][attr] = Color.from_str(value)
         if 'bg_colors' in style_def:
             for k, v in style_def['bg_colors'].items():
-                style_def['bg_colors'][k] = getattr(Colors, v.upper())
+                style_def['bg_colors'][k] = Color.from_str(v)
         return cls(**style_def)
 
     def fg_col(self, element: str, is_increasing=True):
@@ -488,13 +492,13 @@ class Renderer:
         return cls(ImageDraw.Draw(i), g, s)
 
     def draw_box(self, x0, y0, dx, dy, col, width=1):
-        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), outline=pil_color(col), width=width)
+        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), outline=Color.to_pil(col), width=width)
 
     def fill_rect(self, x0, y0, dx, dy, col):
-        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), fill=pil_color(col))
+        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), fill=Color.to_pil(col))
 
     def draw_circle(self, xc, yc, r, col):
-        self.r.ellipse((xc - r, yc - r, xc + r, yc + r), outline=pil_color(col))
+        self.r.ellipse((xc - r, yc - r, xc + r, yc + r), outline=Color.to_pil(col))
 
     def draw_tick(self, y_off: int, x: int, h: int, col, scale_h: int, al: Align):
         """Places an individual tick, aligned to top or bottom of scale"""
@@ -603,7 +607,7 @@ class Renderer:
                  (max_num_chars < 3, max_num_chars < 16, max_num_chars < 128))
 
     def draw_symbol(self, symbol: str, color, x_left: float, y_top: float, font: ImageFont):
-        color = pil_color(color)
+        color = Color.to_pil(color)
         if '∡' in symbol:
             symbol = symbol.replace('∡', '')
         if '⅓' in symbol:
@@ -625,7 +629,7 @@ class Renderer:
 
     def draw_sym_al(self, symbol, y_off, color, al_h, x, y, font, al):
         """
-        :param str|Colors color: color that PIL recognizes
+        :param str|Color color: color that PIL recognizes
         :param int y_off: y pos
         :param int al_h: height for alignment
         :param str symbol: content (text or number)
@@ -700,7 +704,7 @@ class Renderer:
 
     # ----------------------4. Line Drawing Functions----------------------------
 
-    def draw_borders(self, y0: int, side: Side, color=Colors.BLACK.value):
+    def draw_borders(self, y0: int, side: Side, color=Color.BLACK.value):
         """Place initial borders around scales"""
         # Main Frame
         total_w = self.geometry.total_w
@@ -729,7 +733,7 @@ class Renderer:
         g = self.geometry
         verticals = [g.cutoff_w + g.oX, g.total_w - g.cutoff_w - g.oX]
         for i, start in enumerate(verticals):
-            self.fill_rect(start - 1, y_off, 2, i, Colors.CUTOFF)
+            self.fill_rect(start - 1, y_off, 2, i, Color.CUTOFF)
 
         cutoff_fl = g.cutoff_outline(y_off)
 
@@ -741,7 +745,7 @@ class Renderer:
             mid_y = 2 * y_off + g.side_h
             coords = g.mirror_vectors_v(coords, mid_y)
         for (x1, x2, y1, y2) in coords:
-            self.r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Colors.CUTOFF2.value)
+            self.r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Color.CUTOFF2.value)
 
     # ---------------------- 5. Stickers -----------------------------
 
@@ -753,7 +757,7 @@ class Renderer:
         :param int y2: Second corner of box
         :param int arm_w: width of extension cross arms
         """
-        col = pil_color(Colors.CUT)
+        col = Color.to_pil(Color.CUT)
         # horizontal cross arms at 4 corners:
         self.r.line((x1 - arm_w, y1, x1 + arm_w, y1), col)
         self.r.line((x1 - arm_w, y2, x1 + arm_w, y2), col)
@@ -1728,7 +1732,7 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
     y_off = y_side_start = y_front_start
     if model == Models.Demo:
         y_off_titling = 25 + y_off
-        title_col = Colors.RED
+        title_col = Color.RED
         f_lbl = model.style.font_for(FontSize.SC_LBL)
         side_w_q = geom.side_w // 4
         for sym, x in ((model.name, side_w_q), (model.subtitle, side_w_q * 2 + geom.oX), (model.brand, side_w_q * 3)):
@@ -1844,13 +1848,13 @@ def render_stickerprint_mode(model, sliderule_img):
     box_x_mirror = 6.5 * o_a + box_w + 2 * x_off
     for box in boxes:
         (x0, y0, dx, dy) = box
-        r.draw_box(x0, y0, dx, dy, Colors.CUT)
-        r.draw_box(x0, y0 + slide_h + o_a, dx, dy, Colors.CUT)
+        r.draw_box(x0, y0, dx, dy, Color.CUT)
+        r.draw_box(x0, y0 + slide_h + o_a, dx, dy, Color.CUT)
 
         x0 = round(2 * box_x_mirror - x0 - dx)
 
-        r.draw_box(x0, y0, dx, dy, Colors.CUT)
-        r.draw_box(x0, y0 + slide_h + o_a, dx, dy, Colors.CUT)
+        r.draw_box(x0, y0, dx, dy, Color.CUT)
+        r.draw_box(x0, y0 + slide_h + o_a, dx, dy, Color.CUT)
     points = [
         [2 * o_a + 120, y_b + o_a + scale_h],
         [6 * o_a + box_w + x_off + 2 * scale_h, y_b + scale_h],
@@ -1862,9 +1866,9 @@ def render_stickerprint_mode(model, sliderule_img):
     ]
     hole_r = 34  # (2.5mm diameter screw holes) = math.ceil(0.25 * Geometry.PixelsPerCM / 2)
     for (p_x, p_y) in points:
-        r.draw_circle(p_x, p_y, hole_r, Colors.CUT)
+        r.draw_circle(p_x, p_y, hole_r, Color.CUT)
         p_x_mirror = round(2 * box_x_mirror - p_x)
-        r.draw_circle(p_x_mirror, p_y, hole_r, Colors.CUT)
+        r.draw_circle(p_x_mirror, p_y, hole_r, Color.CUT)
     return stickerprint_img
 
 

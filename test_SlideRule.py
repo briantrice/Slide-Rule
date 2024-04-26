@@ -6,8 +6,8 @@ from unittest.mock import patch
 from PIL import Image, ImageDraw
 
 from SlideRule import (Scales, ScaleFNs, Layout, RulePart, Side, Align,
-                       Renderer, Colors, Models, Font, Style,
                        symbol_parts, symbol_with_expon, last_digit_of, first_digit_of, keys_of,
+                       Renderer, Color, Models, Font, Style, Sym, keys_of,
                        render_diagnostic_mode, render_sliderule_mode)
 
 
@@ -332,7 +332,7 @@ class MockFont:
 
 class RendererTestCase(unittest.TestCase):
     def setUp(self):
-        self.tmp_image = Image.new('RGB', (1, 1), Colors.WHITE.value)
+        self.tmp_image = Image.new('RGB', (1, 1), Color.WHITE.value)
         self.mock_get_font = patch.object(Font, 'get_font', return_value=MockFont(72))
         self.mock_get_font.start()
 
