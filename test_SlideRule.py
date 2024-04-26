@@ -61,7 +61,7 @@ class ScaleSqrtTenTestCase(unittest.TestCase):
 
 class ScaleLogTestCase(unittest.TestCase):
     def test_fenceposts(self):
-        scale_log = ScaleFNs.Log10
+        scale_log = Scales.L.scaler
         self.assertEqual(scale_log(0), 0)
         self.assertEqual(scale_log(1), 0.1)
         self.assertEqual(scale_log(2), 0.2)
@@ -75,7 +75,7 @@ class ScaleLogTestCase(unittest.TestCase):
         self.assertEqual(scale_log(10), 1.0)
 
     def test_value_at(self):
-        s = ScaleFNs.Log10
+        s = Scales.L.scaler
         self.assertEqual(s.value_at(0), 0)
         self.assertEqual(s.value_at(1), 10)
         self.assertEqual(s.value_at(0.1), 1)

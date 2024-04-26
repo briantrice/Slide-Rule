@@ -933,8 +933,6 @@ class ScaleFNs:
     InverseSquare = ScaleFN(lambda x: 1 - gen_base(x) / 2, lambda p: pos_base(1 - p * 2), is_increasing=False, min_x=ε)
     SquareRoot = ScaleFN(lambda x: gen_base(x) * 2, lambda p: pos_base(p / 2), min_x=ε)
     CubeRoot = ScaleFN(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3), min_x=ε)
-    Log10 = ScaleFN(lambda x: x / TEN, lambda p: p * TEN, min_x=ε)
-    Ln = ScaleFN(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN, min_x=ε)
     Sin = ScaleFN(lambda x: gen_base(TEN * math.sin(math.radians(x))), lambda p: math.asin(pos_base(p)))
     CoSin = ScaleFN(lambda x: gen_base(TEN * math.cos(math.radians(x))), lambda p: math.acos(pos_base(p)),
                     is_increasing=False)
@@ -949,8 +947,6 @@ class ScaleFNs:
     Pythagorean = ScaleFN(lambda x: gen_base(math.sqrt(1 - (x ** 2))) + 1,
                           lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2),
                           is_increasing=False, min_x=-1 + 1e-16, max_x=1 - 1e-16)
-    Chi = ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF)
-    Theta = ScaleFN(lambda x: x / DEG_RT, lambda p: p * DEG_RT)
     LogLog = ScaleFN(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)), min_x=1 + 1e-15)
     LogLogNeg = ScaleFN(lambda x: gen_base(-math.log(x)), lambda p: math.exp(pos_base(-p)),
                         is_increasing=False, min_x=ε, max_x=1 - 1e-16)
@@ -1119,8 +1115,8 @@ class Scales:
     D = Scale('D', 'x', ScaleFNs.Base, opp_key='C', marks=C.marks)
     DI = Scale('DI', '1/x', ScaleFNs.Inverse, opp_key='CI', marks=C.marks)
     K = Scale('K', 'x³', ScaleFNs.Cube)
-    L = Scale('L', 'log x', ScaleFNs.Log10)
-    Ln = Scale('Ln', 'ln x', ScaleFNs.Ln)
+    L = Scale('L', 'log x', ScaleFN(lambda x: x / TEN, lambda p: p * TEN, min_x=ε))
+    Ln = Scale('Ln', 'ln x', ScaleFN(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN, min_x=ε))
     LL0 = Scale('LL₀', 'e^0.001x', ScaleFNs.LogLog, shift=3, key='LL0',
                 dividers=[1.002, 1.004, 1.010], ex_start_value=1.00095, ex_end_value=1.0105)
     LL1 = Scale('LL₁', 'e^0.01x', ScaleFNs.LogLog, shift=2, key='LL1',
@@ -1165,8 +1161,8 @@ class Scales:
 
     # EE-specific
     # Hemmi 153:
-    Chi = Scale('χ', '', ScaleFNs.Chi, marks=[Marks.pi_half])
-    Theta = Scale('θ', '°', ScaleFNs.Theta, key='Theta')
+    Chi = Scale('χ', '', ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF), marks=[Marks.pi_half])
+    Theta = Scale('θ', '°', ScaleFN(lambda x: x / DEG_RT, lambda p: p * DEG_RT), key='Theta')
     # Pickett N-515-T:
     f_x = Scale('f_x', 'x/2π', ScaleFNs.Base, shift=gen_base(TAU), dividers=[0.2, 0.5, 1])
     L_r = Scale('L_r', '1/(2πx)²', ScaleFNs.InverseSquare, shift=gen_base(1 / TAU),
