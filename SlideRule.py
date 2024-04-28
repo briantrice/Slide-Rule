@@ -252,7 +252,7 @@ class Geometry:
         (self.STT, self.STH) = tick_wh
         self.tick_mid_offset = self.STT // 2 + 1
         self.slide_h = slide_h
-        if top_margin:
+        if top_margin is not None:
             self.top_margin = top_margin
         self.scale_h_overrides = {Side.FRONT: {}, Side.REAR: {}}
         if scale_h_overrides:
