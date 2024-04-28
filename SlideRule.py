@@ -1404,6 +1404,7 @@ class Layouts:
     RegleDesEcoles = Layout('DF/CF C/D', '')
     Mannheim = Layout('A/B CI C/D K', '[S L T]')
     Rietz = Layout('K A/B CI C/D L', '[S ST T]')
+    GenericDuplex = Layout('A [B, C] D', 'DF [CF, C] D')
     Darmstadt = Layout('K A/B K CI C/D P', '[LL1 LL2 LL3]')
     DarmstadtAdvanced = Layout('T K A/B BI CI C/D P S', '[ L LL0 LL1 LL2 LL3 ]')
 
