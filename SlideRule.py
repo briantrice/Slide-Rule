@@ -778,7 +778,7 @@ class Renderer:
 
 class Sym:
     RE_EXPON_CARET = re.compile(r'^(.+)\^([-0-9.A-Za-z]+)$')
-    RE_SUB_UNDERSCORE = re.compile(r'^(.+)_([-0-9.A-Za-z]+)$')
+    RE_SUB_UNDERSCORE = re.compile(r'^(.+)_(\w+)$')
     RE_EXPON_UNICODE = re.compile(r'^([^⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)$')
     RE_SUB_UNICODE = re.compile(r'^([^₀₁₂₃]+)([₀₁₂₃]+)$')
 
