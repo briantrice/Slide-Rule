@@ -612,6 +612,8 @@ class Renderer:
 
     def draw_symbol(self, symbol: str, color, x_left: float, y_top: float, font: ImageFont):
         color = Color.to_pil(color)
+        if '′' in symbol:
+            symbol = symbol.replace('′', "'")
         if '∡' in symbol:
             symbol = symbol.replace('∡', '')
         if '⅓' in symbol:
