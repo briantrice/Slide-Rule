@@ -1894,7 +1894,7 @@ def render_diagnostic_mode(model: Model, all_scales=False):
     upper = Align.UPPER
     sh_with_margins = scale_h + (40 if is_demo else 10)
     scale_names = ['A', 'B', 'C', 'D', 'K', 'R1', 'R2', 'CI', 'DI', 'CF', 'DF', 'CIF', 'L', 'S', 'T', 'ST']
-    for sc_name in keys_of(Scales) if all_scales else layout.sc_keys_in_order():
+    for sc_name in keys_of(Scales) + list(layout.sc_keys_in_order()) if all_scales else layout.sc_keys_in_order():
         if sc_name not in scale_names:
             scale_names.append(sc_name)
     total_h = k + (len(scale_names) + 1) * sh_with_margins + scale_h
