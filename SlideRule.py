@@ -26,6 +26,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from functools import cache
 from itertools import chain
+from typing import Callable
 
 import toml
 from PIL import Image, ImageFont, ImageDraw
@@ -897,8 +898,10 @@ class ScaleFN:
 
     These should be monotonic over their intended range.
     """
-    fn: callable
-    inverse: callable
+    fn: Callable[[float], float]
+    """Position of x: Returns the fractional position in the unit output space to put the input value."""
+    inverse: Callable[[float], float]
+    """Value at p: Returns the value to indicate at the fractional position in the output space."""
     is_increasing: bool = True
     min_x: float = -math.inf
     max_x: float = math.inf
