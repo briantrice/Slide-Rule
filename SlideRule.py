@@ -1238,10 +1238,10 @@ class Layout:
     def parts_of_side_layout(cls, side_layout: str) -> [str]:
         side_layout = side_layout.strip(' |')
         parts = None
-        if '/' in side_layout:
-            parts = side_layout.split('/', 2)
-        elif '[' in side_layout and ']' in side_layout:
+        if '[' in side_layout and ']' in side_layout:
             parts = re.split(r'[\[\]]', side_layout, 2)
+        elif '/' in side_layout:
+            parts = side_layout.split('/', 2)
         if parts:
             return [x.strip() for x in parts]
         return [side_layout, '', '']
