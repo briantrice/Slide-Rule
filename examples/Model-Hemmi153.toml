@@ -1,0 +1,20 @@
+brand = 'Hemmi'
+subtitle = 'for Electrical Engineers'
+name = '153'
+
+[geometry]
+side_wh = [8533, 1066]  # 32cm x 4cm
+scale_wh = [6666, 110]  # 25cm x 4cm / 9
+tick_wh = [3, 50]
+margins_xy = [50, 50]
+slide_h = 400  # 1.4cm
+top_margin=0
+
+[layout]
+front = 'L, K, A [B, CI, C ] D, T, G_θ'
+rear = 'θ, R_θ, P [Q, Q′, C] LL3, LL2, LL1'
+scale_ns = 'Hemmi153'
+
+# References:
+# https://followingtherules.info/hemmi-153-scales.html
+# http://nsg.upor.net/slide/srhemmi153.htm

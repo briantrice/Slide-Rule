@@ -1174,7 +1174,7 @@ class Scales:
 
 
 shift_360 = ScaleFNs.Inverse(3.6)
-
+SquareRootNonLog = ScaleFN(lambda x: (x / TEN) ** 2, lambda p: TEN * math.sqrt(p), min_x=0.)
 custom_scale_sets: dict[str, dict[str, Scale]] = {
     'AristoCommerz': {  # scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest
         'Z': replace(Scales.D, left_sym='Z', right_sym='', opp_key='T1', dividers=[2, 4]),
@@ -1196,9 +1196,22 @@ custom_scale_sets: dict[str, dict[str, Scale]] = {
     },
     'Hemmi153': {
         'Chi': Scale('χ', '', ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF), marks=[Marks.pi_half]),
-        'Theta': Scale('θ', '°', ScaleFN(lambda x: x / DEG_RT, lambda p: p * DEG_RT), key='Theta'),
-        'G': Scale('G', '', ScaleFN(None, None)),
-},
+        'K': replace(Scales.K, dividers=[2, 5, 10, 20, 50, 100, 200, 500], key='Hemmi153_K'),
+        'θ': Scale('θ', '', ScaleFN(lambda x: math.sin(math.radians(x)) ** 2,
+                                    lambda p: math.degrees(math.asin(math.sqrt(p)))), dividers=[5, 15, 75, 85]),
+        'R_θ': Scale('R_θ', '', ScaleFN(lambda x: math.sin(x) ** 2, lambda p: math.asin(math.sqrt(p))),
+                     dividers=[0.1, 0.2, 1, 1.4]),
+        'P': Scale('P', 'SIN', SquareRootNonLog, opp_key='Q', dividers=[1, 2, 5]),
+        'Q': Scale('Q', 'COS', SquareRootNonLog, opp_key='P', dividers=[1, 2, 5], on_slide=True),
+        'Q′': Scale('Q′', '', SquareRootNonLog, shift=-1, on_slide=True),
+        'T': Scale('T', '', ScaleFN(lambda x: math.sin(math.atan(x)) ** 2,
+                                    lambda p: math.tan(math.asin(math.sqrt(p)))),
+                   ex_end_value=10, dividers=[0.1, 0.2, 1.2, 1.5, 2, 3, 4, 5], key='Hemmi153_T'),
+        # Gudermannian function:
+        'G_θ': Scale('G_θ', '', ScaleFN(lambda x: math.tanh(x) ** 2,
+                                        lambda p: math.atanh(math.sqrt(p))),
+                     dividers=[0.1, 2, 3, 4], ex_end_value=0.999),
+    },
     'PickettN515T': {
         'f_x': Scale('f_x', 'x/2π', ScaleFNs.Base, shift=gen_base(TAU), dividers=[0.2, 0.5, 1]),
         'L_r': Scale('L_r', '1/(2πx)²', ScaleFNs.InverseSquare, shift=gen_base(1 / TAU),
@@ -1438,6 +1451,7 @@ class Models:
     FaberCastell283 = Model.from_toml_file('examples/Model-FaberCastell283.toml')
     FaberCastell283N = Model.from_toml_file('examples/Model-FaberCastell283N.toml')
     Graphoplex621 = Model.from_toml_file('examples/Model-Graphoplex621.toml')
+    Hemmi153 = Model.from_toml_file('examples/Model-Hemmi153.toml')
 
 
 def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: Side = None):
