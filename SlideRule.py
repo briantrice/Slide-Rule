@@ -420,7 +420,11 @@ class Marks:
     tau = GaugeMark('τ', TAU, comment='ratio of circle circumference to radius')
     pi = GaugeMark('π', PI, comment='ratio of circle circumference to diameter')
     pi_half = GaugeMark('π/2', PI_HALF, comment='ratio of quarter arc length to radius')
+    pi_quarter = GaugeMark('π/4', PI / 4, comment='ratio of circle area to diameter²')
     inv_pi = GaugeMark('M', 1 / PI, comment='reciprocal of π')
+
+    c = GaugeMark('c', math.sqrt(4 / PI), comment='ratio diameter to √area (square to base scale) √(4/π)')
+    c1 = GaugeMark('c′', math.sqrt(4 * TEN / PI), comment='ratio diameter to √area (square to base scale) √(40/π)')
 
     deg_per_rad = GaugeMark('r', DEG_FULL / TAU / TEN, comment='degrees per radian')
     rad_per_deg = GaugeMark('ρ', TAU / DEG_FULL, comment='radians per degree')
@@ -1154,13 +1158,13 @@ class Scales:
 
     H1 = Scale('H₁', '√1+0.1x²', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1], numerals=[1.005])
     H2 = Scale('H₂', '√1+x²', ScaleFNs.Hyperbolic, key='H2', dividers=[4])
-    Sh1 = Scale('Sh₁', 'sinh x', ScaleFNs.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
-    Sh2 = Scale('Sh₂', 'sinh x', ScaleFNs.SinH, key='Sh2')
-    Ch1 = Scale('Ch', 'cosh x', ScaleFNs.CosH, dividers=[1, 2], ex_start_value=0.01)
-    Th = Scale('Th', 'tanh x', ScaleFNs.TanH, shift=1, dividers=[0.2, 0.4, 1, 2], ex_end_value=3)
+    SH1 = Scale('Sh₁', 'sinh x', ScaleFNs.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
+    SH2 = Scale('Sh₂', 'sinh x', ScaleFNs.SinH, key='Sh2')
+    CH1 = Scale('Ch', 'cosh x', ScaleFNs.CosH, dividers=[1, 2], ex_start_value=0.01)
+    TH = Scale('Th', 'tanh x', ScaleFNs.TanH, shift=1, dividers=[0.2, 0.4, 1, 2], ex_end_value=3)
 
-    # EE-specific
-    # Hemmi 153:
+    Const = Scale('Const', '', ScaleFNs.Base,
+                  marks=[Marks.e, Marks.pi, Marks.tau, Marks.deg_per_rad, Marks.rad_per_deg, Marks.c])
 
 
 shift_360 = ScaleFNs.Inverse(3.6)
@@ -1505,7 +1509,9 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     ths5 = (th_med, th_med, th_sm, th_xs)
     sf = 1000  # Reflects the minimum significant figures needed for standard scales to avoid FP inaccuracy
     digits2 = (True, True, False)
-    if (sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse}) and sc.shift == 0:  # C/D and CI/DI
+    if sc == Scales.Const:
+        pass
+    elif (sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse}) and sc.shift == 0:  # C/D and CI/DI
         fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
         r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, digits2)
         r.pat(y_off, sc, al, fp2, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, False)
