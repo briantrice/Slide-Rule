@@ -1145,6 +1145,9 @@ class Scales:
                  dividers=[5e-4, 1e-3, 1e-2, 0.1], ex_start_value=1e-4, ex_end_value=0.39, marks=[Marks.inv_e])
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
               dividers=[0.3, 0.6, 0.8, 0.9, 0.98, 0.99], ex_start_value=0.1, ex_end_value=.995)
+    Q1 = Scale('Q₁', '∛x', ScaleFNs.CubeRoot, marks=[Marks.cube_root_ten], key='Q1')
+    Q2 = Scale('Q₂', '∛10x', ScaleFNs.CubeRoot, shift=-1, marks=[Marks.cube_root_ten], key='Q2')
+    Q3 = Scale('Q₃', '∛100x', ScaleFNs.CubeRoot, shift=-2, marks=[Marks.cube_root_ten], key='Q3')
     R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
     R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
     S = Scale('S', '∡sin x°', ScaleFNs.Sin, mirror_key='CoS')
@@ -1193,6 +1196,12 @@ custom_scale_sets: dict[str, dict[str, Scale]] = {
         # meta-scale showing % with 100% over 1/unity
         # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
         'Libra': replace(Scales.L, left_sym='£', right_sym='', key='Libra'),
+    },
+    'UltraLog': {
+        'LL/0': Scales.LL00,
+        'LL/1': Scales.LL01,
+        'LL/2': Scales.LL02,
+        'LL/3': Scales.LL03,
     },
     'Hemmi153': {
         'Chi': Scale('χ', '', ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF), marks=[Marks.pi_half]),
@@ -1452,6 +1461,7 @@ class Models:
     FaberCastell283N = Model.from_toml_file('examples/Model-FaberCastell283N.toml')
     Graphoplex621 = Model.from_toml_file('examples/Model-Graphoplex621.toml')
     Hemmi153 = Model.from_toml_file('examples/Model-Hemmi153.toml')
+    UltraLog = Model.from_toml_file('examples/Model-UltraLog.toml')
 
 
 def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: Side = None):
