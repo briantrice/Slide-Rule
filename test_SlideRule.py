@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw
 
 from SlideRule import (Scales, ScaleFNs, Layout, RulePart, Side, Align,
                        Renderer, Color, Models, Font, Style, Sym, keys_of,
-                       render_diagnostic_mode, render_sliderule_mode)
+                       render_diagnostic_mode, render_sliderule_mode, custom_scale_sets)
 
 
 class ScaleBaseTestCase(unittest.TestCase):
@@ -128,8 +128,9 @@ class ScaleHyperbolicTestCase(unittest.TestCase):
 
 class ScaleThetaTestCase(unittest.TestCase):
     def test_fenceposts(self):
-        self.assertEqual(Scales.Theta.frac_pos_of(0), 0)
-        self.assertEqual(Scales.Theta.frac_pos_of(90), 1)
+        theta = custom_scale_sets['Hemmi153']['θ']
+        self.assertEqual(theta.frac_pos_of(0), 0)
+        self.assertEqual(theta.frac_pos_of(90), 1)
 
 
 class ScaleLogLogTestCase(unittest.TestCase):
@@ -298,14 +299,14 @@ class LayoutTestCase(unittest.TestCase):
 
 class ModelTestCase(unittest.TestCase):
     def test_pickett_n515t_lr(self):
-        lr = Scales.L_r
+        lr = custom_scale_sets['PickettN515T']['L_r']
         start_value = 0.25330295910584444
         self.assertAlmostEqual(lr.value_at_start(), start_value)
         self.assertAlmostEqual(lr.value_at_frac_pos(0.5), start_value / 10)
         self.assertAlmostEqual(lr.value_at_end(), start_value / 100)
 
     def test_pickett_n515t_fx(self):
-        fx = Scales.f_x
+        fx = custom_scale_sets['PickettN515T']['f_x']
         self.assertAlmostEqual(fx.value_at_start(), 1 / math.tau)
         self.assertAlmostEqual(fx.value_at_end(), 10 / math.tau)
 
