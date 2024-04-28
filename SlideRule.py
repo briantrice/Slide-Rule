@@ -1049,11 +1049,10 @@ class Scale:
         start_value, end_value = self.value_range()
         start_log = math.log10(start_value) if start_value > 0 else LOG_ZERO
         end_log = math.log10(end_value) if end_value > 0 else LOG_ZERO
-        low_log = min(start_log, end_log)
-        high_log = max(start_log, end_log)
-        if high_log - low_log == math.inf:
+        start_log, end_log = min(start_log, end_log), max(start_log, end_log)
+        if end_log - start_log == math.inf:
             return None
-        return range(math.ceil(low_log), math.ceil(high_log))
+        return range(math.ceil(start_log), math.ceil(end_log))
 
     def pos_of(self, x, geom) -> int:
         return round(geom.SL * self.frac_pos_of(x))
