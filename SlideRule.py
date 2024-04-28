@@ -1161,12 +1161,6 @@ class Scales:
 
     # EE-specific
     # Hemmi 153:
-    Chi = Scale('χ', '', ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF), marks=[Marks.pi_half])
-    Theta = Scale('θ', '°', ScaleFN(lambda x: x / DEG_RT, lambda p: p * DEG_RT), key='Theta')
-    # Pickett N-515-T:
-    f_x = Scale('f_x', 'x/2π', ScaleFNs.Base, shift=gen_base(TAU), dividers=[0.2, 0.5, 1])
-    L_r = Scale('L_r', '1/(2πx)²', ScaleFNs.InverseSquare, shift=gen_base(1 / TAU),
-                dividers=[0.05, 0.1, 0.2, 0.5, 1, 2], ex_start_value=0.025, ex_end_value=2.55)
 
 
 shift_360 = ScaleFNs.Inverse(3.6)
@@ -1189,6 +1183,16 @@ custom_scale_sets: dict[str, dict[str, Scale]] = {
         # meta-scale showing % with 100% over 1/unity
         # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
         'Libra': replace(Scales.L, left_sym='£', right_sym='', key='Libra'),
+    },
+    'Hemmi153': {
+        'Chi': Scale('χ', '', ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF), marks=[Marks.pi_half]),
+        'Theta': Scale('θ', '°', ScaleFN(lambda x: x / DEG_RT, lambda p: p * DEG_RT), key='Theta'),
+        'G': Scale('G', '', ScaleFN(None, None)),
+},
+    'PickettN515T': {
+        'f_x': Scale('f_x', 'x/2π', ScaleFNs.Base, shift=gen_base(TAU), dividers=[0.2, 0.5, 1]),
+        'L_r': Scale('L_r', '1/(2πx)²', ScaleFNs.InverseSquare, shift=gen_base(1 / TAU),
+                     dividers=[0.05, 0.1, 0.2, 0.5, 1, 2], ex_start_value=0.025, ex_end_value=2.55),
     }
 }
 
