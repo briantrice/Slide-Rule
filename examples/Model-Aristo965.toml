@@ -7,7 +7,7 @@ margins_xy = [100, 100]
 scale_wh = [6666, 80]  # 25cm (6666.7px) x 3.5mm (93px)
 slide_h = 480  # 1.7cm (450px)
 [layout]
-front = 'Pct KZ [T2 P2 P1 T1] Z'
+front = 'Pct KZ [T2 P2 P1 T1] Z Libra'
 scale_ns = 'AristoCommerz'
 [layout.align_overrides]
 front = { P2 = 'upper' }
