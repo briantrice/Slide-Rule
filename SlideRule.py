@@ -1899,7 +1899,9 @@ def render_diagnostic_mode(model: Model, all_scales=False):
     title_x = geom_d.midpoint_x - geom_d.li
     title = 'Diagnostic Test Print of Available Scales'
     r.draw_sym_al(title, 50, style.fg, 0, title_x, 0, style.font_for(FontSize.TITLE), upper)
-    r.draw_sym_al(' '.join(scale_names), 200, style.fg, 0, title_x, 0, style.font_for(FontSize.SUBTITLE), upper)
+    sc_names_str = ' '.join(scale_names)
+    r.draw_sym_al(sc_names_str, 200, style.fg, 0, title_x, 0,
+                  style.font_for(FontSize.SUBTITLE, h_ratio=min(1.0, 100 / len(sc_names_str))), upper)
     for n, sc_name in enumerate(scale_names):
         sc = model.layout.scale_named(sc_name)
         assert sc, f'Scale not found: {sc_name}'
