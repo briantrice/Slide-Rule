@@ -566,6 +566,8 @@ class Renderer:
             x_end = sc.value_at_end()
         if x_start > x_end:
             x_start, x_end = x_end, x_start
+        elif x_start == x_end:
+            return
         g = self.geometry
         min_tick_offset = g.min_tick_offset
         log_diff = abs(math.log10(abs((x_end - x_start) / max(x_start, x_end))))
