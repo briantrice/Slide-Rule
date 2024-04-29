@@ -31,12 +31,12 @@ def main():
             diagnostic_filename = os.path.join(base_dir, f'{model_name}.Diagnostic.png')
             diagnostic_img.save(diagnostic_filename)
             print(f' Diagnostic output for: {model_name} at: {diagnostic_filename}')
-        elif Mode.RENDER in modes:
+        if Mode.RENDER in modes:
             sliderule_img = render_sliderule_mode(model, borders=True, cutoffs=True)
             sliderule_filename = os.path.join(base_dir, f'{model_name}.SlideRuleScales.png')
             sliderule_img.save(sliderule_filename, 'PNG')
             print(f' SlideRuleScales output for: {model_name} at: {sliderule_filename}')
-        elif Mode.STICKERPRINT in modes:
+        if Mode.STICKERPRINT in modes:
             sliderule_img = render_sliderule_mode(model, cutoffs=True)
             sliderule_stickers_img = render_sliderule_mode(model, sliderule_img)
             stickers_img = render_stickerprint_mode(model, sliderule_stickers_img)
