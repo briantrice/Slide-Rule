@@ -242,10 +242,14 @@ class Geometry:
     scale_h_overrides: dict[Side, dict[str, int]] = {Side.FRONT: {}, Side.REAR: {}}
     margin_overrides: dict[Side, dict[str, int]] = {Side.FRONT: {}, Side.REAR: {}}
 
+    brace_shape: str = 'L'  # or C
+    brace_offset: int = 30  # offset of metal from boundary
+
     def __init__(self, side_wh: WH, margins_xy: WH, scale_wh: WH, tick_wh: WH,
                  slide_h: int, top_margin: int = None,
                  scale_h_overrides: dict[Side, dict[int: [str]]] = None,
-                 margin_overrides: dict[Side, dict[int: [str]]] = None):
+                 margin_overrides: dict[Side, dict[int: [str]]] = None,
+                 brace_shape: str = None, brace_offset: int = None):
         (self.side_w, self.side_h) = side_wh
         (self.oX, self.oY) = margins_xy
         (self.SL, self.SH) = scale_wh
@@ -268,6 +272,10 @@ class Geometry:
                 for h, sc_keys in side_overrides.items():
                     for sc_key in sc_keys:
                         self.margin_overrides[side][sc_key] = int(h)
+        if brace_shape:
+            self.brace_shape = brace_shape
+        if brace_offset:
+            self.brace_offset = brace_offset
 
     @classmethod
     def from_dict(cls, geometry_def):
@@ -300,8 +308,8 @@ class Geometry:
         return (self.side_h - self.slide_h) // 2
 
     @property
-    def cutoff_w(self):
-        """Default cutoff width ensures a square anchor piece."""
+    def brace_w(self):
+        """Brace width default, to ensure a square anchor piece."""
         return self.stator_h
 
     @property
@@ -349,43 +357,51 @@ class Geometry:
         default_scale_h = self.DEFAULT_SCALE_WH[1]
         return scale_h / default_scale_h if scale_h != default_scale_h else None
 
-    def cutoff_outline(self, y_off):
+    def brace_outline(self, y_off):
         """
-        Creates and returns the left cutoff piece outline in vectors as: (x1,x2,y1,y2)
-
-        ~Cute~little~visualization~
-
-        x_left x_mid x_right
-        0  ↓    ↓    ↓
-        ↓         1↓   ← 0
-                ┌────┐ ← y_top
-                │    │
-                │    │
-             4→ │    │ ←6
-                │    │
-                │    │
-             2↓ │    │
-           ┌────┘    │ ← y_mid
-        5→ │         │
-           │         │
-           └─────────┘ ← y_bottom
-               3↑      ← side_h
+        Creates and returns the left front brace piece outline in vectors as: (x1,x2,y1,y2)
+        Supports L or C shapes.
         """
-        side_h = self.side_h
-        cutoff_w = self.cutoff_w
-        b = 30  # offset of metal from boundary
+        b = self.brace_offset  # offset of metal from boundary
         x_left = b + self.oX
-        x_mid = x_left + cutoff_w // 2
-        x_right = cutoff_w - b + self.oX
+        x_mid = x_left + self.brace_w // 2
+        x_right = self.brace_w - b + self.oX
         y_top = b + y_off
-        y_mid = y_top + side_h - self.stator_h
-        y_bottom = side_h - b + y_off
-        return [(x_mid, x_right, y_top, y_top),  # 1
-                (x_left, x_mid, y_mid, y_mid),  # 2
-                (x_left, x_right, y_bottom, y_bottom),  # 3
-                (x_mid, x_mid, y_top, y_mid),  # 4
-                (x_left, x_left, y_mid, y_bottom),  # 5
-                (x_right, x_right, y_top, y_bottom)]  # 6
+        y_slide_top = y_off + self.stator_h - b
+        y_slide_bottom = y_top + self.side_h - self.stator_h
+        y_bottom = self.side_h - b + y_off
+        if self.brace_shape == 'L':
+            # x_left x_mid x_right
+            # 0  ↓    ↓    ↓
+            # ↓         1↓   ← 0
+            #         ┌────┐ ← y_top
+            #         │    │
+            #         │    │
+            #      4→ │    │ ←6
+            #         │    │
+            #         │    │
+            #      2↓ │    │
+            #    ┌────┘    │ ← y_slide_bottom
+            # 5→ │         │
+            #    │         │
+            #    └─────────┘ ← y_bottom
+            #        3↑      ← side_h
+            return [(x_mid, x_right, y_top, y_top),  # 1
+                    (x_left, x_mid, y_slide_bottom, y_slide_bottom),  # 2
+                    (x_left, x_right, y_bottom, y_bottom),  # 3
+                    (x_mid, x_mid, y_top, y_slide_bottom),  # 4
+                    (x_left, x_left, y_slide_bottom, y_bottom),  # 5
+                    (x_right, x_right, y_top, y_bottom)]  # 6
+        elif self.brace_shape == 'C':
+            return [(x_right, x_right, y_top, y_bottom),  # inside
+                    (x_left, x_right, y_top, y_top),  # top
+                    (x_left, x_right, y_bottom, y_bottom),  # bottom
+                    (x_left, x_left, y_top, y_slide_top),  # outside top
+                    (x_left, x_left, y_slide_bottom, y_bottom),  # outside bottom
+                    # TODO extend Renderer to handle arcs + replace with arc:
+                    (x_left, x_mid, y_slide_top, y_slide_top),  # arc top
+                    (x_mid, x_mid, y_slide_top, y_slide_bottom),  # arc inside
+                    (x_left, x_mid, y_slide_bottom, y_slide_bottom)]  # arc bottom
 
     def mirror_vectors_h(self, vectors: list[tuple[int, int, int, int]]):
         """(x1, x2, y1, y2) mirrored across the centerline"""
@@ -735,18 +751,18 @@ class Renderer:
         for horizontal_x in [half_stock_height + o_x, (total_w - half_stock_height) - o_x]:
             self.fill_rect(horizontal_x, y_start, 1, stator_h, color)
 
-    def draw_metal_cutoffs(self, y_off: int, side: Side):
+    def draw_brace_pieces(self, y_off: int, side: Side):
         """Draw the metal bracket locations for viewing"""
         # Initial Boundary verticals
         g = self.geometry
-        verticals = [g.cutoff_w + g.oX, g.total_w - g.cutoff_w - g.oX]
+        verticals = [g.brace_w + g.oX, g.total_w - g.brace_w - g.oX]
         for i, start in enumerate(verticals):
             self.fill_rect(start - 1, y_off, 2, i, Color.CUTOFF)
 
-        cutoff_fl = g.cutoff_outline(y_off)
+        brace_fl = g.brace_outline(y_off)
 
         # Symmetrically create the right piece
-        coords = cutoff_fl + g.mirror_vectors_h(cutoff_fl)
+        coords = brace_fl + g.mirror_vectors_h(brace_fl)
 
         # If backside, first apply a vertical reflection
         if side == Side.REAR:
@@ -1801,7 +1817,7 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
             y0 = y_front_start if side == Side.FRONT else y_rear_start
             r.draw_borders(y0, side)
             if cutoffs:
-                r.draw_metal_cutoffs(y0, side)
+                r.draw_brace_pieces(y0, side)
     return sliderule_img
 
 

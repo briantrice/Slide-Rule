@@ -7,6 +7,7 @@ scale_wh = [6666, 101]  # 25cm (6666.7px) x 3.5mm (93px)
 tick_wh = [3, 50]
 slide_h = 510  # 1.9cm (506.6px)
 top_margin = 0
+brace_shape = 'C'
 [geometry.scale_h_overrides]
 rear = {74 = ['LL03', 'LL02', 'LL01', 'LL00', 'LL0', 'LL1', 'LL2', 'LL3']}
 [layout]

@@ -4,8 +4,10 @@ name = '2/83'
 side_wh = [8800, 1280]  # 33cm x 4.8cm
 margins_xy = [100, 100]
 scale_wh = [6666, 101]  # 25cm (6666.7px) x 3.5mm (93px)
+tick_wh = [3, 50]
 slide_h = 400  # 1.5cm
 top_margin = 0
+brace_shape = 'C'
 [geometry.scale_h_overrides]
 front = {72 = ['K', 'T1', 'T2', 'P']}
 rear = {90 = ['LL03', 'LL02', 'LL01', 'LL1', 'LL2', 'LL3']}
