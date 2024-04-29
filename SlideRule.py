@@ -14,9 +14,9 @@ Table of Contents
    6. Models
    7. Commands
 """
-
 # ----------------------1. Setup----------------------------
 
+from copy import copy
 import inspect
 import math
 import re
@@ -871,14 +871,13 @@ class BleedDir(Enum):
     DOWN = 'down'
 
 
-def extend(image: Image, geom: Geometry, y: int, direction: BleedDir, amplitude: int):
+def extend(image: Image, total_w: int, y: int, direction: BleedDir, amplitude: int):
     """
     Used to create bleed for sticker cutouts
     y: pixel row to duplicate
     amplitude: number of pixels to extend
     """
-    w = geom.total_w
-    for x in range(0, w):
+    for x in range(0, total_w):
         bleed_color = image.getpixel((x, y))
         for yi in range(y - amplitude, y) if direction == BleedDir.UP else range(y, y + amplitude):
             image.putpixel((x, yi), bleed_color)
@@ -1821,7 +1820,7 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
     return sliderule_img
 
 
-def render_stickerprint_mode(model, sliderule_img):
+def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     # Code Names
     # (fs) | UL,UM,UR [ ML,MM,MR ] LL,LM,LR |
     # (bs) | UL,UM,UR [ ML,MM,MR ] LL,LM,LR |
@@ -1832,56 +1831,55 @@ def render_stickerprint_mode(model, sliderule_img):
     o_y2 = 50  # y dir margins
     o_a = 50  # overhang amount
     ext = 20  # extension amount
-    geom = model.geometry
-    scale_w = 6500
-    geom_s = Geometry(
-        (scale_w, 1600),
-        Geometry.NO_MARGINS,
-        (scale_w, Geometry.SH),
-        Geometry.DEFAULT_TICK_WH,
-        640
-    )
-    style = model.style
-    scale_h = geom_s.SH
-    total_w = scale_w + 2 * o_x2
-    total_h = 5075
-    stickerprint_img = image_for_rendering(model, w=total_w, h=total_h)
-    r = Renderer.make(stickerprint_img, geom_s, style)
+    geom = m.geometry
+    x_off = (geom.side_w - geom.SL - 900) // 2
+    scale_w = geom.side_w - x_off * 2
+    scale_h = geom.SH
+    geom_s = copy(geom)
+    geom_s.side_w = scale_w
+    # geom_s.SL = scale_w
+    geom_s.oX = 0
+    geom_s.oY = 0
+    style = m.style
     # fsUM,MM,LM:
     y = 0
     y += o_y2 + o_a
-    x_off = 750
     x_left = geom.oX + x_off
-    slide_h = geom_s.slide_h
-    stator_h = geom_s.stator_h
+    slide_h = geom.slide_h
+    stator_h = geom.stator_h
+    total_w = scale_w + 2 * o_x2
+    sticker_row_h = max(slide_h, stator_h)
+    total_h = (geom.side_h + 2 * o_a) * 2 + o_a * 5 + sticker_row_h * 2 + 145
+    stickerprint_img = image_for_rendering(m, w=total_w, h=total_h)
+    r = Renderer.make(stickerprint_img, geom_s, style)
     transcribe(sliderule_img, stickerprint_img, x_left, geom.oY, scale_w, stator_h, o_x2, y)
-    extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
+    extend(stickerprint_img, scale_w, y + stator_h - 1, BleedDir.DOWN, ext)
     r.draw_corners(o_x2, y - o_a, o_x2 + scale_w, y + stator_h)
     y += stator_h + o_a
     transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + stator_h + 1, scale_w, slide_h, o_x2, y)
-    extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
-    extend(stickerprint_img, geom_s, y + slide_h - 1, BleedDir.DOWN, ext)
+    extend(stickerprint_img, scale_w, y + 1, BleedDir.UP, ext)
+    extend(stickerprint_img, scale_w, y + slide_h - 1, BleedDir.DOWN, ext)
     r.draw_corners(o_x2, y, o_x2 + scale_w, y + slide_h)
     y += slide_h + o_a
     transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + geom.side_h - stator_h, scale_w, stator_h, o_x2, y)
-    extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
-    extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
+    extend(stickerprint_img, scale_w, y + 1, BleedDir.UP, ext)
+    extend(stickerprint_img, scale_w, y + stator_h - 1, BleedDir.DOWN, ext)
     r.draw_corners(o_x2, y, o_x2 + scale_w, y + stator_h + o_a)
     # bsUM,MM,LM:
     y += stator_h + o_a + o_a + o_a
     y_start = geom.oY + geom.side_h + geom.oY
     transcribe(sliderule_img, stickerprint_img, x_left, y_start, scale_w, stator_h, o_x2, y)
-    extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
+    extend(stickerprint_img, scale_w, y + stator_h - 1, BleedDir.DOWN, ext)
     r.draw_corners(o_x2, y - o_a, o_x2 + scale_w, y + stator_h)
     y += stator_h + o_a
     transcribe(sliderule_img, stickerprint_img, x_left, y_start + stator_h + 1 - 3, scale_w, slide_h, o_x2, y)
-    extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
-    extend(stickerprint_img, geom_s, y + slide_h - 1, BleedDir.DOWN, ext)
+    extend(stickerprint_img, scale_w, y + 1, BleedDir.UP, ext)
+    extend(stickerprint_img, scale_w, y + slide_h - 1, BleedDir.DOWN, ext)
     r.draw_corners(o_x2, y, o_x2 + scale_w, y + slide_h)
     y += slide_h + o_a
-    transcribe(sliderule_img, stickerprint_img, x_left, y_start + geom_s.side_h - stator_h, scale_w, stator_h, o_x2, y)
-    extend(stickerprint_img, geom_s, y + 1, BleedDir.UP, ext)
-    extend(stickerprint_img, geom_s, y + stator_h - 1, BleedDir.DOWN, ext)
+    transcribe(sliderule_img, stickerprint_img, x_left, y_start + geom.side_h - stator_h, scale_w, stator_h, o_x2, y)
+    extend(stickerprint_img, scale_w, y + 1, BleedDir.UP, ext)
+    extend(stickerprint_img, scale_w, y + stator_h - 1, BleedDir.DOWN, ext)
     y_bottom = y + stator_h + o_a
     r.draw_corners(o_x2, y, o_x2 + scale_w, y_bottom)
     y_b = y_bottom + 20
@@ -1895,23 +1893,22 @@ def render_stickerprint_mode(model, sliderule_img):
          x_off + o_a, stator_h + o_a]
     ]
     box_x_mirror = 6.5 * o_a + box_w + 2 * x_off
-    for box in boxes:
-        (x0, y0, dx, dy) = box
+    for (x0, y0, dx, dy) in boxes:
         r.draw_box(x0, y0, dx, dy, Color.CUT)
         r.draw_box(x0, y0 + slide_h + o_a, dx, dy, Color.CUT)
 
         x0 = round(2 * box_x_mirror - x0 - dx)
 
         r.draw_box(x0, y0, dx, dy, Color.CUT)
-        r.draw_box(x0, y0 + slide_h + o_a, dx, dy, Color.CUT)
+        r.draw_box(x0, y0 + sticker_row_h + o_a, dx, dy, Color.CUT)
     points = [
         [2 * o_a + 120, y_b + o_a + scale_h],
         [6 * o_a + box_w + x_off + 2 * scale_h, y_b + scale_h],
         [6 * o_a + box_w + x_off + scale_h, y_b + 2 * scale_h],
 
         [2 * o_a + 120, y_b + slide_h + o_a + scale_h],
-        [6 * o_a + box_w + x_off + scale_h, y_b + 640 + o_a + o_a + 2 * scale_h],
-        [6 * o_a + box_w + x_off + 2 * scale_h, y_b + 640 + o_a + o_a + scale_h]
+        [6 * o_a + box_w + x_off + scale_h, y_b + slide_h + o_a + o_a + 2 * scale_h],
+        [6 * o_a + box_w + x_off + 2 * scale_h, y_b + slide_h + o_a + o_a + scale_h]
     ]
     hole_r = 34  # (2.5mm diameter screw holes) = math.ceil(0.25 * Geometry.PixelsPerCM / 2)
     for (p_x, p_y) in points:
