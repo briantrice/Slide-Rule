@@ -14,9 +14,9 @@ Table of Contents
    6. Models
    7. Commands
 """
+
 # ----------------------1. Setup----------------------------
 
-from copy import copy
 import inspect
 import math
 import re
@@ -211,6 +211,7 @@ class RulePart(Enum):
     STATOR_BOTTOM = 'stator_bottom'
 
 
+@dataclass(frozen=True)
 class Geometry:
     """Slide Rule Geometric Parameters"""
     oX: int = 100  # x margins
@@ -223,7 +224,6 @@ class Geometry:
     """scale height"""
     SL: int = 5600  # 21cm = 8.27in
     """scale length"""
-    DEFAULT_SCALE_WH: WH = (SL, SH)
     SM: int = 0
     """Scale margin"""
 
@@ -235,47 +235,46 @@ class Geometry:
     PixelsPerCM = 1600 / 6
     PixelsPerIN = PixelsPerCM * 2.54
 
-    NO_MARGINS: WH = (0, 0)
-    DEFAULT_TICK_WH: WH = (STT, STH)
-
-    top_margin = 110
-    scale_h_overrides: dict[Side, dict[str, int]] = {Side.FRONT: {}, Side.REAR: {}}
-    margin_overrides: dict[Side, dict[str, int]] = {Side.FRONT: {}, Side.REAR: {}}
+    top_margin: int = 110
+    @staticmethod
+    def _overrides_factory(): return {Side.FRONT: {}, Side.REAR: {}}
+    scale_h_overrides: dict[Side, dict[str, int]] = field(default_factory=_overrides_factory)
+    margin_overrides: dict[Side, dict[str, int]] = field(default_factory=_overrides_factory)
 
     brace_shape: str = 'L'  # or C
     brace_offset: int = 30  # offset of metal from boundary
 
-    def __init__(self, side_wh: WH, margins_xy: WH, scale_wh: WH, tick_wh: WH,
-                 slide_h: int, top_margin: int = None,
-                 scale_h_overrides: dict[Side, dict[int: [str]]] = None,
-                 margin_overrides: dict[Side, dict[int: [str]]] = None,
-                 brace_shape: str = None, brace_offset: int = None):
-        (self.side_w, self.side_h) = side_wh
-        (self.oX, self.oY) = margins_xy
-        (self.SL, self.SH) = scale_wh
-        (self.STT, self.STH) = tick_wh
-        self.tick_mid_offset = self.STT // 2 + 1
-        self.slide_h = slide_h
-        if top_margin is not None:
-            self.top_margin = top_margin
-        self.scale_h_overrides = {Side.FRONT: {}, Side.REAR: {}}
+    NO_MARGINS = (0, 0)
+    DEFAULT_SCALE_WH = (SL, SH)
+    DEFAULT_TICK_WH = (STT, STH)
+
+    @classmethod
+    def make(cls, side_wh: WH, margins_xy: WH, scale_wh: WH = DEFAULT_SCALE_WH, tick_wh: WH = DEFAULT_TICK_WH,
+             slide_h: int = slide_h, top_margin: int = top_margin,
+             scale_h_overrides: dict[Side, dict[int: [str]]] = None,
+             margin_overrides: dict[Side, dict[int: [str]]] = None,
+             brace_shape: str = brace_shape, brace_offset: int = brace_offset):
+        (side_w, side_h) = side_wh
+        (oX, oY) = margins_xy
+        (SL, SH) = scale_wh
+        (STT, STH) = tick_wh
+        scale_h_overrides_opt = cls._overrides_factory()
         if scale_h_overrides:
             for side in Side:
                 side_overrides = scale_h_overrides.get(side, {})
                 for h, sc_keys in side_overrides.items():
                     for sc_key in sc_keys:
-                        self.scale_h_overrides[side][sc_key] = int(h)
-        self.margin_overrides = {Side.FRONT: {}, Side.REAR: {}}
+                        scale_h_overrides_opt[side][sc_key] = int(h)
+        margin_overrides_opt = cls._overrides_factory()
         if margin_overrides:
             for side in Side:
                 side_overrides = margin_overrides.get(side, {})
                 for h, sc_keys in side_overrides.items():
                     for sc_key in sc_keys:
-                        self.margin_overrides[side][sc_key] = int(h)
-        if brace_shape:
-            self.brace_shape = brace_shape
-        if brace_offset:
-            self.brace_offset = brace_offset
+                        margin_overrides_opt[side][sc_key] = int(h)
+        return cls(oX=oX, oY=oY, side_w=side_w, side_h=side_h, slide_h=slide_h, top_margin=top_margin, SH=SH, SL=SL,
+                   STH=STH, STT=STT, scale_h_overrides=scale_h_overrides_opt, margin_overrides=margin_overrides_opt,
+                   brace_shape=brace_shape, brace_offset=brace_offset)
 
     @classmethod
     def from_dict(cls, geometry_def):
@@ -289,7 +288,7 @@ class Geometry:
             geometry_def['scale_wh'] = cls.DEFAULT_SCALE_WH
         if 'tick_wh' not in geometry_def:
             geometry_def['tick_wh'] = cls.DEFAULT_TICK_WH
-        return cls(**geometry_def)
+        return cls.make(**geometry_def)
 
     @property
     def total_w(self):
@@ -1835,11 +1834,7 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     x_off = (geom.side_w - geom.SL - 900) // 2
     scale_w = geom.side_w - x_off * 2
     scale_h = geom.SH
-    geom_s = copy(geom)
-    geom_s.side_w = scale_w
-    # geom_s.SL = scale_w
-    geom_s.oX = 0
-    geom_s.oY = 0
+    geom_s = replace(geom, side_w=scale_w, oX=0, oY=0)
     style = m.style
     slide_h = geom.slide_h
     stator_h = geom.stator_h
@@ -1922,7 +1917,7 @@ def render_diagnostic_mode(model: Model, all_scales=False):
         if sc_name not in scale_names:
             scale_names.append(sc_name)
     total_h = k + (len(scale_names) + 1) * sh_with_margins + scale_h
-    geom_d = Geometry(
+    geom_d = Geometry.make(
         (6500, total_h),
         (250, 250),  # remove y-margin to stack scales
         (Geometry.SL, scale_h),
