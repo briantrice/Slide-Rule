@@ -1841,81 +1841,66 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     geom_s.oX = 0
     geom_s.oY = 0
     style = m.style
-    # fsUM,MM,LM:
-    y = 0
-    y += o_y2 + o_a
-    x_left = geom.oX + x_off
     slide_h = geom.slide_h
     stator_h = geom.stator_h
     total_w = scale_w + 2 * o_x2
-    sticker_row_h = max(slide_h, stator_h)
-    total_h = (geom.side_h + 2 * o_a) * 2 + o_a * 5 + sticker_row_h * 2 + 145
-    stickerprint_img = image_for_rendering(m, w=total_w, h=total_h)
-    r = Renderer.make(stickerprint_img, geom_s, style)
-    transcribe(sliderule_img, stickerprint_img, x_left, geom.oY, scale_w, stator_h, o_x2, y)
-    extend(stickerprint_img, scale_w, y + stator_h - 1, BleedDir.DOWN, ext)
-    r.draw_corners(o_x2, y - o_a, o_x2 + scale_w, y + stator_h)
-    y += stator_h + o_a
-    transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + stator_h + 1, scale_w, slide_h, o_x2, y)
-    extend(stickerprint_img, scale_w, y + 1, BleedDir.UP, ext)
-    extend(stickerprint_img, scale_w, y + slide_h - 1, BleedDir.DOWN, ext)
-    r.draw_corners(o_x2, y, o_x2 + scale_w, y + slide_h)
-    y += slide_h + o_a
-    transcribe(sliderule_img, stickerprint_img, x_left, geom.oY + geom.side_h - stator_h, scale_w, stator_h, o_x2, y)
-    extend(stickerprint_img, scale_w, y + 1, BleedDir.UP, ext)
-    extend(stickerprint_img, scale_w, y + stator_h - 1, BleedDir.DOWN, ext)
-    r.draw_corners(o_x2, y, o_x2 + scale_w, y + stator_h + o_a)
-    # bsUM,MM,LM:
-    y += stator_h + o_a + o_a + o_a
-    y_start = geom.oY + geom.side_h + geom.oY
-    transcribe(sliderule_img, stickerprint_img, x_left, y_start, scale_w, stator_h, o_x2, y)
-    extend(stickerprint_img, scale_w, y + stator_h - 1, BleedDir.DOWN, ext)
-    r.draw_corners(o_x2, y - o_a, o_x2 + scale_w, y + stator_h)
-    y += stator_h + o_a
-    transcribe(sliderule_img, stickerprint_img, x_left, y_start + stator_h + 1 - 3, scale_w, slide_h, o_x2, y)
-    extend(stickerprint_img, scale_w, y + 1, BleedDir.UP, ext)
-    extend(stickerprint_img, scale_w, y + slide_h - 1, BleedDir.DOWN, ext)
-    r.draw_corners(o_x2, y, o_x2 + scale_w, y + slide_h)
-    y += slide_h + o_a
-    transcribe(sliderule_img, stickerprint_img, x_left, y_start + geom.side_h - stator_h, scale_w, stator_h, o_x2, y)
-    extend(stickerprint_img, scale_w, y + 1, BleedDir.UP, ext)
-    extend(stickerprint_img, scale_w, y + stator_h - 1, BleedDir.DOWN, ext)
-    y_bottom = y + stator_h + o_a
-    r.draw_corners(o_x2, y, o_x2 + scale_w, y_bottom)
-    y_b = y_bottom + 20
+    sticker_row_h = max(slide_h, stator_h) + o_a
+    total_h = (geom.side_h + 2 * o_a) * 2 + o_a * 3 + sticker_row_h * 2 + 145
+    dst_img = image_for_rendering(m, w=total_w, h=total_h)
+    r = Renderer.make(dst_img, geom_s, style)
+
+    def copy_band(src_y: int, h: int, dst_y: int):
+        transcribe(sliderule_img, dst_img, geom.oX + x_off, src_y, scale_w, h, o_x2, dst_y)
+
+    def extend_edges(dst_y, h: int, both: bool):
+        if both:
+            extend(dst_img, scale_w, dst_y + 1, BleedDir.UP, ext)
+        extend(dst_img, scale_w, dst_y + h - 1, BleedDir.DOWN, ext)
+
+    def part_corners(dst_y, h):
+        r.draw_corners(o_x2, dst_y, o_x2 + scale_w, dst_y + h)
+
+    y = o_y2
+    # fsUM,MM,LM and bsUM,MM,LM:
+    for (front, y_side) in ((True, geom.oY), (False, geom.oY + geom.side_h + geom.oY)):
+        y += o_a
+        copy_band(y_side, stator_h, y)
+        extend_edges(y, stator_h, False)
+        part_corners(y - o_a, stator_h + o_a)
+        y += stator_h + o_a
+        copy_band(y_side + stator_h + 1 - (0 if front else 3), slide_h, y)
+        extend_edges(y, slide_h, True)
+        part_corners(y, slide_h)
+        y += slide_h + o_a
+        copy_band(y_side + geom.side_h - stator_h, stator_h, y)
+        extend_edges(y, stator_h, True)
+        part_corners(y, stator_h + o_a)
+        y += stator_h + (o_a + o_a if front else 0)
+    # Side stickers:
+    y_b = y + o_a + 20
     box_w = 510
     boxes = [
-        [o_a, y_b,
-         box_w + o_a, stator_h + o_a],
-        [box_w + 3 * o_a, y_b,
-         x_off + o_a, slide_h],
-        [box_w + x_off + 5 * o_a, y_b,
-         x_off + o_a, stator_h + o_a]
+        (o_a,                     y_b, box_w + o_a, stator_h + o_a),
+        (box_w + 3 * o_a,         y_b, x_off + o_a, slide_h),
+        (box_w + 5 * o_a + x_off, y_b, x_off + o_a, stator_h + o_a)
     ]
-    box_x_mirror = 6.5 * o_a + box_w + 2 * x_off
+    box_x_mirror = 13 * o_a // 2 + box_w + 2 * x_off
     for (x0, y0, dx, dy) in boxes:
-        r.draw_box(x0, y0, dx, dy, Color.CUT)
-        r.draw_box(x0, y0 + slide_h + o_a, dx, dy, Color.CUT)
-
-        x0 = round(2 * box_x_mirror - x0 - dx)
-
-        r.draw_box(x0, y0, dx, dy, Color.CUT)
-        r.draw_box(x0, y0 + sticker_row_h + o_a, dx, dy, Color.CUT)
-    points = [
-        [2 * o_a + 120, y_b + o_a + scale_h],
-        [6 * o_a + box_w + x_off + 2 * scale_h, y_b + scale_h],
-        [6 * o_a + box_w + x_off + scale_h, y_b + 2 * scale_h],
-
-        [2 * o_a + 120, y_b + slide_h + o_a + scale_h],
-        [6 * o_a + box_w + x_off + scale_h, y_b + slide_h + o_a + o_a + 2 * scale_h],
-        [6 * o_a + box_w + x_off + 2 * scale_h, y_b + slide_h + o_a + o_a + scale_h]
+        for x1 in (x0, 2 * box_x_mirror - x0 - dx):
+            for y1 in (y0, y0 + slide_h + o_a):
+                r.draw_box(x1, y1, dx, dy, Color.CUT)
+    p1 = [
+        (2 * o_a + 120,                         y_b + o_a + scale_h),
+        (6 * o_a + box_w + x_off + scale_h,     y_b + 2 * scale_h),
+        (6 * o_a + box_w + x_off + 2 * scale_h, y_b + scale_h),
     ]
+    points = p1 + [(cx, cy + sticker_row_h + (o_a if i > 0 else -o_a))
+                   for (i, (cx, cy)) in enumerate(p1)]
     hole_r = 34  # (2.5mm diameter screw holes) = math.ceil(0.25 * Geometry.PixelsPerCM / 2)
-    for (p_x, p_y) in points:
-        r.draw_circle(p_x, p_y, hole_r, Color.CUT)
-        p_x_mirror = round(2 * box_x_mirror - p_x)
-        r.draw_circle(p_x_mirror, p_y, hole_r, Color.CUT)
-    return stickerprint_img
+    for (cx, cy) in points:
+        for x in (cx, 2 * box_x_mirror - cx):
+            r.draw_circle(x, cy, hole_r, Color.CUT)
+    return dst_img
 
 
 def render_diagnostic_mode(model: Model, all_scales=False):
