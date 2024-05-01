@@ -1877,7 +1877,7 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     for (x0, y0, dx, dy) in boxes:
         for x1 in (x0, 2 * box_x_mirror - x0 - dx):
             for y1 in (y0, y0 + slide_h + o_a):
-                r.draw_box(x1, y1, dx, dy, Color.CUT)
+                r.draw_box(x1, y1, dx, dy, cut_col)
     p1 = [
         (2 * o_a + 120,                         y_b + o_a + scale_h),
         (6 * o_a + box_w + x_off + scale_h,     y_b + 2 * scale_h),
@@ -1888,7 +1888,7 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     hole_r = 34  # (2.5mm diameter screw holes) = math.ceil(0.25 * Geometry.PixelsPerCM / 2)
     for (cx, cy) in points:
         for x in (cx, 2 * box_x_mirror - cx):
-            r.draw_circle(x, cy, hole_r, Color.CUT)
+            r.draw_circle(x, cy, hole_r, cut_col)
     return dst_img
 
 
