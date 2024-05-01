@@ -1837,7 +1837,7 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     o_a = 50  # overhang amount
     ext = 20  # extension amount
     geom = m.geometry
-    x_off = (geom.side_w - geom.SL - 900) // 2
+    x_off = (geom.side_w - geom.SL - geom.brace_w - 420) // 2
     scale_w = geom.side_w - x_off * 2
     scale_h = geom.SH
     geom_s = replace(geom, side_w=scale_w, oX=0, oY=0)
@@ -1867,7 +1867,7 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
         y += o_a + (o_a if front else 0)
     # Side stickers:
     y_b = y + 20
-    box_w = 510
+    box_w = geom.brace_w + 30
     boxes = [
         (o_a,                     y_b, box_w + o_a, stator_h + o_a),
         (box_w + 3 * o_a,         y_b, x_off + o_a, slide_h),
