@@ -880,6 +880,7 @@ def extend(image: Image, total_w: int, y: int, direction: BleedDir, amplitude: i
 
 
 LOG_TEN = math.log(TEN)
+LOGTEN_E = math.log10(math.e)
 LOG_ZERO = -math.inf
 ε = 1e-20
 
@@ -964,8 +965,11 @@ class ScaleFNs:
     CosH = ScaleFN(lambda x: gen_base(math.cosh(x)), lambda p: math.acosh(pos_base(p)), min_x=ε)
     TanH = ScaleFN(lambda x: gen_base(math.tanh(x)), lambda p: math.atanh(pos_base(p)), min_x=ε)
     Pythagorean = ScaleFN(lambda x: gen_base(math.sqrt(1 - (x ** 2))) + 1,
-                          lambda p: math.sqrt(1 - (pos_base(p) / 10) ** 2),
+                          lambda p: math.sqrt(1 - (pos_base(p) / TEN) ** 2),
                           is_increasing=False, min_x=-1 + 1e-16, max_x=1 - 1e-16)
+    Pythagorean2 = ScaleFN(lambda x: gen_base(math.sqrt(1 - (x ** 2))) + 1,
+                           lambda p: math.sqrt(1 - (pos_base(p) / HUNDRED) ** 2),
+                           is_increasing=False, min_x=Pythagorean.min_x, max_x=Pythagorean.max_x)
     LogLog = ScaleFN(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)), min_x=1 + 1e-15)
     LogLogNeg = ScaleFN(lambda x: gen_base(-math.log(x)), lambda p: math.exp(pos_base(-p)),
                         is_increasing=False, min_x=ε, max_x=1 - 1e-16)
@@ -1007,6 +1011,8 @@ class Scale:
     """which GaugeMarks deserve ticks and labels"""
     numerals: list = None
     """which numerals to label which otherwise wouldn't be"""
+    comment: str = None
+    """Explanation for the scale or its left symbol"""
 
     min_overhang_frac = 0.02
 
@@ -1128,21 +1134,27 @@ class Scales:
     CF = Scale('CF', 'πx_y', ScaleFNs.Base, shift=pi_fold_shift, on_slide=True, opp_key='DF',
                marks=[Marks.pi, replace(Marks.pi, value=Marks.pi.value/TEN)])
     DF = Scale('DF', 'πx', ScaleFNs.Base, shift=pi_fold_shift, opp_key='CF', marks=CF.marks)
+    DFM = Scale('DFM', 'x log e', ScaleFNs.Base, shift=ScaleFNs.Inverse(LOGTEN_E), marks=CF.marks)
+    DF_M = Scale('DF/M', 'x ln 10', ScaleFNs.Base, shift=ScaleFNs.Inverse(LOG_TEN), marks=CF.marks)
     CI = Scale('CI', '1/x_y', ScaleFNs.Inverse, on_slide=True, opp_key='DI', marks=CF.marks)
     CIF = Scale('CIF', '1/πx_y', ScaleFNs.Inverse, shift=pi_fold_shift - 1, on_slide=True, marks=C.marks)
     D = Scale('D', 'x', ScaleFNs.Base, opp_key='C', marks=C.marks)
     DI = Scale('DI', '1/x', ScaleFNs.Inverse, opp_key='CI', marks=C.marks)
+    DIF = replace(CIF, left_sym='DIF', right_sym='1/πx', on_slide=False)
     K = Scale('K', 'x³', ScaleFNs.Cube)
     L = Scale('L', 'log x', ScaleFN(lambda x: x / TEN, lambda p: p * TEN, min_x=ε))
     Ln = Scale('Ln', 'ln x', ScaleFN(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN, min_x=ε))
-    LL0 = Scale('LL₀', 'e^0.001x', ScaleFNs.LogLog, shift=3, key='LL0',
-                dividers=[1.002, 1.004, 1.010], ex_start_value=1.00095, ex_end_value=1.0105)
-    LL1 = Scale('LL₁', 'e^0.01x', ScaleFNs.LogLog, shift=2, key='LL1',
-                dividers=[1.02, 1.05, 1.10], ex_start_value=1.0095, ex_end_value=1.11)
-    LL2 = Scale('LL₂', 'e^0.1x', ScaleFNs.LogLog, shift=1, key='LL2',
-                dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3, marks=[Marks.e])
-    LL3 = Scale('LL₃', 'e^x', ScaleFNs.LogLog, key='LL3',
-                dividers=[3, 6, 10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=1e5, marks=[Marks.e])
+    LL_0 = LL0 = Scale('LL₀', 'e^0.001x', ScaleFNs.LogLog, shift=3, key='LL0',
+                       dividers=[1.002, 1.004, 1.010], ex_start_value=1.00095, ex_end_value=1.0105)
+    LL_1 = LL1 = Scale('LL₁', 'e^0.01x', ScaleFNs.LogLog, shift=2, key='LL1',
+                       dividers=[1.02, 1.05, 1.10], ex_start_value=1.0095, ex_end_value=1.11)
+    LL_2 = LL2 = Scale('LL₂', 'e^0.1x', ScaleFNs.LogLog, shift=1, key='LL2',
+                       dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3, marks=[Marks.e])
+    LL_3 = LL3 = Scale('LL₃', 'e^x', ScaleFNs.LogLog, key='LL3',
+                       dividers=[3, 6, 10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=1e5, marks=[Marks.e])
+    LG = L
+    M = replace(L, comment='M="mantissa"')
+    E = replace(LL3, comment='E="exponent"')
     LL00 = Scale('LL₀₀', 'e^-0.001x', ScaleFNs.LogLogNeg, shift=3, key='LL00',
                  dividers=[0.998], ex_start_value=0.989, ex_end_value=0.9991)
     LL01 = Scale('LL₀₁', 'e^-0.01x', ScaleFNs.LogLogNeg, shift=2, key='LL01',
@@ -1153,11 +1165,14 @@ class Scales:
                  dividers=[5e-4, 1e-3, 1e-2, 0.1], ex_start_value=1e-4, ex_end_value=0.39, marks=[Marks.inv_e])
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
               dividers=[0.3, 0.6, 0.8, 0.9, 0.98, 0.99], ex_start_value=0.1, ex_end_value=.995)
+    P1 = replace(P, left_sym='P_1')
+    P2 = replace(P, left_sym='P_2', right_sym='√1-(0.01x)²', scaler=ScaleFNs.Pythagorean2,
+                 ex_start_value=P1.ex_end_value, ex_end_value=0.99995)
     Q1 = Scale('Q₁', '∛x', ScaleFNs.CubeRoot, marks=[Marks.cube_root_ten], key='Q1')
     Q2 = Scale('Q₂', '∛10x', ScaleFNs.CubeRoot, shift=-1, marks=[Marks.cube_root_ten], key='Q2')
     Q3 = Scale('Q₃', '∛100x', ScaleFNs.CubeRoot, shift=-2, marks=[Marks.cube_root_ten], key='Q3')
-    R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
-    R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
+    Sq1 = R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
+    Sq2 = R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
     S = Scale('S', '∡sin x°', ScaleFNs.Sin, mirror_key='CoS')
     CoS = Scale('C', '∡cos x°', ScaleFNs.CoSin, key='CoS', mirror_key='S')
     # SRT = Scale('SRT', '∡tan 0.01x', ScaleFNs.SinTanRadians)
@@ -1187,12 +1202,13 @@ class Scales:
 shift_360 = ScaleFNs.Inverse(3.6)
 SquareRootNonLog = ScaleFN(lambda x: (x / TEN) ** 2, lambda p: TEN * math.sqrt(p), min_x=0.)
 custom_scale_sets: dict[str, dict[str, Scale]] = {
-    'AristoCommerz': {  # scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest
-        'Z': replace(Scales.D, left_sym='Z', right_sym='', opp_key='T1', dividers=[2, 4]),
+    'Merchant': {  # scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest
+        'Z': replace(Scales.D, left_sym='Z', right_sym='', opp_key='T1', dividers=[2, 4], comment='Z="Zins": interest'),
         'T1': replace(Scales.D, left_sym='T₁', right_sym='', key='T1', opp_key='Z', on_slide=True),
         'P1': replace(Scales.CI, left_sym='P₁', right_sym='', key='P1', on_slide=True, dividers=[2, 4]),
         'KZ': replace(Scales.CF, left_sym='KZ', right_sym='', key='KZ', shift=shift_360,
-                      ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2]),
+                      ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2],
+                      comment='KZ="Kapital Zins": interest on the principal, over 360 business days/year'),
         'T2': replace(Scales.CF, left_sym='T₂', key='T2', shift=shift_360, on_slide=True,
                       ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2]),
         'P2': replace(Scales.CIF, left_sym='P₂', right_sym='', key='P2', shift=shift_360 - 1, on_slide=True,
@@ -1201,15 +1217,10 @@ custom_scale_sets: dict[str, dict[str, Scale]] = {
                      scaler=ScaleFN(lambda x: gen_base((x + HUNDRED) / HUNDRED),
                                     lambda p: pos_base(p) * HUNDRED - HUNDRED),
                      dividers=[0], ex_start_value=-50, ex_end_value=100),
+        'ZZ1': Scales.LL1, 'ZZ2': Scales.LL2, 'ZZ3': Scales.LL3,
         # meta-scale showing % with 100% over 1/unity
         # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
         'Libra': replace(Scales.L, left_sym='£', right_sym='', key='Libra'),
-    },
-    'UltraLog': {
-        'LL/0': Scales.LL00,
-        'LL/1': Scales.LL01,
-        'LL/2': Scales.LL02,
-        'LL/3': Scales.LL03,
     },
     'Hemmi153': {
         'Chi': Scale('χ', '', ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF), marks=[Marks.pi_half]),
@@ -1310,11 +1321,15 @@ class Layout:
 
     def check_scales(self):
         for scale_name in self.sc_keys_in_order():
-            if not (hasattr(Scales, scale_name) or hasattr(Rulers, scale_name) or scale_name in self.scale_ns):
+            if not self.scale_named(scale_name):
                 raise ValueError(f'Unrecognized front scale name: {scale_name}')
 
     def scale_named(self, sc_name: str):
-        return self.scale_ns.get(sc_name, getattr(Scales, sc_name, getattr(Rulers, sc_name, None)))
+        sc_attr = sc_name.replace('/', '_') if '/' in sc_name else sc_name
+        return self.scale_ns.get(sc_name, getattr(Scales, sc_attr, getattr(Rulers, sc_attr, None)))
+
+    def all_scales(self):
+        return (self.scale_named(sc_name) for sc_name in self.sc_keys_in_order())
 
     def scales_at(self, side: Side, part: RulePart) -> list[Scale]:
         return [self.scale_named(sc_name) for sc_name in self.sc_keys[side][part] or []]
@@ -1657,7 +1672,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         for x in chain((x / 10 for x in range(6, 10)), (x + 0.5 for x in range(1, 4)), range(2, 6)):
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
 
-    elif sc == custom_scale_sets['AristoCommerz']['Pct']:
+    elif sc == custom_scale_sets['Merchant']['Pct']:
         if DEBUG:
             sc.grad_pat_default(r, y_off, al)
         for pct_value in (0, 5, 10, 15, 20, 35, 30, 40):

@@ -15,4 +15,3 @@ top_margin = 0
 [layout]
 front = 'LL/0, LL/1, LL/2, LL/3, DF [CF, CIF, SH1, SH2, CH1, TH, Ln, L, CI, C] D, LL3, LL2, LL1, LL0'
 rear = 'Const, R1, R2, K, A [B, T1, T2, ST, S, P, H1, H2, CI, C] D, DI, Q1, Q2, Q3'
-scale_ns = 'UltraLog'
