@@ -1398,7 +1398,7 @@ class Ruler:
 
 
 class Rulers:
-    PT = Ruler('pt', TF_BY_MIN[10], num_units=25 * 72, pixels_per_unit=Geometry.PixelsPerIN // 72)
+    PT = Ruler('pt', TF_BY_MIN[10], 0, 25 * 72, Geometry.PixelsPerIN // 72)
     CM = Ruler('cm', TF_BY_MIN[20], 1.5, 30, Geometry.PixelsPerCM)
     IN_DEC = Ruler('in', TF_BY_MIN[50], 0.5, 12, Geometry.PixelsPerIN)
     IN_BIN = Ruler('in', TF_BIN, 0.5, 12, Geometry.PixelsPerIN)
@@ -1899,8 +1899,7 @@ def render_diagnostic_mode(model: Model, all_scales=False):
         (6500, total_h),
         (250, 250),  # remove y-margin to stack scales
         (Geometry.SL, scale_h),
-        Geometry.DEFAULT_TICK_WH,
-        480
+        slide_h=480
     )
     diagnostic_img = image_for_rendering(model, w=geom_d.total_w, h=total_h)
     r = Renderer.make(diagnostic_img, geom_d, style)
