@@ -772,25 +772,19 @@ class Renderer:
 
     # ---------------------- 5. Stickers -----------------------------
 
-    def draw_corners(self, x1, y1, x2, y2, arm_w=20):
-        """
-        :param int x1: First corner of box
-        :param int y1: First corner of box
-        :param int x2: Second corner of box
-        :param int y2: Second corner of box
-        :param int arm_w: width of extension cross arms
-        """
-        col = Color.to_pil(Color.CUT)
+    def draw_corners(self, x0, y0, dx, dy, col, arm_w=20):
+        """Draw cross arms at each corner of the rectangle defined."""
+        x1, y1 = x0 + dx, y0 + dy
         # horizontal cross arms at 4 corners:
+        self.r.line((x0 - arm_w, y0, x0 + arm_w, y0), col)
+        self.r.line((x0 - arm_w, y1, x0 + arm_w, y1), col)
+        self.r.line((x1 - arm_w, y0, x1 + arm_w, y0), col)
         self.r.line((x1 - arm_w, y1, x1 + arm_w, y1), col)
-        self.r.line((x1 - arm_w, y2, x1 + arm_w, y2), col)
-        self.r.line((x2 - arm_w, y1, x2 + arm_w, y1), col)
-        self.r.line((x2 - arm_w, y2, x2 + arm_w, y2), col)
         # vertical cross arms at 4 corners:
+        self.r.line((x0, y0 - arm_w, x0, y0 + arm_w), col)
+        self.r.line((x0, y1 - arm_w, x0, y1 + arm_w), col)
+        self.r.line((x1, y0 - arm_w, x1, y0 + arm_w), col)
         self.r.line((x1, y1 - arm_w, x1, y1 + arm_w), col)
-        self.r.line((x1, y2 - arm_w, x1, y2 + arm_w), col)
-        self.r.line((x2, y1 - arm_w, x2, y1 + arm_w), col)
-        self.r.line((x2, y2 - arm_w, x2, y2 + arm_w), col)
 
 
 class Sym:
@@ -1820,12 +1814,8 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
 
 
 def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
-    # Code Names
-    # (fs) | UL,UM,UR [ ML,MM,MR ] LL,LM,LR |
-    # (bs) | UL,UM,UR [ ML,MM,MR ] LL,LM,LR |
-    # Front Scale, Back Scale
-    # Upper Middle Lower, Left Middle Right
-    # (18 total stickers)
+    """Stickers break down by side, then part, then side cutoffs vs middle.
+    18 total stickers: 2 sides x 3 parts x 3 bands."""
     o_x2 = 50  # x dir margins
     o_y2 = 50  # y dir margins
     o_a = 50  # overhang amount
@@ -1844,35 +1834,23 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     dst_img = image_for_rendering(m, w=total_w, h=total_h)
     r = Renderer.make(dst_img, geom_s, style)
 
-    def copy_band(src_y: int, h: int, dst_y: int):
-        transcribe(sliderule_img, dst_img, geom.oX + x_off, src_y, scale_w, h, o_x2, dst_y)
-
-    def extend_edges(dst_y, h: int, both: bool):
-        if both:
-            extend(dst_img, scale_w, dst_y + 1, BleedDir.UP, ext)
-        extend(dst_img, scale_w, dst_y + h - 1, BleedDir.DOWN, ext)
-
-    def part_corners(dst_y, h):
-        r.draw_corners(o_x2, dst_y, o_x2 + scale_w, dst_y + h)
-
     y = o_y2
-    # fsUM,MM,LM and bsUM,MM,LM:
+    # Middle band stickers:
+    cut_col = Color.to_pil(Color.CUT)
     for (front, y_side) in ((True, geom.oY), (False, geom.oY + geom.side_h + geom.oY)):
-        y += o_a
-        copy_band(y_side, stator_h, y)
-        extend_edges(y, stator_h, False)
-        part_corners(y - o_a, stator_h + o_a)
-        y += stator_h + o_a
-        copy_band(y_side + stator_h + 1 - (0 if front else 3), slide_h, y)
-        extend_edges(y, slide_h, True)
-        part_corners(y, slide_h)
-        y += slide_h + o_a
-        copy_band(y_side + geom.side_h - stator_h, stator_h, y)
-        extend_edges(y, stator_h, True)
-        part_corners(y, stator_h + o_a)
-        y += stator_h + (o_a + o_a if front else 0)
+        for (i, y_src, h) in ((0, 0, stator_h),
+                              (1, stator_h + 1 - (0 if front else 3), slide_h),
+                              (2, geom.side_h - stator_h, stator_h)):
+            y += o_a
+            transcribe(sliderule_img, dst_img, geom.oX + x_off, y_side + y_src, scale_w, h, o_x2, y)
+            if i > 0:
+                extend(dst_img, scale_w, y + 1, BleedDir.UP, ext)
+            extend(dst_img, scale_w, y + h - 1, BleedDir.DOWN, ext)
+            r.draw_corners(o_x2, y - o_a if i == 0 else y, scale_w, h if i == 1 else h + o_a, cut_col)
+            y += h
+        y += o_a + (o_a if front else 0)
     # Side stickers:
-    y_b = y + o_a + 20
+    y_b = y + 20
     box_w = 510
     boxes = [
         (o_a,                     y_b, box_w + o_a, stator_h + o_a),
