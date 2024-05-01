@@ -1837,8 +1837,8 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     o_a = 50  # overhang amount
     ext = 20  # extension amount
     geom = m.geometry
-    x_off = (geom.side_w - geom.SL - geom.brace_w - 420) // 2
-    scale_w = geom.side_w - x_off * 2
+    scale_x_margin = (geom.side_w - geom.SL) // 2 - geom.brace_w + 30
+    scale_w = geom.side_w - scale_x_margin * 2
     scale_h = geom.SH
     geom_s = replace(geom, side_w=scale_w, oX=0, oY=0)
     style = m.style
@@ -1858,7 +1858,7 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
                               (1, stator_h + 1 - (0 if front else 3), slide_h),
                               (2, geom.side_h - stator_h, stator_h)):
             y += o_a
-            transcribe(sliderule_img, dst_img, geom.oX + x_off, y_side + y_src, scale_w, h, o_x2, y)
+            transcribe(sliderule_img, dst_img, geom.oX + scale_x_margin, y_side + y_src, scale_w, h, o_x2, y)
             if i > 0:
                 extend(dst_img, scale_w, y + 1, BleedDir.UP, ext)
             extend(dst_img, scale_w, y + h - 1, BleedDir.DOWN, ext)
@@ -1870,18 +1870,18 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     box_w = geom.brace_w + 30
     boxes = [
         (o_a,                     y_b, box_w + o_a, stator_h + o_a),
-        (box_w + 3 * o_a,         y_b, x_off + o_a, slide_h),
-        (box_w + 5 * o_a + x_off, y_b, x_off + o_a, stator_h + o_a)
+        (box_w + 3 * o_a,         y_b, scale_x_margin + o_a, slide_h),
+        (box_w + 5 * o_a + scale_x_margin, y_b, scale_x_margin + o_a, stator_h + o_a)
     ]
-    box_x_mirror = 13 * o_a // 2 + box_w + 2 * x_off
+    box_x_mirror = 13 * o_a // 2 + box_w + 2 * scale_x_margin
     for (x0, y0, dx, dy) in boxes:
         for x1 in (x0, 2 * box_x_mirror - x0 - dx):
             for y1 in (y0, y0 + slide_h + o_a):
                 r.draw_box(x1, y1, dx, dy, cut_col)
     p1 = [
         (2 * o_a + 120,                         y_b + o_a + scale_h),
-        (6 * o_a + box_w + x_off + scale_h,     y_b + 2 * scale_h),
-        (6 * o_a + box_w + x_off + 2 * scale_h, y_b + scale_h),
+        (6 * o_a + box_w + scale_x_margin + scale_h,     y_b + 2 * scale_h),
+        (6 * o_a + box_w + scale_x_margin + 2 * scale_h, y_b + scale_h),
     ]
     points = p1 + [(cx, cy + sticker_row_h + (o_a if i > 0 else -o_a))
                    for (i, (cx, cy)) in enumerate(p1)]
