@@ -66,6 +66,11 @@ The produced images are also saved. The images in [examples](examples) are refre
 - `render` and `diagnostic` modes takes around 2 seconds to run, but the `stickerprint` mode usually takes 3 seconds to run.
 - If you run across issues, comment on [Javier Lopez Instructables article](https://www.instructables.com/Slide-Rule-for-the-Modern-Day/) or here, and I will attempt to explain myself.
 
-The Excel file attached can help convert between pixels, inches, and millimeters when the slide rule is being built out of physical material.
+To understand changes, the [imgdiff](https://github.com/n7olkachev/imgdiff) tool can highlight differences in image outputs (ignoring color changes with `-t 0.6`):
+```shell
+imgdiff -t 0.6 <original_image>.png <updated_image>.png <original_image>.diff.png
+```
+
+The [included Excel file](Slide%20Rule%20Proportion%20Calculator%20(Autosaved).xlsx) can help convert between pixels, inches, and millimeters when the slide rule is being built out of physical material.
 
 Enjoy!
