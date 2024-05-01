@@ -1784,7 +1784,7 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
         side_w_q = geom.side_w // 4
         for sym, x in ((model.name, side_w_q), (model.subtitle, side_w_q * 2 + geom.oX), (model.brand, side_w_q * 3)):
             r.draw_sym_al(sym, y_off_titling, title_col, 0, x - geom.li, 0, f_lbl, Align.UPPER)
-        y_off = y_off_titling + f_lbl.size
+        y_off = y_off_titling + f_lbl.size - 5
     # Scales
     for side in Side:
         for part in RulePart:
