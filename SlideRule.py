@@ -709,7 +709,7 @@ class Renderer:
     def draw_symbol_sup(self, sup_sym, color, h_base, x_left, y_base, font):
         if len(sup_sym) == 1 and unicodedata.category(sup_sym) == 'No':
             sup_sym = str(unicodedata.digit(sup_sym))
-        self.draw_symbol(sup_sym, color, x_left, y_base - (0 if sup_sym in Sym.PRIMES else h_base / 2), font)
+        self.draw_symbol(sup_sym, color, x_left, y_base - (0 if sup_sym in Sym.PRIMES else int(h_base * 0.4)), font)
 
     def draw_symbol_sub(self, sub_sym, color, h_base, x_left, y_base, font):
         self.draw_symbol(sub_sym, color, x_left, y_base + h_base / 2, font)
@@ -819,7 +819,7 @@ class Sym:
 
     PRIMES = "'ʹʺ′″‴"
     UNICODE_SUBS = str.maketrans({  # Workaround for incomplete Unicode character support; needs font metadata.
-        '′': "'",
+        '′': "ʹ",
         '∡': 'a',
         '⅓': '',
         '∛': '√',
@@ -1023,6 +1023,8 @@ class Scale:
         scaler = self.scaler
         self.gen_fn = scaler.fn
         self.pos_fn = scaler.inverse
+        if ' ' in self.right_sym:
+            self.right_sym = self.right_sym.replace(' ', ' ')
         if self.is_increasing is None:
             self.is_increasing = scaler.is_increasing
         if self.key is None:
@@ -1553,7 +1555,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, scale_h, x_left - style.sym_w('__', f_lbl), y2, f_lbl, al)
         r.draw_sym_al(sc_alt.right_sym, y_off, alt_col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
     elif sc == Scales.ST:
-        r.draw_sym_al('∡sin 0.01x°', y_off, sym_col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
+        r.draw_sym_al('∡sin 0.01x°', y_off, sym_col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
 
     th_med = geom.tick_h(HMod.MED)
     th_xl = geom.tick_h(HMod.XL)
