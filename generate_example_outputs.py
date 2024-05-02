@@ -18,6 +18,9 @@ def main():
                              choices=keys_of(Models),
                              default=None,
                              help='Which sliderule model (all by default)')
+    args_parser.add_argument('--all-scales',
+                             action='store_true',
+                             help='Whether to show every possible scale in diagnostic mode')
     cli_args = args_parser.parse_args()
     base_dir = os.path.relpath('examples/')
     os.makedirs(base_dir, exist_ok=True)
@@ -27,8 +30,10 @@ def main():
         model = getattr(Models, model_name) or Model.from_toml_file(os.path.join(base_dir, f'Model-{model_name}.toml'))
 
         if Mode.DIAGNOSTIC in modes:
-            diagnostic_img = render_diagnostic_mode(model)
-            diagnostic_filename = os.path.join(base_dir, f'{model_name}.Diagnostic.png')
+            all_scales = cli_args.all_scales
+            diagnostic_img = render_diagnostic_mode(model, all_scales=all_scales)
+            suffix = 'allScales.png' if all_scales else 'png'
+            diagnostic_filename = os.path.join(base_dir, f'{model_name}.Diagnostic.{suffix}')
             diagnostic_img.save(diagnostic_filename)
             print(f' Diagnostic output for: {model_name} at: {diagnostic_filename}')
         if Mode.RENDER in modes:
