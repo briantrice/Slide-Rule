@@ -59,7 +59,7 @@ There are multiple slide rule models available, mostly defined in [TOML](https:/
 - [Aristo868](examples/Model-Aristo868.toml) and [Graphoplex621](examples/Model-Graphoplex621.toml) are European slide rules with a moderate number of compact scales.
 - [FaberCastell283](examples/Model-FaberCastell283.toml) and [FaberCastell283N](examples/Model-FaberCastell283N.toml) have the large number of scales.
 
-The produced images are also saved. The images in [examples](examples) are refreshed by [generate_model_demos.py](generate_model_demos.py), a wrapper script you can run on new models, or to check for changes after making source code updates.
+The produced images are also saved. The images in [examples](examples) are refreshed by [generate_example_outputs.py](generate_example_outputs.py), a wrapper script you can run on new models, or to check for changes after making source code updates.
 
 ## Troubleshooting
 - If you have trouble finding them, look in the location where your program is (that seemed to work for me)
