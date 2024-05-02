@@ -1125,6 +1125,9 @@ class Scale:
         start_pos = self.pos_of(start_value, geom)
         r.fill_rect(li + start_pos, y_off, self.pos_of(end_value, geom) - start_pos, geom.scale_h(self), color)
 
+    def renamed(self, new_key: str, **kwargs):
+        return replace(self, left_sym=new_key, key=new_key, **kwargs)
+
 
 pi_fold_shift = ScaleFNs.Inverse(PI)
 
@@ -1143,21 +1146,23 @@ class Scales:
     CIF = Scale('CIF', '1/πx_y', ScaleFNs.Inverse, shift=pi_fold_shift - 1, on_slide=True, marks=C.marks)
     D = Scale('D', 'x', ScaleFNs.Base, opp_key='C', marks=C.marks)
     DI = Scale('DI', '1/x', ScaleFNs.Inverse, opp_key='CI', marks=C.marks)
-    DIF = replace(CIF, left_sym='DIF', right_sym='1/πx', on_slide=False)
+    DIF = CIF.renamed('DIF', right_sym='1/πx', on_slide=False)
     K = Scale('K', 'x³', ScaleFNs.Cube)
     L = Scale('L', 'log x', ScaleFN(lambda x: x / TEN, lambda p: p * TEN, min_x=ε))
     Ln = Scale('Ln', 'ln x', ScaleFN(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN, min_x=ε))
-    LL_0 = LL0 = Scale('LL₀', 'e^0.001x', ScaleFNs.LogLog, shift=3, key='LL0',
-                       dividers=[1.002, 1.004, 1.010], ex_start_value=1.00095, ex_end_value=1.0105)
-    LL_1 = LL1 = Scale('LL₁', 'e^0.01x', ScaleFNs.LogLog, shift=2, key='LL1',
-                       dividers=[1.02, 1.05, 1.10], ex_start_value=1.0095, ex_end_value=1.11)
-    LL_2 = LL2 = Scale('LL₂', 'e^0.1x', ScaleFNs.LogLog, shift=1, key='LL2',
-                       dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3, marks=[Marks.e])
-    LL_3 = LL3 = Scale('LL₃', 'e^x', ScaleFNs.LogLog, key='LL3',
-                       dividers=[3, 6, 10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=1e5, marks=[Marks.e])
-    LG = L
-    M = replace(L, comment='M="mantissa"')
-    E = replace(LL3, comment='E="exponent"')
+    LL0 = Scale('LL₀', 'e^0.001x', ScaleFNs.LogLog, shift=3, key='LL0',
+                dividers=[1.002, 1.004, 1.010], ex_start_value=1.00095, ex_end_value=1.0105)
+    LL1 = Scale('LL₁', 'e^0.01x', ScaleFNs.LogLog, shift=2, key='LL1',
+                dividers=[1.02, 1.05, 1.10], ex_start_value=1.0095, ex_end_value=1.11)
+    LL2 = Scale('LL₂', 'e^0.1x', ScaleFNs.LogLog, shift=1, key='LL2',
+                dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3, marks=[Marks.e])
+    LL3 = Scale('LL₃', 'e^x', ScaleFNs.LogLog, key='LL3',
+                dividers=[3, 6, 10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=1e5, marks=[Marks.e])
+    LL_0, LL_1, LL_2, LL_3 = (LL0.renamed('LL/0'), LL1.renamed('LL/1'),
+                              LL2.renamed('LL/2'), LL3.renamed('LL/3'))
+    LG = L.renamed('LG')
+    M = L.renamed('M', comment='M="mantissa"')
+    E = LL3.renamed('E', comment='E="exponent"')
     LL00 = Scale('LL₀₀', 'e^-0.001x', ScaleFNs.LogLogNeg, shift=3, key='LL00',
                  dividers=[0.998], ex_start_value=0.989, ex_end_value=0.9991)
     LL01 = Scale('LL₀₁', 'e^-0.01x', ScaleFNs.LogLogNeg, shift=2, key='LL01',
@@ -1168,9 +1173,9 @@ class Scales:
                  dividers=[5e-4, 1e-3, 1e-2, 0.1], ex_start_value=1e-4, ex_end_value=0.39, marks=[Marks.inv_e])
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
               dividers=[0.3, 0.6, 0.8, 0.9, 0.98, 0.99], ex_start_value=0.1, ex_end_value=.995)
-    P1 = replace(P, left_sym='P_1', key='P_1')
+    P1 = P.renamed('P_1')
     P2 = replace(P, left_sym='P_2', key='P_2', right_sym='√1-(0.01x)²', shift=1,
-                 dividers=[0.999, 0.9998], ex_start_value=P1.ex_end_value, ex_end_value=0.99995)
+                 dividers=[0.999, 0.9998], ex_start_value=P1.ex_end_value, ex_end_value=0.99995, numerals=[0.99995])
     Q1 = Scale('Q₁', '∛x', ScaleFNs.CubeRoot, marks=[Marks.cube_root_ten], key='Q1')
     Q2 = Scale('Q₂', '∛10x', ScaleFNs.CubeRoot, shift=-1, marks=[Marks.cube_root_ten], key='Q2')
     Q3 = Scale('Q₃', '∛100x', ScaleFNs.CubeRoot, shift=-2, marks=[Marks.cube_root_ten], key='Q3')
@@ -1186,10 +1191,10 @@ class Scales:
     T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1, mirror_key='CoT2')
     W1 = Scale('W₁', '√x', ScaleFNs.SquareRoot, key='W1', opp_key='W1Prime', dividers=[1, 2],
                ex_start_value=0.95, ex_end_value=3.38, marks=[Marks.sqrt_ten])
-    W1Prime = replace(W1, left_sym="W'₁", key='W1Prime', opp_key='W1')
+    W1Prime = replace(W1, left_sym="W'₁", key="W1'", opp_key='W1')
     W2 = Scale('W₂', '√10x', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5],
                ex_start_value=3, ex_end_value=10.66, marks=W1.marks)
-    W2Prime = replace(W2, left_sym="W'₂", key='W2Prime', opp_key='W2')
+    W2Prime = replace(W2, left_sym="W'₂", key="W2'", opp_key='W2')
 
     H1 = Scale('H₁', '√1+0.1x²', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1], numerals=[1.005])
     H2 = Scale('H₂', '√1+x²', ScaleFNs.Hyperbolic, key='H2', dividers=[4])
@@ -1220,9 +1225,11 @@ custom_scale_sets: dict[str, dict[str, Scale]] = {
                      scaler=ScaleFN(lambda x: gen_base((x + HUNDRED) / HUNDRED),
                                     lambda p: pos_base(p) * HUNDRED - HUNDRED),
                      dividers=[0], ex_start_value=-50, ex_end_value=100),
-        'ZZ1': Scales.LL1, 'ZZ2': Scales.LL2, 'ZZ3': Scales.LL3,
         # meta-scale showing % with 100% over 1/unity
         # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
+        'ZZ1': Scales.LL1.renamed('ZZ1', comment='ZZ="Zins Zins": compound interest'),
+        'ZZ2': Scales.LL2.renamed('ZZ2', comment='ZZ="Zins Zins": compound interest'),
+        'ZZ3': Scales.LL3.renamed('ZZ3', comment='ZZ="Zins Zins": compound interest'),
         'Libra': replace(Scales.L, left_sym='£', right_sym='', key='Libra'),
     },
     'Hemmi153': {
