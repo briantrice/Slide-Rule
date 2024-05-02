@@ -452,6 +452,8 @@ class Marks:
     sqrt_ten = GaugeMark('√10', math.sqrt(TEN), comment='square root of 10')
     cube_root_ten = GaugeMark('c', math.pow(TEN, 1 / 3), comment='cube root of 10')
 
+    inf = GaugeMark('∞', math.inf, comment='infinity')
+
 
 class ConversionMarks:
     cm_per_in = GaugeMark('in', 2.54, comment='cm per in')
@@ -819,6 +821,7 @@ class Sym:
         '∡': 'a',
         '⅓': '',
         '∛': '√',
+        '∞': 'inf',
     })
 
     @classmethod
