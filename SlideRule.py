@@ -973,9 +973,6 @@ class ScaleFNs:
     Pythagorean = ScaleFN(lambda x: gen_base(math.sqrt(1 - (x ** 2))) + 1,
                           lambda p: math.sqrt(1 - (pos_base(p) / TEN) ** 2),
                           is_increasing=False, min_x=-1 + 1e-16, max_x=1 - 1e-16)
-    Pythagorean2 = ScaleFN(lambda x: gen_base(math.sqrt(1 - (x ** 2))) + 1,
-                           lambda p: math.sqrt(1 - (pos_base(p) / HUNDRED) ** 2),
-                           is_increasing=False, min_x=Pythagorean.min_x, max_x=Pythagorean.max_x)
     LogLog = ScaleFN(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)), min_x=1 + 1e-15)
     LogLogNeg = ScaleFN(lambda x: gen_base(-math.log(x)), lambda p: math.exp(pos_base(-p)),
                         is_increasing=False, min_x=ε, max_x=1 - 1e-16)
@@ -1171,9 +1168,9 @@ class Scales:
                  dividers=[5e-4, 1e-3, 1e-2, 0.1], ex_start_value=1e-4, ex_end_value=0.39, marks=[Marks.inv_e])
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
               dividers=[0.3, 0.6, 0.8, 0.9, 0.98, 0.99], ex_start_value=0.1, ex_end_value=.995)
-    P1 = replace(P, left_sym='P_1')
-    P2 = replace(P, left_sym='P_2', right_sym='√1-(0.01x)²', scaler=ScaleFNs.Pythagorean2,
-                 ex_start_value=P1.ex_end_value, ex_end_value=0.99995)
+    P1 = replace(P, left_sym='P_1', key='P_1')
+    P2 = replace(P, left_sym='P_2', key='P_2', right_sym='√1-(0.01x)²', shift=1,
+                 dividers=[0.999, 0.9998], ex_start_value=P1.ex_end_value, ex_end_value=0.99995)
     Q1 = Scale('Q₁', '∛x', ScaleFNs.CubeRoot, marks=[Marks.cube_root_ten], key='Q1')
     Q2 = Scale('Q₂', '∛10x', ScaleFNs.CubeRoot, shift=-1, marks=[Marks.cube_root_ten], key='Q2')
     Q3 = Scale('Q₃', '∛100x', ScaleFNs.CubeRoot, shift=-2, marks=[Marks.cube_root_ten], key='Q3')
