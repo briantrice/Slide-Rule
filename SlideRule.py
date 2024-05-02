@@ -68,6 +68,8 @@ class Color(Enum):
     RED_WHITE_2 = (BYTE_MAX, 192, 192)
     RED_WHITE_3 = (BYTE_MAX, 160, 160)
 
+    DEBUG = 'grey'
+
     @staticmethod
     @cache
     def to_pil(col_spec):
@@ -634,7 +636,7 @@ class Renderer:
         symbol = symbol.translate(Sym.UNICODE_SUBS)
         if DEBUG:
             w, h = self.style.sym_dims(symbol, font)
-            self.draw_box(x_left, y_top, w, h, 'grey')
+            self.draw_box(x_left, y_top, w, h, Color.DEBUG)
         self.r.text((x_left, y_top), symbol, font=font, fill=color)
         if DRAW_RADICALS:
             radicals = re.search(r'[√∛∜]', symbol)
@@ -1518,7 +1520,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     li = geom.li
     scale_w = geom.SL
     if DEBUG:
-        r.draw_box(li, y_off, scale_w, scale_h, 'grey')
+        r.draw_box(li, y_off, scale_w, scale_h, Color.DEBUG)
 
     sym_col = style.fg_col(sc.key, is_increasing=sc.is_increasing)
     bg_col = style.bg_col(sc.key)
