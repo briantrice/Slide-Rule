@@ -1082,8 +1082,8 @@ class Scale:
 
     def min_offset_for_delta(self, x_start, x_end, x_delta, scale_w=1):
         return min(
-            self.offset_between(x_start, x_start + x_delta, scale_w=scale_w),
-            self.offset_between(x_end - x_delta, x_end, scale_w=scale_w)
+            self.offset_between(x_start, x_start + x_delta, scale_w),
+            self.offset_between(x_end - x_delta, x_end, scale_w)
         )
 
     def scale_to(self, x, scale_w, shift_adj=0) -> int:
