@@ -1776,27 +1776,27 @@ def main():
     global DEBUG
     DEBUG = cli_args.debug
 
-    start_time = time.time()
+    start_time = time.process_time()
 
     sliderule_img = None
     if render_mode in {Mode.RENDER, Mode.STICKERPRINT}:
         sliderule_img = render_sliderule_mode(model, sliderule_img,
                                               borders=render_mode == Mode.RENDER, cutoffs=render_cutoffs)
-        print(f'Slide Rule render finished at: {round(time.time() - start_time, 2)} seconds')
+        print(f'Slide Rule render finished at: {round(time.process_time() - start_time, 3)} seconds')
         if render_mode == Mode.RENDER:
             save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
 
     if render_mode == Mode.DIAGNOSTIC:
         diagnostic_img = render_diagnostic_mode(model, all_scales=model != Models.Demo)
-        print(f'Diagnostic render finished at: {round(time.time() - start_time, 2)} seconds')
+        print(f'Diagnostic render finished at: {round(time.process_time() - start_time, 3)} seconds')
         save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
 
     if render_mode == Mode.STICKERPRINT:
         stickerprint_img = render_stickerprint_mode(model, sliderule_img)
-        print(f'Stickerprint render finished at: {round(time.time() - start_time, 2)} seconds')
+        print(f'Stickerprint render finished at: {round(time.process_time() - start_time, 3)} seconds')
         save_png(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
 
-    print(f'Program finished at: {round(time.time() - start_time, 2)} seconds')
+    print(f'Program finished at: {round(time.process_time() - start_time, 3)} seconds')
 
 
 def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = False, cutoffs: bool = False):
