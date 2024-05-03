@@ -1121,7 +1121,9 @@ class Scale:
         r.fill_rect(li + start_pos, y_off, self.pos_of(end_value, geom) - start_pos, geom.scale_h(self), color)
 
     def renamed(self, new_key: str, **kwargs):
-        return replace(self, left_sym=new_key, key=new_key, **kwargs)
+        if 'left_sym' not in kwargs:
+            kwargs['left_sym'] = new_key
+        return replace(self, key=new_key, **kwargs)
 
 
 pi_fold_shift = ScaleFNs.Inverse(PI)
@@ -1206,17 +1208,17 @@ shift_360 = ScaleFNs.Inverse(3.6)
 SquareRootNonLog = ScaleFN(lambda x: (x / TEN) ** 2, lambda p: TEN * math.sqrt(p), min_x=0.)
 custom_scale_sets: dict[str, dict[str, Scale]] = {
     'Merchant': {  # scales from Aristo 965 Commerz II: KZ, %, Z/ZZ1/ZZ2/ZZ3 compound interest
-        'Z': replace(Scales.D, left_sym='Z', right_sym='', opp_key='T1', dividers=[2, 4], comment='Z="Zins": interest'),
-        'T1': replace(Scales.D, left_sym='T₁', right_sym='', key='T1', opp_key='Z', on_slide=True),
-        'P1': replace(Scales.CI, left_sym='P₁', right_sym='', key='P1', on_slide=True, dividers=[2, 4]),
-        'KZ': replace(Scales.CF, left_sym='KZ', right_sym='', key='KZ', shift=shift_360,
-                      ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2],
-                      comment='KZ="Kapital Zins": interest on the principal, over 360 business days/year'),
-        'T2': replace(Scales.CF, left_sym='T₂', key='T2', shift=shift_360, on_slide=True,
-                      ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2]),
-        'P2': replace(Scales.CIF, left_sym='P₂', right_sym='', key='P2', shift=shift_360 - 1, on_slide=True,
-                      ex_start_value=0.25, ex_end_value=3.3, dividers=[0.4, 1, 2]),
-        'P%': Scale(left_sym='p%', right_sym='', key='P%', on_slide=True, shift=shift_360,
+        'Z': Scales.D.renamed('Z', right_sym='', opp_key='T1', dividers=[2, 4], comment='Z="Zins": interest'),
+        'T1': Scales.D.renamed('T1', left_sym='T₁', right_sym='', opp_key='Z', on_slide=True),
+        'P1': Scales.CI.renamed('P1', left_sym='P₁', right_sym='', on_slide=True, dividers=[2, 4]),
+        'KZ': Scales.CF.renamed('KZ', right_sym='', shift=shift_360,
+                                ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2],
+                                comment='KZ="Kapital Zins": interest on the principal, over 360 business days/year'),
+        'T2': Scales.CF.renamed('T2', left_sym='T₂', shift=shift_360, on_slide=True,
+                                ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2]),
+        'P2': Scales.CIF.renamed('P2', left_sym='P₂', right_sym='', shift=shift_360 - 1, on_slide=True,
+                                 ex_start_value=0.25, ex_end_value=3.3, dividers=[0.4, 1, 2]),
+        'P%': Scale(left_sym='', right_sym='', key='P%', on_slide=True, shift=shift_360,
                     scaler=ScaleFN(lambda x: gen_base((x + HUNDRED) / HUNDRED),
                                    lambda p: pos_base(p) * HUNDRED - HUNDRED),
                     dividers=[0], ex_start_value=-50, ex_end_value=100),

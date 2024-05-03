@@ -7,9 +7,11 @@ margins_xy = [0, 0]
 scale_wh = [6666, 160]  # 25cm x 3.5mm (93px)
 slide_h = 480  # 1.7cm (450px)
 [geometry.scale_h_overrides]
-rear = { 80 = [ 'ZZ3', 'ZZ2', 'ZZ1', 'T1' ], 72 = ['ZZ%']}
+front = { 80 = ['P2', 'P1'] }
+rear = { 80 = [ 'ZZ3', 'ZZ2', 'ZZ1', 'ZZ%', 'T1' ] }
 [geometry.margin_overrides]
 front = { 160 = ['£']}  # Spacer until conversion mark band is added
+rear = { -5 = ['ZZ%']}
 [layout]
 front = 'P% KZ [T2 P2 P1 T1] Z £'
 rear = ' [ ZZ3 ZZ2 ZZ1 ZZ% T1 ] '
