@@ -1155,8 +1155,6 @@ class Scales:
                 dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3, marks=[Marks.e])
     LL3 = Scale('LL₃', 'e^x', ScaleFNs.LogLog, key='LL3',
                 dividers=[3, 6, 10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=1e5, marks=[Marks.e])
-    LL_0, LL_1, LL_2, LL_3 = (LL0.renamed('LL/0'), LL1.renamed('LL/1'),
-                              LL2.renamed('LL/2'), LL3.renamed('LL/3'))
     LG = L.renamed('LG')
     M = L.renamed('M', comment='M="mantissa"')
     E = LL3.renamed('E', comment='E="exponent"')
@@ -1168,6 +1166,8 @@ class Scales:
                  dividers=[0.8, 0.9], ex_start_value=0.35, ex_end_value=0.91, marks=[Marks.inv_e])
     LL03 = Scale('LL₀₃', 'e^-x', ScaleFNs.LogLogNeg, key='LL03',
                  dividers=[5e-4, 1e-3, 1e-2, 0.1], ex_start_value=1e-4, ex_end_value=0.39, marks=[Marks.inv_e])
+    LL_0, LL_1, LL_2, LL_3 = (LL00.renamed('LL/0'), LL01.renamed('LL/1'),
+                              LL02.renamed('LL/2'), LL03.renamed('LL/3'))
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
               dividers=[0.3, 0.6, 0.8, 0.9, 0.98, 0.99], ex_start_value=0.1, ex_end_value=.995)
     P1 = P.renamed('P_1')
