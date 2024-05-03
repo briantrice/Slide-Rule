@@ -192,30 +192,20 @@ class Style:
 
 class HMod(Enum):
     """Tick height size factors (h_mod in pat)"""
-    DOT = 0.25
-    XS = 0.5
-    SM = 0.85
-    MED = 1
-    LG = 1.15
-    LG2 = 1.2
-    XL = 1.3
+    DOT, XS, SM, MED, LG, LG2, XL = 0.25, 0.5, 0.85, 1, 1.15, 1.2, 1.3
 
 
 class Side(Enum):
     """Side of the slide (front or rear)"""
-    FRONT = 'front'
-    REAR = 'rear'
+    FRONT, REAR = 'front', 'rear'
 
 
 class RulePart(Enum):
-    STATOR_TOP = 'stator_top'
-    SLIDE = 'slide'
-    STATOR_BOTTOM = 'stator_bottom'
+    STATOR_TOP, SLIDE, STATOR_BOTTOM = 'stator_top', 'slide', 'stator_bottom'
 
 
 class BraceShape(Enum):
-    L = 'L'
-    C = 'C'
+    L, C = 'L', 'C'
 
 
 @dataclass(frozen=True)
@@ -425,8 +415,7 @@ class Geometry:
 
 class Align(Enum):
     """Scale Alignment (ticks and labels against upper or lower bounds)"""
-    UPPER = 'upper'  # Upper alignment
-    LOWER = 'lower'  # Lower Alignment
+    UPPER, LOWER = 'upper', 'lower'
 
 
 TEN = 10
@@ -745,7 +734,6 @@ class Renderer:
         self.fill_rect(o_x, y0 + g.side_h - 2, g.side_w, 1, color)
         for vertical_x in [o_x, total_w - o_x]:
             self.fill_rect(vertical_x, y0, 1, g.side_h, color)
-
         # Top Stator Cut-outs
         if g.brace_shape == BraceShape.L:
             stator_h = g.stator_h
@@ -872,8 +860,7 @@ class Sym:
 
 
 class BleedDir(Enum):
-    UP = 'up'
-    DOWN = 'down'
+    UP, DOWN = 'up', 'down'
 
 
 def extend(image: Image, total_w: int, y: int, direction: BleedDir, amplitude: int):
@@ -1724,9 +1711,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
 
 
 class Mode(Enum):
-    RENDER = 'render'
-    DIAGNOSTIC = 'diagnostic'
-    STICKERPRINT = 'stickerprint'
+    RENDER, DIAGNOSTIC, STICKERPRINT = 'render', 'diagnostic', 'stickerprint'
 
 
 def transcribe(src_img: Image.Image, dst_img: Image.Image, src_x, src_y, size_x, size_y, target_x, target_y):
