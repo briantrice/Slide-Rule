@@ -1024,10 +1024,10 @@ class Scale:
             self.key = self.left_sym
 
     def __hash__(self):
-        return hash(self.key)
+        return hash(id(self))
 
     def __eq__(self, other):
-        return self.key == other.key
+        return id(self) == id(other)
 
     def displays_cyclic(self):
         return self.scaler in {ScaleFNs.Base, ScaleFNs.Inverse, ScaleFNs.Square, ScaleFNs.Cube}
