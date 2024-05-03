@@ -213,6 +213,11 @@ class RulePart(Enum):
     STATOR_BOTTOM = 'stator_bottom'
 
 
+class BraceShape(Enum):
+    L = 'L'
+    C = 'C'
+
+
 @dataclass(frozen=True)
 class Geometry:
     """Slide Rule Geometric Parameters"""
@@ -243,7 +248,7 @@ class Geometry:
     scale_h_overrides: dict[Side, dict[str, int]] = field(default_factory=_overrides_factory)
     margin_overrides: dict[Side, dict[str, int]] = field(default_factory=_overrides_factory)
 
-    brace_shape: str = 'L'  # or C
+    brace_shape: BraceShape = BraceShape.L
     brace_offset: int = 30  # offset of metal from boundary
 
     NO_MARGINS = (0, 0)
@@ -255,7 +260,7 @@ class Geometry:
              slide_h: int = slide_h, top_margin: int = top_margin,
              scale_h_overrides: dict[Side, dict[int: [str]]] = None,
              margin_overrides: dict[Side, dict[int: [str]]] = None,
-             brace_shape: str = brace_shape, brace_offset: int = brace_offset):
+             brace_shape: str = brace_shape.value, brace_offset: int = brace_offset):
         (side_w, side_h) = side_wh
         (oX, oY) = margins_xy
         (SL, SH) = scale_wh
@@ -274,6 +279,7 @@ class Geometry:
                 for h, sc_keys in side_overrides.items():
                     for sc_key in sc_keys:
                         margin_overrides_opt[side][sc_key] = int(h)
+        brace_shape = next((x for x in BraceShape if x.value == brace_shape), brace_shape)
         return cls(oX=oX, oY=oY, side_w=side_w, side_h=side_h, slide_h=slide_h, top_margin=top_margin, SH=SH, SL=SL,
                    STH=STH, STT=STT, scale_h_overrides=scale_h_overrides_opt, margin_overrides=margin_overrides_opt,
                    brace_shape=brace_shape, brace_offset=brace_offset)
@@ -327,16 +333,19 @@ class Geometry:
         result = self.STH * h_mod.value
         if h_ratio and h_ratio != 1:
             result *= h_ratio
-        return math.ceil(result)
+        return round(result)
+
+    def part_h(self, part: RulePart):
+        return self.slide_h if part == RulePart.SLIDE else self.stator_h
 
     def edge_h(self, part: RulePart, top):
-        if part == RulePart.STATOR_TOP:
-            return 0 if top else self.stator_h
-        if part == RulePart.SLIDE:
-            return self.stator_h + (0 if top else self.slide_h)
-        if part == RulePart.STATOR_BOTTOM:
-            return self.stator_h + self.slide_h if top else self.side_h
-        return 0
+        if part == RulePart.STATOR_TOP and top:
+            return 0
+        if part == RulePart.SLIDE and top or part == RulePart.STATOR_TOP:
+            return self.stator_h
+        if part == RulePart.STATOR_BOTTOM and top:
+            return self.stator_h + self.slide_h
+        return self.side_h
 
     def scale_h(self, sc, side: Side = None, default: int = None) -> int:
         key = sc.key
@@ -350,8 +359,7 @@ class Geometry:
         if side:
             return self.margin_overrides[side].get(key, default or self.SM)
         return self.margin_overrides[Side.FRONT].get(
-            key, self.margin_overrides[Side.REAR].get(key, default or self.SM)
-        )
+            key, self.margin_overrides[Side.REAR].get(key, default or self.SM))
 
     def scale_h_ratio(self, sc, side=None):
         scale_h = self.scale_h(sc, side=side)
@@ -371,7 +379,7 @@ class Geometry:
         y_slide_top = y_off + self.stator_h - b
         y_slide_bottom = y_top + self.side_h - self.stator_h
         y_bottom = self.side_h - b + y_off
-        if self.brace_shape == 'L':
+        if self.brace_shape == BraceShape.L:
             # x_left x_mid x_right
             # 0  ↓    ↓    ↓
             # ↓         1↓   ← 0
@@ -393,7 +401,7 @@ class Geometry:
                     (x_mid, x_mid, y_top, y_slide_bottom),  # 4
                     (x_left, x_left, y_slide_bottom, y_bottom),  # 5
                     (x_right, x_right, y_top, y_bottom)]  # 6
-        elif self.brace_shape == 'C':
+        elif self.brace_shape == BraceShape.C:
             return [(x_right, x_right, y_top, y_bottom),  # inside
                     (x_left, x_right, y_top, y_top),  # top
                     (x_left, x_right, y_bottom, y_bottom),  # bottom
@@ -726,28 +734,26 @@ class Renderer:
 
     # ----------------------4. Line Drawing Functions----------------------------
 
-    def draw_borders(self, y0: int, side: Side, color=Color.BLACK.value):
+    def draw_borders(self, y0: int, side: Side, color=Color.BLACK):
         """Place initial borders around scales"""
         # Main Frame
-        total_w = self.geometry.total_w
-        side_w = self.geometry.side_w
-        side_h = self.geometry.side_h
-        stator_h = self.geometry.stator_h
-        y_offsets = [0, stator_h - 1, side_h - stator_h - 1, side_h - 2]
-        o_x = self.geometry.oX
-        for horizontal_y in [y0 + y_off for y_off in y_offsets]:
-            self.fill_rect(o_x, horizontal_y, side_w, 1, color)
+        g = self.geometry
+        total_w = g.total_w
+        o_x = g.oX
+        for i, part in enumerate(RulePart):
+            self.fill_rect(o_x, y0 + g.edge_h(part, True) - (i + 1) // 2, g.side_w, 1, color)
+        self.fill_rect(o_x, y0 + g.side_h - 2, g.side_w, 1, color)
         for vertical_x in [o_x, total_w - o_x]:
-            self.fill_rect(vertical_x, y0, 1, side_h, color)
+            self.fill_rect(vertical_x, y0, 1, g.side_h, color)
 
         # Top Stator Cut-outs
-        # if side == SlideSide.FRONT:
-        y_start = y0
-        if side == Side.REAR:
-            y_start += side_h - stator_h
-        half_stock_height = stator_h // 2
-        for horizontal_x in [half_stock_height + o_x, (total_w - half_stock_height) - o_x]:
-            self.fill_rect(horizontal_x, y_start, 1, stator_h, color)
+        if g.brace_shape == BraceShape.L:
+            stator_h = g.stator_h
+            part = RulePart.STATOR_BOTTOM if side == Side.REAR else RulePart.STATOR_TOP
+            y_start = y0 + g.edge_h(part, True)
+            stator_cutout_w = stator_h // 2
+            for horizontal_x in [stator_cutout_w + o_x, (total_w - stator_cutout_w) - o_x]:
+                self.fill_rect(horizontal_x, y0 + g.edge_h(part, True), 1, stator_h, color)
 
     def draw_brace_pieces(self, y_off: int, side: Side):
         """Draw the metal bracket locations for viewing"""
