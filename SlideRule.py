@@ -401,6 +401,7 @@ class Geometry:
                     (x_left, x_mid, y_slide_top, y_slide_top),  # arc top
                     (x_mid, x_mid, y_slide_top, y_slide_bottom),  # arc inside
                     (x_left, x_mid, y_slide_bottom, y_slide_bottom)]  # arc bottom
+        return None
 
     def mirror_vectors_h(self, vectors: list[tuple[int, int, int, int]]):
         """(x1, x2, y1, y2) mirrored across the centerline"""
@@ -752,6 +753,8 @@ class Renderer:
             self.fill_rect(start - 1, y_off, 2, i, Color.CUTOFF)
 
         brace_fl = g.brace_outline(y_off)
+        if not brace_fl:
+            return
 
         # Symmetrically create the right piece
         coords = brace_fl + g.mirror_vectors_h(brace_fl)
@@ -1845,7 +1848,7 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
         for side in Side:
             y0 = y_front_start if side == Side.FRONT else y_rear_start
             r.draw_borders(y0, side)
-            if cutoffs and geom.brace_shape is not None:
+            if cutoffs:
                 r.draw_brace_pieces(y0, side)
     return sliderule_img
 
