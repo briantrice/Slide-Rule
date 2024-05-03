@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os.path
+import time
 
 from SlideRule import (
     Models, Model, keys_of,
@@ -29,6 +30,7 @@ def main():
         print(f'Building example outputs for: {model_name}')
         model = getattr(Models, model_name) or Model.from_toml_file(os.path.join(base_dir, f'Model-{model_name}.toml'))
 
+        start_time = time.process_time()
         if Mode.DIAGNOSTIC in modes:
             all_scales = cli_args.all_scales
             diagnostic_img = render_diagnostic_mode(model, all_scales=all_scales)
@@ -48,6 +50,7 @@ def main():
             stickers_filename = os.path.join(base_dir, f'{model_name}.StickerCut.png')
             stickers_img.save(stickers_filename)
             print(f' StickerCut output for: {model_name} at: {stickers_filename}')
+        print(f'Time elapsed: {round(time.process_time() - start_time, 3)}')
 
 
 if __name__ == '__main__':
