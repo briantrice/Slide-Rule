@@ -2,15 +2,21 @@ brand = 'Aristo'
 subtitle = 'Commerz II'
 name = '965'
 [geometry]
-side_wh = [8000, 1200]  # 30cm (8000px) x 5cm (1333px)
-margins_xy = [100, 100]
-scale_wh = [6666, 80]  # 25cm (6666.7px) x 3.5mm (93px)
+side_wh = [8266, 1466]  # 31cm x 5.5cm
+margins_xy = [0, 0]
+scale_wh = [6666, 160]  # 25cm x 3.5mm (93px)
 slide_h = 480  # 1.7cm (450px)
+[geometry.scale_h_overrides]
+rear = { 80 = [ 'ZZ3', 'ZZ2', 'ZZ1', 'T1' ], 72 = ['ZZ%']}
+[geometry.margin_overrides]
+front = { 160 = ['£']}  # Spacer until conversion mark band is added
 [layout]
-front = 'Pct KZ [T2 P2 P1 T1] Z Libra'
+front = 'P% KZ [T2 P2 P1 T1] Z £'
+rear = ' [ ZZ3 ZZ2 ZZ1 ZZ% T1 ] '
 scale_ns = 'Merchant'
 [layout.align_overrides]
 front = { P2 = 'upper' }
+rear = { ZZ3 = 'lower' }
 [style]
 font_family = 'CMUBright'
 decreasing_color = 'sym_green'

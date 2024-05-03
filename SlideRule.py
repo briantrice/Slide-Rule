@@ -1223,16 +1223,20 @@ custom_scale_sets: dict[str, dict[str, Scale]] = {
                       ex_start_value=0.3, ex_end_value=4, dividers=[0.4, 1, 2]),
         'P2': replace(Scales.CIF, left_sym='P₂', right_sym='', key='P2', shift=shift_360 - 1, on_slide=True,
                       ex_start_value=0.25, ex_end_value=3.3, dividers=[0.4, 1, 2]),
-        'Pct': Scale(left_sym='p%', right_sym='', key='Pct', on_slide=True, shift=shift_360,
-                     scaler=ScaleFN(lambda x: gen_base((x + HUNDRED) / HUNDRED),
-                                    lambda p: pos_base(p) * HUNDRED - HUNDRED),
-                     dividers=[0], ex_start_value=-50, ex_end_value=100),
+        'P%': Scale(left_sym='p%', right_sym='', key='P%', on_slide=True, shift=shift_360,
+                    scaler=ScaleFN(lambda x: gen_base((x + HUNDRED) / HUNDRED),
+                                   lambda p: pos_base(p) * HUNDRED - HUNDRED),
+                    dividers=[0], ex_start_value=-50, ex_end_value=100),
         # meta-scale showing % with 100% over 1/unity
         # special marks being 0,5,10,15,20,25,30,33⅓,40,50,75,100 in both directions
         'ZZ1': Scales.LL1.renamed('ZZ1', comment='ZZ="Zins Zins": compound interest'),
         'ZZ2': Scales.LL2.renamed('ZZ2', comment='ZZ="Zins Zins": compound interest'),
         'ZZ3': Scales.LL3.renamed('ZZ3', comment='ZZ="Zins Zins": compound interest'),
-        'Libra': replace(Scales.L, left_sym='£', right_sym='', key='Libra'),
+        'ZZ%': Scale(left_sym='ZZ%', right_sym='%', key='ZZ%', shift=2,
+                     scaler=ScaleFN(lambda x: Scales.LL1.gen_fn((x + HUNDRED) / HUNDRED),
+                                    lambda p: Scales.LL1.pos_fn(p) * HUNDRED - HUNDRED),
+                     ex_start_value=1, ex_end_value=11, comment='Compound interest percentage'),
+        '£': Scales.L.renamed('£', right_sym=''),
     },
     'Hemmi153': {
         'Chi': Scale('χ', '', ScaleFN(lambda x: x / PI_HALF, lambda p: p * PI_HALF), marks=[Marks.pi_half]),
@@ -1684,7 +1688,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
         for x in chain((x / 10 for x in range(6, 10)), (x + 0.5 for x in range(1, 4)), range(2, 6)):
             r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
 
-    elif sc == custom_scale_sets['Merchant']['Pct']:
+    elif sc == custom_scale_sets['Merchant']['P%']:
         if DEBUG:
             sc.grad_pat_default(r, y_off, al)
         for pct_value in (0, 5, 10, 15, 20, 35, 30, 40):
@@ -1692,6 +1696,14 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
             r.draw_numeral(pct_value, y_off, sym_col, scale_h, sc.pos_of(-pct_value, geom), 0, f_lgn, Align.LOWER)
         for sym, val in (('-50%', -50), ('50%', 50), ('-33⅓', -100/3), ('33⅓', 100/3), ('+100%', 100)):
             r.draw_sym_al(sym, y_off, sym_col, scale_h, sc.pos_of(val, geom), 0, f_lgn, Align.LOWER)
+
+    elif sc == custom_scale_sets['Merchant']['ZZ%']:
+        if DEBUG:
+            sc.grad_pat_default(r, y_off, al)
+        for x in range(1, 12):
+            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), 0, f_lgn, Align.LOWER)
+        for x in (x / 10 for x in range(15, 110, 10)):
+            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), 0, f_lgn, Align.LOWER)
 
     else:  # Fallback to our generic algorithm, then fill in marks and numerals as helpful
         sc.grad_pat_default(r, y_off, al)
