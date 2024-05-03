@@ -1840,7 +1840,7 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
         for side in Side:
             y0 = y_front_start if side == Side.FRONT else y_rear_start
             r.draw_borders(y0, side)
-            if cutoffs:
+            if cutoffs and geom.brace_shape is not None:
                 r.draw_brace_pieces(y0, side)
     return sliderule_img
 

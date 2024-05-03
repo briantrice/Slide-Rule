@@ -6,6 +6,7 @@ side_wh = [8266, 1466]  # 31cm x 5.5cm
 margins_xy = [0, 0]
 scale_wh = [6666, 160]  # 25cm x 3.5mm (93px)
 slide_h = 480  # 1.7cm (450px)
+brace_shape = false
 [geometry.scale_h_overrides]
 front = { 80 = ['P2', 'P1'] }
 rear = { 80 = [ 'ZZ3', 'ZZ2', 'ZZ1', 'ZZ%', 'T1' ] }
