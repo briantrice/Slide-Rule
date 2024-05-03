@@ -1814,16 +1814,21 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
     # Scales
     for side in Side:
         for part in RulePart:
+            part_y_start = y_side_start + geom.edge_h(part, True)
+            part_y_end = part_y_start + geom.part_h(part)
             part_scales = layout.scales_at(side, part)
+            if not part_scales:
+                y_off = part_y_end
+                continue
             last_i = len(part_scales) - 1
             for i, sc in enumerate(part_scales):
                 scale_h = geom.scale_h(sc, side)
                 scale_al = layout.scale_al(sc, side, part)
                 # Handle edge-aligned scales:
                 if i == 0 and scale_al == Align.UPPER:
-                    y_off = y_side_start + geom.edge_h(part, True)
+                    y_off = part_y_start
                 elif i == last_i and scale_al == Align.LOWER:
-                    y_off = y_side_start + geom.edge_h(part, False) - scale_h
+                    y_off = part_y_end - scale_h
                 else:  # Incremental displacement by default
                     y_off += geom.scale_margin(sc, side)
                 if isinstance(sc, Scale):
