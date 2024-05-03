@@ -529,8 +529,8 @@ class Renderer:
         x0 = x + self.geometry.li - 2
         y0 = y_off
         if al == Align.LOWER:
-            y0 += scale_h - h
-        self.fill_rect(x0, y0, self.geometry.STT, h, col)
+            y0 += scale_h - h - 1
+        self.fill_rect(x0, y0, self.geometry.STT, h + 1, col)
 
     def pat(self, y_off: int, sc, al: Align,
             i_start, i_end, i_sf, steps_i, steps_th, steps_font, digit1):
