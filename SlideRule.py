@@ -1184,14 +1184,14 @@ class Scales:
     ST = Scale('ST', '∡tan 0.01x°', ScaleFNs.SinTan)
     T = Scale('T', '∡tan x°', ScaleFNs.Tan, mirror_key='CoT')
     CoT = Scale('CoT', '∡cot x°', ScaleFNs.CoTan, key='CoT', is_increasing=True, mirror_key='T', shift=-1)
-    T1 = replace(T, left_sym='T₁', key='T1')
+    T1 = T.renamed('T1', left_sym='T₁')
     T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1, mirror_key='CoT2')
     W1 = Scale('W₁', '√x', ScaleFNs.SquareRoot, key='W1', opp_key='W1Prime', dividers=[1, 2],
                ex_start_value=0.95, ex_end_value=3.38, marks=[Marks.sqrt_ten])
-    W1Prime = replace(W1, left_sym="W'₁", key="W1'", opp_key='W1')
+    W1Prime = W1.renamed("W1'", left_sym="W'₁", opp_key='W1')
     W2 = Scale('W₂', '√10x', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5],
                ex_start_value=3, ex_end_value=10.66, marks=W1.marks)
-    W2Prime = replace(W2, left_sym="W'₂", key="W2'", opp_key='W2')
+    W2Prime = W2.renamed("W2'", left_sym="W'₂", opp_key='W2')
 
     H1 = Scale('H₁', '√1+0.1x²', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1], numerals=[1.005])
     H2 = Scale('H₂', '√1+x²', ScaleFNs.Hyperbolic, key='H2', dividers=[4])
