@@ -31,14 +31,14 @@ An installation of two fonts: `cmuntt.ttf` and `cmunit.ttf` (part of the infamou
 
 ```wp-cli
 usage: SlideRule.py [-h] [--mode {render,diagnostic,stickerprint}]
-                    [--model {Aristo868,Aristo965,Demo,FaberCastell283,FaberCastell283N,Graphoplex621,MannheimOriginal,MannheimWithRuler,PickettN515T,Ruler}]
+                    [--model {Demo,MannheimOriginal,Ruler,MannheimWithRuler,Aristo868,Aristo965,PickettN515T,FaberCastell283,FaberCastell283N,Graphoplex621,Hemmi153,UltraLog}]
                     [--suffix SUFFIX] [--test] [--cutoffs] [--debug]
 
 optional arguments:
   -h, --help            show this help message and exit
   --mode {render,diagnostic,stickerprint}
                         What to render
-  --model {Aristo868,Aristo965,Demo,FaberCastell283,FaberCastell283N,Graphoplex621,MannheimOriginal,MannheimWithRuler,PickettN515T,Ruler}
+  --model {Demo,MannheimOriginal,Ruler,MannheimWithRuler,Aristo868,Aristo965,PickettN515T,FaberCastell283,FaberCastell283N,Graphoplex621,Hemmi153,UltraLog}
                         Which sliderule model
   --suffix SUFFIX       Output filename suffix for variations
   --test                Output filename for test comparisons

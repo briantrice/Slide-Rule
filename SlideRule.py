@@ -17,7 +17,6 @@ Table of Contents
 
 # ----------------------1. Setup----------------------------
 
-import inspect
 import math
 import re
 import time
@@ -33,7 +32,7 @@ from PIL import Image, ImageFont, ImageDraw
 
 
 def keys_of(obj: object):
-    return [k for k, _ in inspect.getmembers(obj) if not k.startswith('__')]
+    return [k for k, v in obj.__dict__.items() if not k.startswith('__')]
 
 
 # Angular constants:
