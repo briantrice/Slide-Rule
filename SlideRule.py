@@ -473,6 +473,7 @@ class ConversionMarks:
 
 TickFactors = tuple[int, int, int]
 TF_BY_MIN: dict[int, TickFactors] = {  # Best tick subdivision pattern for a given minimum overall division
+    1000: (10, 10, 10),
     500: (10, 10, 5),
     250: (10, 5, 5),
     100: (10, 2, 5),
