@@ -318,7 +318,7 @@ class ModelTestCase(unittest.TestCase):
             RulePart.STATOR_BOTTOM: ['D', 'S', 'ST', 'P']})
         self.assertDictEqual(fc283.layout.sc_keys[Side.REAR], {
             RulePart.STATOR_TOP: ['LL03', 'LL02', 'LL01', 'W2'],
-            RulePart.SLIDE: ['W2Prime', 'L', 'C', 'W1Prime'],
+            RulePart.SLIDE: ["W2'", 'L', 'C', "W1'"],
             RulePart.STATOR_BOTTOM: ['W1', 'LL1', 'LL2', 'LL3']})
 
 

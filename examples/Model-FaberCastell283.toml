@@ -13,7 +13,7 @@ front = {72 = ['K', 'T1', 'T2', 'P']}
 rear = {90 = ['LL03', 'LL02', 'LL01', 'LL1', 'LL2', 'LL3']}
 [layout]
 front = 'K T1 T2 DF/CF CIF CI C/D S ST P'
-rear = 'LL03 LL02 LL01 W2/W2Prime L C W1Prime/W1 LL1 LL2 LL3'
+rear = "LL03 LL02 LL01 W2/W2' L C W1'/W1 LL1 LL2 LL3"
 [layout.align_overrides]
 front = { T2 = 'upper', CI = 'upper', DF = 'lower', S = 'lower' }
 rear = { C = 'upper' }

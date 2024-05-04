@@ -12,7 +12,7 @@ brace_shape = 'C'
 rear = {74 = ['LL03', 'LL02', 'LL01', 'LL00', 'LL0', 'LL1', 'LL2', 'LL3']}
 [layout]
 front = 'T1 T2 K A DF [CF B CIF CI C] D DI S ST P'
-rear = 'LL03 LL02 LL01 LL00 W2 [W2Prime CI L C W1Prime] W1 D LL0 LL1 LL2 LL3'
+rear = "LL03 LL02 LL01 LL00 W2 [W2' CI L C W1'] W1 D LL0 LL1 LL2 LL3"
 [layout.align_overrides]
 front = { T2 = 'upper', CI = 'upper', S = 'lower' }
 rear = { C = 'upper', LL03 = 'lower', LL02 = 'upper', LL01 = 'lower', LL00 = 'upper', LL0 = 'lower', LL1 = 'upper', LL2 = 'lower', LL3 = 'upper'}

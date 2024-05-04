@@ -1189,10 +1189,10 @@ class Scales:
     CoT = Scale('CoT', '∡cot x°', ScaleFNs.CoTan, key='CoT', is_increasing=True, mirror_key='T', shift=-1)
     T1 = T.renamed('T1', left_sym='T₁')
     T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1, mirror_key='CoT2')
-    W1 = Scale('W₁', '√x', ScaleFNs.SquareRoot, key='W1', opp_key='W1Prime', dividers=[1, 2],
+    W1 = Scale('W₁', '√x', ScaleFNs.SquareRoot, key='W1', opp_key="W1'", dividers=[1, 2],
                ex_start_value=0.95, ex_end_value=3.38, marks=[Marks.sqrt_ten])
     W1Prime = W1.renamed("W1'", left_sym="W'₁", opp_key='W1')
-    W2 = Scale('W₂', '√10x', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key='W2Prime', dividers=[5],
+    W2 = Scale('W₂', '√10x', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key="W2'", dividers=[5],
                ex_start_value=3, ex_end_value=10.66, marks=W1.marks)
     W2Prime = W2.renamed("W2'", left_sym="W'₂", opp_key='W2')
 
@@ -1340,6 +1340,7 @@ class Layout:
 
     def scale_named(self, sc_name: str):
         sc_attr = sc_name.replace('/', '_') if '/' in sc_name else sc_name
+        sc_attr = sc_name.replace("'", 'Prime') if "'" in sc_attr else sc_attr
         return self.scale_ns.get(sc_name, getattr(Scales, sc_attr, getattr(Rulers, sc_attr, None)))
 
     def all_scales(self):
