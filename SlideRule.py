@@ -306,7 +306,7 @@ class Geometry:
     @property
     def brace_w(self):
         """Brace width default, to ensure a square anchor piece."""
-        return self.stator_h
+        return 0 if not self.brace_shape else self.stator_h
 
     @property
     def li(self):
