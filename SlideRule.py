@@ -141,7 +141,7 @@ class Style:
     overrides: dict[str, dict[str, object]] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, style_def):
+    def from_dict(cls, style_def: dict):
         if 'font_family' in style_def:
             style_def['font_family'] = getattr(Font, style_def['font_family'])
         for key in ('fg', 'bg', 'decreasing_color', 'decimal_color'):
@@ -236,6 +236,7 @@ class Geometry:
     def _overrides_factory(): return {Side.FRONT: {}, Side.REAR: {}}
     scale_h_overrides: dict[Side, dict[str, int]] = field(default_factory=_overrides_factory)
     margin_overrides: dict[Side, dict[str, int]] = field(default_factory=_overrides_factory)
+    overhang_overrides: dict[Side, dict[str, int]] = field(default_factory=_overrides_factory)
 
     brace_shape: BraceShape = BraceShape.L
     brace_offset: int = 30  # offset of metal from boundary
@@ -245,37 +246,34 @@ class Geometry:
     DEFAULT_TICK_WH = (STT, STH)
 
     @classmethod
+    def flip_overrides(cls, overrides: dict[Side, dict[int: [str]]] = None):
+        result = cls._overrides_factory()
+        if overrides:
+            for side in Side:
+                side_overrides = overrides.get(side, {})
+                for h, sc_keys in side_overrides.items():
+                    for sc_key in sc_keys:
+                        result[side][sc_key] = int(h)
+        return result
+
+    @classmethod
     def make(cls, side_wh: WH, margins_xy: WH, scale_wh: WH = DEFAULT_SCALE_WH, tick_wh: WH = DEFAULT_TICK_WH,
              slide_h: int = slide_h, top_margin: int = top_margin,
              scale_h_overrides: dict[Side, dict[int: [str]]] = None,
              margin_overrides: dict[Side, dict[int: [str]]] = None,
+             overhang_overrides: dict[Side, dict[int: [str]]] = None,
              brace_shape: str = brace_shape.value, brace_offset: int = brace_offset):
-        (side_w, side_h) = side_wh
-        (oX, oY) = margins_xy
-        (SL, SH) = scale_wh
-        (STT, STH) = tick_wh
-        scale_h_overrides_opt = cls._overrides_factory()
-        if scale_h_overrides:
-            for side in Side:
-                side_overrides = scale_h_overrides.get(side, {})
-                for h, sc_keys in side_overrides.items():
-                    for sc_key in sc_keys:
-                        scale_h_overrides_opt[side][sc_key] = int(h)
-        margin_overrides_opt = cls._overrides_factory()
-        if margin_overrides:
-            for side in Side:
-                side_overrides = margin_overrides.get(side, {})
-                for h, sc_keys in side_overrides.items():
-                    for sc_key in sc_keys:
-                        margin_overrides_opt[side][sc_key] = int(h)
-        brace_shape = next((x for x in BraceShape if x.value == brace_shape), brace_shape)
-        return cls(oX=oX, oY=oY, side_w=side_w, side_h=side_h, slide_h=slide_h, top_margin=top_margin, SH=SH, SL=SL,
-                   STH=STH, STT=STT, scale_h_overrides=scale_h_overrides_opt, margin_overrides=margin_overrides_opt,
-                   brace_shape=brace_shape, brace_offset=brace_offset)
+        return cls(oX=margins_xy[0], oY=margins_xy[1], side_w=side_wh[0], side_h=side_wh[1], slide_h=slide_h,
+                   top_margin=top_margin, SH=scale_wh[1], SL=scale_wh[0], STH=tick_wh[1], STT=tick_wh[0],
+                   scale_h_overrides=cls.flip_overrides(scale_h_overrides),
+                   margin_overrides=cls.flip_overrides(margin_overrides),
+                   overhang_overrides=cls.flip_overrides(overhang_overrides),
+                   brace_shape=next((x for x in BraceShape if x.value == brace_shape), brace_shape),
+                   brace_offset=brace_offset)
 
     @classmethod
-    def from_dict(cls, geometry_def):
-        for key in ('scale_h_overrides', 'margin_overrides'):
+    def from_dict(cls, geometry_def: dict):
+        for key in ('scale_h_overrides', 'margin_overrides', 'overhang_overrides'):
             if key in geometry_def:
                 result = {}
                 for side in Side:
