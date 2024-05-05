@@ -353,11 +353,15 @@ class Geometry:
         default_scale_h = self.DEFAULT_SCALE_WH[1]
         return scale_h / default_scale_h if scale_h != default_scale_h else None
 
+    def label_offset_frac(self, sc):
+        """fraction of total width to overhang each side to label"""
+        return (0.05 if sc.can_overhang() or sc.can_spiral() else 0) + 0.02
+
+    def scale_w(self, sc, with_labels=False) -> int:
+        return int(self.SL * (sc.overhang_ratio() + (self.label_offset_frac(sc) if with_labels else 0)))
+
     def brace_outline(self, y_off):
-        """
-        Creates and returns the left front brace piece outline in vectors as: (x1,x2,y1,y2)
-        Supports L or C shapes.
-        """
+        """Creates and returns the left front brace piece outline in vectors as: (x1,x2,y1,y2)"""
         b = self.brace_offset  # offset of metal from boundary
         x_left = b + self.oX
         x_mid = x_left + self.brace_w // 2
@@ -737,7 +741,6 @@ class Renderer:
         if g.brace_shape == BraceShape.L:
             stator_h = g.stator_h
             part = RulePart.STATOR_BOTTOM if side == Side.REAR else RulePart.STATOR_TOP
-            y_start = y0 + g.edge_h(part, True)
             stator_cutout_w = stator_h // 2
             for horizontal_x in [stator_cutout_w + o_x, (total_w - stator_cutout_w) - o_x]:
                 self.fill_rect(horizontal_x, y0 + g.edge_h(part, True), 1, stator_h, color)
@@ -1039,6 +1042,10 @@ class Scale:
     def can_overhang(self):
         return ((self.ex_end_value and self.frac_pos_of(self.ex_end_value) > 1 + self.min_overhang_frac)
                 or (self.ex_start_value and self.frac_pos_of(self.ex_start_value) < -self.min_overhang_frac))
+
+    def overhang_ratio(self):
+        return max(1., self.frac_pos_of(self.ex_end_value)) - min(0., self.frac_pos_of(self.ex_start_value))\
+            if self.can_overhang() else 1
 
     def frac_pos_of(self, x, shift_adj=0) -> float:
         """
@@ -1501,14 +1508,11 @@ class Models:
     UltraLog = Model.from_toml_file('examples/Model-UltraLog.toml')
 
 
-def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: Side = None):
+def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
     geom = r.geometry
     style = r.style
     if style.override_for(sc.key, 'hide', False):
         return
-
-    if not overhang:  # fraction of total width to overhang each side to label
-        overhang = 0.07 if sc.can_spiral() or sc.can_overhang() else 0.02
 
     scale_h = geom.scale_h(sc, side=side)
     scale_h_ratio = geom.scale_h_ratio(sc, side=side)
@@ -1534,19 +1538,23 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, overhang=None, side: 
     if bg_col:
         sc.band_bg(r, y_off, bg_col)
 
+    label_offset_frac = geom.label_offset_frac(sc)
+
     # Right
-    f_lbl_r = f_lbl_s if len(sc.right_sym) > 6 or '^' in sc.right_sym else f_lbl
-    (right_sym, _, _) = Sym.parts_of(sc.right_sym)
+    (right_sym, expon, _) = Sym.parts_of(sc.right_sym)
+    f_lbl_r = f_lbl_s if len(sc.right_sym) > 6 or expon and len(expon) > 1 else f_lbl
     w2, h2 = style.sym_dims(right_sym, f_lbl_r)
     y2 = (geom.SH - h2) / 2  # Ignore custom height/spacing for legend symbols
-    x_right = (1 + overhang) * scale_w + w2 / 2
+    x_right = (1 + label_offset_frac) * scale_w + w2 / 2
     r.draw_sym_al(sc.right_sym, y_off, sym_col, scale_h, x_right, y2, f_lbl_r, al)
 
     # Left
-    (left_sym, _, _) = Sym.parts_of(sc.left_sym)
+    (left_sym, _, subscript) = Sym.parts_of(sc.left_sym)
     w1, h1 = style.sym_dims(left_sym, f_lbl)
+    if subscript:
+        w1 += style.sym_dims(subscript, f_lgn)[0]
     y1 = (geom.SH - h1) / 2  # Ignore custom height/spacing for legend symbols
-    x_left = (0 - overhang) * scale_w - w1 / 2
+    x_left = (0 - label_offset_frac) * scale_w - w1 / 2
     r.draw_sym_al(sc.left_sym, y_off, sym_col, scale_h, x_left, y1, f_lbl, al)
 
     # Special Symbols for S, and T
