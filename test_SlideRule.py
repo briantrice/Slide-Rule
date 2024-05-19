@@ -1,13 +1,14 @@
 import math
 import unittest
 from dataclasses import replace, dataclass
+from unittest import TestCase
 from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 
 from SlideRule import (Scales, ScaleFNs, Layout, RulePart, Side, Align,
-                       Renderer, Color, Models, Font, Style, Sym, keys_of,
-                       render_diagnostic_mode, render_sliderule_mode, custom_scale_sets)
+                       Renderer, Color, Model, Font, Style, Sym, keys_of,
+                       render_diagnostic_mode, render_sliderule_mode, custom_scale_sets, Geometry, DemoModel)
 
 
 class ScaleBaseTestCase(unittest.TestCase):
@@ -154,20 +155,20 @@ class ScaleCubeTestCase(unittest.TestCase):
     def test_fenceposts(self):
         scale_cube = ScaleFNs.Cube
         self.assertEqual(scale_cube(1), 0)
-        self.assertEqual(scale_cube(10), 1/3)
-        self.assertEqual(scale_cube(100), 2/3)
+        self.assertEqual(scale_cube(10), 1 / 3)
+        self.assertEqual(scale_cube(100), 2 / 3)
         self.assertEqual(scale_cube(1000), 1)
 
     def test_against_base(self):
         scale_cube = ScaleFNs.Cube
-        self.assertEqual(scale_cube(2**3), ScaleFNs.Base(2))
-        self.assertAlmostEqual(scale_cube(5**3), ScaleFNs.Base(5))
+        self.assertEqual(scale_cube(2 ** 3), ScaleFNs.Base(2))
+        self.assertAlmostEqual(scale_cube(5 ** 3), ScaleFNs.Base(5))
 
     def test_value_at(self):
         s = ScaleFNs.Cube
         self.assertEqual(s.value_at(0), 1)
-        self.assertAlmostEqual(s.value_at(1/3), 10)
-        self.assertAlmostEqual(s.value_at(2/3), 100)
+        self.assertAlmostEqual(s.value_at(1 / 3), 10)
+        self.assertAlmostEqual(s.value_at(2 / 3), 100)
         self.assertEqual(s.value_at(1), 1000)
 
 
@@ -202,7 +203,7 @@ class ScalePythagoreanTestCase(unittest.TestCase):
     def test_bottom(self):
         scale_pythagorean = ScaleFNs.Pythagorean
         bottom = 0.99498743710662
-        self.assertAlmostEqual(bottom, math.sqrt(1 - 0.1**2))
+        self.assertAlmostEqual(bottom, math.sqrt(1 - 0.1 ** 2))
         self.assertAlmostEqual(scale_pythagorean(bottom), 0)
 
     def test_value_at(self):
@@ -248,6 +249,19 @@ class SymTestCase(unittest.TestCase):
         self.assertEqual(1, Sym.first_digit_of(15))
         self.assertEqual(6, Sym.first_digit_of(65))
         self.assertEqual(1, Sym.first_digit_of(105))
+
+    def test_num_sym(self):
+        self.assertEqual('0', Sym.num_sym(0))
+        self.assertEqual('0', Sym.num_sym(0.))
+        self.assertEqual('1', Sym.num_sym(1))
+        self.assertEqual('1.1', Sym.num_sym(1.1))
+        self.assertEqual('.1', Sym.num_sym(0.1))
+        self.assertEqual('.01', Sym.num_sym(0.01))
+        self.assertEqual('3.141592653589793', Sym.num_sym(math.pi))
+        self.assertEqual('100', Sym.num_sym(100))
+        self.assertEqual('10^4', Sym.num_sym(1e4))
+        self.assertEqual('10^-3', Sym.num_sym(0.001))
+        self.assertEqual('12345', Sym.num_sym(12345))
 
 
 class LayoutTestCase(unittest.TestCase):
@@ -311,7 +325,7 @@ class ModelTestCase(unittest.TestCase):
         self.assertAlmostEqual(fx.value_at_end(), 10 / math.tau)
 
     def test_faber_castell_283(self):
-        fc283 = Models.FaberCastell283
+        fc283 = Model.load('FaberCastell283')
         self.assertDictEqual(fc283.layout.sc_keys[Side.FRONT], {
             RulePart.STATOR_TOP: ['K', 'T1', 'T2', 'DF'],
             RulePart.SLIDE: ['CF', 'CIF', 'CI', 'C'],
@@ -342,7 +356,7 @@ class RendererTestCase(unittest.TestCase):
     def test_pat_auto(self):
         with patch.object(Renderer, 'pat', return_value=None) as mock_pat:
             r = Renderer.make(self.tmp_image,
-                              Models.Demo.geometry,
+                              DemoModel.geometry,
                               Style(font_family=(None, None, None, None)))
             Scales.LL3.grad_pat_default(r, 0, Align.LOWER)
             self.assertEquals(mock_pat.call_count, len(Scales.LL3.dividers) + 1)
@@ -373,22 +387,34 @@ class ScaleGenTestCase(unittest.TestCase):
         self.mock_draw_text.stop()
 
     def test_mannheim_scales(self):
-        test_model = replace(Models.Demo, layout=Models.MannheimOriginal.layout)
+        test_model = replace(DemoModel, layout=Model.load('MannheimOriginal').layout)
         test_image = render_diagnostic_mode(test_model, all_scales=True)
         self.assertEquals(test_image.width, 7000)
         self.assertGreater(test_image.height, 3000)
 
     def test_all_normalized_scales(self):
-        test_model = replace(Models.Demo, layout=Layout(' '.join(keys_of(Scales))))
+        test_model = replace(DemoModel, layout=Layout(' '.join(keys_of(Scales))))
         test_image = render_diagnostic_mode(test_model, all_scales=True)
         self.assertEquals(test_image.width, 7000)
         self.assertGreater(test_image.height, 3000)
 
     def test_demo_model(self):
-        model = Models.Demo
-        sliderule_img = render_sliderule_mode(model, borders=True)
+        sliderule_img = render_sliderule_mode(DemoModel, borders=True)
         self.assertEquals(sliderule_img.width, 8200)
         self.assertGreater(sliderule_img.height, 3000)
+
+
+class TestGeometry(TestCase):
+    def test_dim_to_pixels(self):
+        self.assertEqual(Geometry.dim_to_pixels(123), 123)
+        self.assertEqual(Geometry.dim_to_pixels('123px'), 123)
+        self.assertEqual(Geometry.dim_to_pixels('234'), 234)
+        self.assertEqual(Geometry.dim_to_pixels('4cm'), 1066)
+        self.assertEqual(Geometry.dim_to_pixels('2.5cm'), Geometry.dim_to_pixels('25mm'))
+        self.assertEqual(Geometry.dim_to_pixels('1in'), Geometry.dim_to_pixels('2.54cm'))
+        self.assertEqual(Geometry.dim_to_pixels('1in'), Geometry.dim_to_pixels('1 in'))
+        self.assertEqual(Geometry.dim_to_pixels('11.811024in'), 8000)
+        self.assertEqual(Geometry.dim_to_pixels('1in'), Geometry.dim_to_pixels('72pt'))
 
 
 if __name__ == '__main__':

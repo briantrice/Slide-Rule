@@ -1,11 +1,12 @@
 brand = 'Mannheim'
 subtitle = 'Demo'
-name = 'Original'
+name = 'With Ruler'
 
 [geometry]
 side_wh = [8000, 1000]
 margins_xy = [100, 100]
 slide_h = 400 # SH * 5 // 2
-top_margin = 109
+brace_shape = false
 [layout]
-front = 'A/B C/D'
+front = 'IN_DEC [] CM'
+rear = 'IN_BIN [] CM'

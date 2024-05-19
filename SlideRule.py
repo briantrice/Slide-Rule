@@ -18,6 +18,7 @@ Table of Contents
 # ----------------------1. Setup----------------------------
 
 import math
+import os
 import re
 import time
 import unicodedata
@@ -48,11 +49,8 @@ WH = tuple[int, int]
 
 
 class Color(Enum):
-    WHITE = (BYTE_MAX, BYTE_MAX, BYTE_MAX)
-    RED = (BYTE_MAX, 0, 0)
-    GREEN = (0, BYTE_MAX, 0)
-    BLUE = (0, 0, BYTE_MAX)
-    BLACK = (0, 0, 0)
+    WHITE, BLACK = (BYTE_MAX, BYTE_MAX, BYTE_MAX), (0, 0, 0)
+    RED, GREEN, BLUE = (BYTE_MAX, 0, 0), (0, BYTE_MAX, 0), (0, 0, BYTE_MAX)
 
     CUT = BLUE  # color which indicates CUT
     CUTOFF = (230, 230, 230)
@@ -92,10 +90,7 @@ class FontSize(Enum):
 
 
 class FontStyle(Enum):
-    REG = 0  # regular
-    ITALIC = 1  # italic
-    BOLD = 2  # bold
-    BOLD_ITALIC = 3  # bold italic
+    REG, ITALIC, BOLD, BOLD_ITALIC = 0, 1, 2, 3
 
 
 class Font:
@@ -139,6 +134,8 @@ class Style:
     """background color overrides for particular scale keys"""
     font_family: Font.Family = Font.CMUTypewriter
     overrides: dict[str, dict[str, object]] = field(default_factory=dict)
+    right_sym: bool = True
+    """Whether to draw the right legend, usually formula, omitted for pocket slide rules."""
 
     @classmethod
     def from_dict(cls, style_def: dict):
@@ -174,7 +171,7 @@ class Style:
     def numeral_decimal_color(self):
         return self.decimal_color
 
-    def font_for(self, font_size, h_ratio=None, italic=False):
+    def font_for(self, font_size, h_ratio: float = None, italic: bool = False):
         return Font.font_for(self.font_family, font_size, FontStyle.ITALIC if italic else FontStyle.REG, h_ratio)
 
     @staticmethod
@@ -240,6 +237,7 @@ class Geometry:
 
     brace_shape: BraceShape = BraceShape.L
     brace_offset: int = 30  # offset of metal from boundary
+    brace_hole_r: int = 34  # screw hole diameter (2.5mm)
 
     NO_MARGINS = (0, 0)
     DEFAULT_SCALE_WH = (SL, SH)
@@ -257,19 +255,35 @@ class Geometry:
         return result
 
     @classmethod
+    def dim_to_pixels(cls, dim) -> int:
+        if matches := re.match(r'^\s*([\d.]+)\s*(\w*)\s*$', dim) if isinstance(dim, str) else None:
+            num, units = matches.group(1), matches.group(2)
+            result = float(num) if '.' in num else int(num)
+            if units == 'cm':
+                result *= cls.PixelsPerCM
+            elif units == 'mm':
+                result *= cls.PixelsPerCM / 10
+            elif units == 'in':
+                result *= cls.PixelsPerIN
+            elif units == 'pt':
+                result *= cls.PixelsPerIN / 72
+            return int(result)
+        return dim
+
+    @classmethod
     def make(cls, side_wh: WH, margins_xy: WH, scale_wh: WH = DEFAULT_SCALE_WH, tick_wh: WH = DEFAULT_TICK_WH,
              slide_h: int = slide_h, top_margin: int = top_margin,
              scale_h_overrides: dict[Side, dict[int: [str]]] = None,
              margin_overrides: dict[Side, dict[int: [str]]] = None,
              overhang_overrides: dict[Side, dict[int: [str]]] = None,
-             brace_shape: str = brace_shape.value, brace_offset: int = brace_offset):
+             brace_shape: str = brace_shape.value, brace_offset: int = brace_offset, brace_hole_r: int = brace_hole_r):
         return cls(oX=margins_xy[0], oY=margins_xy[1], side_w=side_wh[0], side_h=side_wh[1], slide_h=slide_h,
                    top_margin=top_margin, SH=scale_wh[1], SL=scale_wh[0], STH=tick_wh[1], STT=tick_wh[0],
                    scale_h_overrides=cls.flip_overrides(scale_h_overrides),
                    margin_overrides=cls.flip_overrides(margin_overrides),
                    overhang_overrides=cls.flip_overrides(overhang_overrides),
                    brace_shape=next((x for x in BraceShape if x.value == brace_shape), brace_shape),
-                   brace_offset=brace_offset)
+                   brace_offset=brace_offset, brace_hole_r=brace_hole_r)
 
     @classmethod
     def from_dict(cls, geometry_def: dict):
@@ -279,6 +293,11 @@ class Geometry:
                 for side in Side:
                     result[side] = geometry_def[key].get(side.value, {})
                 geometry_def[key] = result
+        for k, v in geometry_def.items():
+            if isinstance(v, list):
+                geometry_def[k] = [cls.dim_to_pixels(x) for x in v]
+            elif isinstance(v, str):
+                geometry_def[k] = cls.dim_to_pixels(v)
         if 'scale_wh' not in geometry_def:
             geometry_def['scale_wh'] = cls.DEFAULT_SCALE_WH
         if 'tick_wh' not in geometry_def:
@@ -291,7 +310,7 @@ class Geometry:
 
     @property
     def midpoint_x(self):
-        return self.total_w // 2
+        return int(self.total_w // 2)
 
     @property
     def print_h(self):
@@ -299,7 +318,7 @@ class Geometry:
 
     @property
     def stator_h(self):
-        return (self.side_h - self.slide_h) // 2
+        return int((self.side_h - self.slide_h) // 2)
 
     @property
     def brace_w(self):
@@ -349,16 +368,20 @@ class Geometry:
             key, self.margin_overrides[Side.REAR].get(key, default or self.SM))
 
     def scale_h_ratio(self, sc, side=None):
-        scale_h = self.scale_h(sc, side=side)
-        default_scale_h = self.DEFAULT_SCALE_WH[1]
-        return scale_h / default_scale_h if scale_h != default_scale_h else None
+        if (scale_h := self.scale_h(sc, side=side)) != (default_scale_h := self.DEFAULT_SCALE_WH[1]):
+            return scale_h / default_scale_h
+        return None
 
-    def label_offset_frac(self, sc):
+    @staticmethod
+    def label_offset_frac(sc) -> float:
         """fraction of total width to overhang each side to label"""
         return (0.05 if sc.can_overhang() or sc.can_spiral() else 0) + 0.02
 
     def scale_w(self, sc, with_labels=False) -> int:
-        return int(self.SL * (sc.overhang_ratio() + (self.label_offset_frac(sc) if with_labels else 0)))
+        if isinstance(sc, Scale):
+            return int(self.SL * (sc.overhang_ratio() + (self.label_offset_frac(sc) if with_labels else 0)))
+        elif isinstance(sc, Ruler):
+            return int(sc.scale_w(self))
 
     def brace_outline(self, y_off):
         """Creates and returns the left front brace piece outline in vectors as: (x1,x2,y1,y2)"""
@@ -475,10 +498,10 @@ class ConversionMarks:
 
 TickFactors = tuple[int, int, int]
 TF_BY_MIN: dict[int, TickFactors] = {  # Best tick subdivision pattern for a given minimum overall division
-    1000: (10, 10, 10),
-    500: (10, 10, 5),
-    250: (10, 5, 5),
-    100: (10, 2, 5),
+    1000: (TEN, TEN, TEN),
+    500: (TEN, TEN, 5),
+    250: (TEN, 5, 5),
+    100: (TEN, 2, 5),
     50: (2, 5, 5),
     25: (1, 5, 5),
     20: (2, 5, 2),
@@ -500,7 +523,6 @@ def t_s(s1: int, f: TickFactors):
 
 
 DEBUG = False
-DRAW_RADICALS = True
 
 
 @dataclass(frozen=True)
@@ -532,8 +554,7 @@ class Renderer:
             y0 += scale_h - h - 1
         self.fill_rect(x0, y0, self.geometry.STT, h + 1, col)
 
-    def pat(self, y_off: int, sc, al: Align,
-            i_start, i_end, i_sf, steps_i, steps_th, steps_font, digit1):
+    def pat(self, y_off: int, sc, al: Align, i_start, i_end, i_sf, steps_i, steps_th, steps_font, digit1):
         """
         Place ticks in a graduated pattern. All options are given, not inferred.
         4 levels of tick steps and sizes needed, and three optional fonts for numerals.
@@ -546,16 +567,15 @@ class Renderer:
         :param tuple[int, int, int, int] steps_i: patterning steps, large to small
         :param tuple[int, int, int, int] steps_th: tick sizes, large to small, per step
         :param tuple[FreeTypeFont, FreeTypeFont, FreeTypeFont] steps_font: optional font sizes, for numerals above ticks
-        :param tuple[bool, bool, bool]|bool digit1: whether to show the numerals as the most relevant digit only
+        :param tuple[bool, bool, bool] digit1: whether to show the numerals as the most relevant digit only
         """
         step1, step2, step3, step4 = steps_i
         th1, th2, th3, th4 = steps_th
         f1, f2, f3 = steps_font
-        scale_w = self.geometry.SL
-        scale_h = self.geometry.scale_h(sc)
+        d1, d2, d3 = digit1
+        scale_w, scale_h = self.geometry.SL, self.geometry.scale_h(sc)
         col = self.style.fg_col(sc.key, is_increasing=sc.is_increasing)
         tenth_col = self.style.decimal_color if sc.is_increasing else col
-        d1 = (digit1, False, False) if isinstance(digit1, bool) else digit1
         for i in range(i_start, i_end, step4):
             n = i / i_sf
             x = sc.scale_to(n, scale_w)
@@ -563,15 +583,15 @@ class Renderer:
             if i % step1 == 0:
                 tick_h = th1
                 if f1:
-                    self.draw_numeral(Sym.sig_digit_of(n) if d1[0] else n, y_off, col, scale_h, x, th1, f1, al)
+                    self.draw_numeral(Sym.sig_digit_of(n) if d1 else n, y_off, col, scale_h, x, th1, f1, al)
             elif i % step2 == 0:
                 tick_h = th2
                 if f2:
-                    self.draw_numeral(Sym.sig_digit_of(n) if d1[1] else n, y_off, col, scale_h, x, th2, f2, al)
+                    self.draw_numeral(Sym.sig_digit_of(n) if d2 else n, y_off, col, scale_h, x, th2, f2, al)
             elif i % step3 == 0:
                 tick_h = th3
                 if f3:
-                    self.draw_numeral(Sym.sig_digit_of(n) if d1[2] else n, y_off, tenth_col, scale_h, x, th3, f3, al)
+                    self.draw_numeral(Sym.sig_digit_of(n) if d3 else n, y_off, tenth_col, scale_h, x, th3, f3, al)
             self.draw_tick(y_off, x, tick_h, col, scale_h, al)
 
     def pat_auto(self, y_off, sc, al, x_start=None, x_end=None, include_last=False):
@@ -587,7 +607,7 @@ class Renderer:
             x_start, x_end = x_end, x_start
         elif x_start == x_end:
             return
-        g = self.geometry
+        s, g = self.style, self.geometry
         min_tick_offset = g.min_tick_offset
         log_diff = abs(math.log10(abs((x_end - x_start) / max(x_start, x_end))))
         num_digits = math.ceil(log_diff) + 3
@@ -602,16 +622,13 @@ class Renderer:
         (_, step2, step3, step4) = t_s(step_num, sub_div4)
         # Iteration Setup
         i_start = int(x_start * sf)
-        i_offset = i_start % step4
-        if i_offset > 0:  # Align to first tick on or after start
+        if (i_offset := i_start % step4) > 0:  # Align to first tick on or after start
             i_start = i_start - i_offset + step4
         # Determine numeral font size
         scale_hf = g.scale_h_ratio(sc)
-        s = self.style
         num_font = s.font_for(FontSize.N_LG, h_ratio=scale_hf)
         numeral_tick_offset = sc.min_offset_for_delta(x_start, x_end, step_num / sf, scale_w)
-        max_num_chars = numeral_tick_offset // s.sym_w('_', num_font)
-        if max_num_chars < 2:
+        if (max_num_chars := numeral_tick_offset // s.sym_w('_', num_font)) < 2:
             num_font = s.font_for(FontSize.N_SM, h_ratio=scale_hf)
         # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
         sub_num = (step4 < step3 < step_num) and max_num_chars > 8
@@ -631,36 +648,31 @@ class Renderer:
                   s.font_for(FontSize.N_XS, h_ratio=scale_hf) if sub_num and step3 == step_num // 10 else None),
                  (max_num_chars < 3, max_num_chars < 16, max_num_chars < 128))
 
-    def draw_symbol(self, symbol: str, color, x_left: float, y_top: float, font: ImageFont):
+    def draw_symbol(self, symbol: str, color, x_left: float, y_top: float, font: ImageFont, draw_radicals=True):
         color = Color.to_pil(color)
         symbol = symbol.translate(Sym.UNICODE_SUBS)
         if DEBUG:
             w, h = self.style.sym_dims(symbol, font)
             self.draw_box(x_left, y_top, w, h, Color.DEBUG)
         self.r.text((x_left, y_top), symbol, font=font, fill=color)
-        if DRAW_RADICALS:
-            radicals = re.search(r'[√∛∜]', symbol)
-            if radicals:
-                w, h = self.style.sym_dims(symbol, font)
-                n_ch = radicals.start() + 1
-                (w_ch, h_rad) = self.style.sym_dims('√', font)
-                (_, h_num) = self.style.sym_dims('1', font)
-                line_w = h_rad // 14
-                y_bar = y_top + max(10, round(h - h_num - line_w * 2))
-                self.r.line((x_left + w_ch * n_ch - w_ch // 10, y_bar, x_left + w, y_bar), width=line_w, fill=color)
+        radicals = draw_radicals and re.search(r'[√∛∜]', symbol)
+        if radicals:
+            w, h = self.style.sym_dims(symbol, font)
+            n_ch = radicals.start() + 1
+            (w_ch, h_rad) = self.style.sym_dims('√', font)
+            (_, h_num) = self.style.sym_dims('1', font)
+            line_w = h_rad // 14
+            y_bar = y_top + max(10, round(h - h_num - line_w * 2))
+            self.r.line((x_left + w_ch * n_ch - w_ch // 10, y_bar, x_left + w, y_bar), width=line_w, fill=color)
 
-    def draw_sym_al(self, symbol, y_off, color, al_h, x, y, font, al):
+    def draw_sym_al(self, symbol: str, y_off: int, color, al_h: int, x: int, y: int, font: ImageFont, al: Align):
         """
-        :param str|Color color: color that PIL recognizes
-        :param int y_off: y pos
-        :param int al_h: height for alignment
-        :param str symbol: content (text or number)
+        :param y_off: y pos
+        :param color: color that PIL recognizes
+        :param al_h: height (of scale or other bounding band) for alignment
         :param x: offset of centerline from left index (li)
         :param y: offset of base from baseline (LOWER) or top from upper line (UPPER)
-        :param FreeTypeFont font:
-        :param Align al: alignment
         """
-
         if not symbol:
             return
         (base_sym, exponent, subscript) = Sym.parts_of(symbol)
@@ -683,28 +695,12 @@ class Renderer:
             if subscript:
                 self.draw_symbol_sub(subscript, color, h, x_right, y_top, sub_font)
 
-    def draw_numeral(self, num, y_off, color, scale_h, x, y, font, al):
+    def draw_numeral(self, num, y_off: int, color, scale_h: int, x: int, y: int, font, al: Align):
         """Draw a numeric symbol for a scale"""
-        if isinstance(num, int):
-            num_sym = str(num)
-        elif not num.is_integer():
-            num_sym = str(num)
-            if num_sym.startswith('0.'):
-                expon = math.log10(num)
-                if expon.is_integer() and abs(expon) > 2:
-                    num_sym = f'10^{int(expon)}'
-                else:
-                    num_sym = num_sym[1:]  # Omit leading zero digit
-        elif num == 0:
-            num_sym = '0'
-        else:
-            expon = math.log10(num)
-            if expon.is_integer() and abs(expon) > 2:
-                num_sym = f'10^{int(expon)}'
-            else:
-                num_sym = str(int(num))
+        self.draw_sym_al(Sym.num_sym(num), y_off, color, scale_h, x, y, font, al)
 
-        self.draw_sym_al(num_sym, y_off, color, scale_h, x, y, font, al)
+    def draw_numeral_sc(self, sc, num, y_off: int, color, scale_h: int, y: int, font, al: Align):
+        self.draw_numeral(num, y_off, color, scale_h, sc.pos_of(num, self.geometry), y, font, al)
 
     def draw_symbol_sup(self, sup_sym, color, h_base, x_left, y_base, font):
         if len(sup_sym) == 1 and unicodedata.category(sup_sym) == 'No':
@@ -715,9 +711,9 @@ class Renderer:
         self.draw_symbol(sub_sym, color, x_left, y_base + h_base / 2, font)
 
     def draw_mark(self, mark: GaugeMark, y_off: int, sc, font, al, col=None, shift_adj=0, side=None):
+        s, g = self.style, self.geometry
         if not col:
-            col = self.style.fg_col(sc.key, is_increasing=sc.is_increasing)
-        g = self.geometry
+            col = s.fg_col(sc.key, is_increasing=sc.is_increasing)
         x = sc.scale_to(mark.value, g.SL, shift_adj=shift_adj)
         scale_h = g.scale_h(sc, side=side)
         tick_h = g.tick_h(HMod.XL if al == Align.LOWER else HMod.MED, h_ratio=g.scale_h_ratio(sc, side=side))
@@ -769,19 +765,11 @@ class Renderer:
 
     # ---------------------- 5. Stickers -----------------------------
 
-    def draw_corners(self, x0, y0, dx, dy, col, arm_w=20):
+    def draw_corners(self, x0: float, y0: float, dx: float, dy: float, col, arm_w=20):
         """Draw cross arms at each corner of the rectangle defined."""
-        x1, y1 = x0 + dx, y0 + dy
-        # horizontal cross arms at 4 corners:
-        self.r.line((x0 - arm_w, y0, x0 + arm_w, y0), col)
-        self.r.line((x0 - arm_w, y1, x0 + arm_w, y1), col)
-        self.r.line((x1 - arm_w, y0, x1 + arm_w, y0), col)
-        self.r.line((x1 - arm_w, y1, x1 + arm_w, y1), col)
-        # vertical cross arms at 4 corners:
-        self.r.line((x0, y0 - arm_w, x0, y0 + arm_w), col)
-        self.r.line((x0, y1 - arm_w, x0, y1 + arm_w), col)
-        self.r.line((x1, y0 - arm_w, x1, y0 + arm_w), col)
-        self.r.line((x1, y1 - arm_w, x1, y1 + arm_w), col)
+        for (cx, cy) in ((x0, y0), (x0, y0 + dy), (x0 + dx, y0), (x0 + dx, y0 + dy)):
+            self.r.line((cx - arm_w, cy, cx + arm_w, cy), col)  # horizontal cross arm
+            self.r.line((cx, cy - arm_w, cx, cy + arm_w), col)  # vertical cross arm
 
 
 class Sym:
@@ -801,25 +789,47 @@ class Sym:
         return ''.join(map(str, map(cls.num_char_convert, symbol)))
 
     @classmethod
+    def num_sym(cls, num):
+        if isinstance(num, int):
+            return str(num)
+        elif num.is_integer():
+            if num == 0:
+                return '0'
+            else:
+                expon = math.log10(num)
+                if expon.is_integer() and abs(expon) > 2:
+                    return f'10^{int(expon)}'
+                else:
+                    return str(int(num))
+        else:
+            num_sym = str(num)
+            if num_sym.startswith('0.'):
+                expon = math.log10(num)
+                if expon.is_integer() and expon < -2:
+                    return f'10^{int(expon)}'
+                else:
+                    return num_sym[1:]  # Omit leading zero digit
+            else:
+                return num_sym
+
+    @classmethod
     def split_by(cls, symbol: str, text_re: re.Pattern, unicode_re: re.Pattern):
         base_sym = symbol
         subpart_sym = None
-        matches = re.match(text_re, symbol)
-        if matches:
+        if matches := re.match(text_re, symbol):
             base_sym = matches.group(1)
             subpart_sym = matches.group(2)
-        else:
-            matches = re.match(unicode_re, symbol)
-            if matches:
-                base_sym = matches.group(1)
-                subpart_sym = cls.unicode_sub_convert(matches.group(2))
+        elif matches := re.match(unicode_re, symbol):
+            base_sym = matches.group(1)
+            subpart_sym = cls.unicode_sub_convert(matches.group(2))
         return base_sym, subpart_sym
 
     PRIMES = "'ʹʺ′″‴"
     UNICODE_SUBS = str.maketrans({  # Workaround for incomplete Unicode character support; needs font metadata.
         '′': "ʹ",
         '∡': 'a',
-        '⅓': '',
+        '½': '1/2',
+        '⅓': '1/3',
         '∛': '√',
         '∞': 'inf',
     })
@@ -851,16 +861,15 @@ class Sym:
         return int(str(x)[-1])
 
     @classmethod
-    def sig_digit_of(cls, num):
+    def sig_digit_of(cls, num: float):
         """When only one digit will fit on a major scale's numerals, pick the most significant."""
         if not (num > 0 and math.log10(num).is_integer()):
             if num % 10 == 0:
-                num = cls.first_digit_of(num)
+                return cls.first_digit_of(num)
             else:
-                num = cls.last_digit_of(num)
+                return cls.last_digit_of(num)
         else:
-            num = cls.first_digit_of(num)
-        return num
+            return cls.first_digit_of(num)
 
 
 class BleedDir(Enum):
@@ -873,7 +882,8 @@ def extend(image: Image, total_w: int, y: int, direction: BleedDir, amplitude: i
     y: pixel row to duplicate
     amplitude: number of pixels to extend
     """
-    for x in range(0, total_w):
+    assert y < image.height
+    for x in range(0, int(total_w)):
         bleed_color = image.getpixel((x, y))
         for yi in range(y - amplitude, y) if direction == BleedDir.UP else range(y, y + amplitude):
             image.putpixel((x, yi), bleed_color)
@@ -882,28 +892,26 @@ def extend(image: Image, total_w: int, y: int, direction: BleedDir, amplitude: i
 # ----------------------3. Scale Generating Function----------------------------
 
 
-LOG_TEN = math.log(TEN)
-LOGTEN_E = math.log10(math.e)
-LOG_ZERO = -math.inf
-ε = 1e-20
+LN_TEN = math.log(TEN)
+LOG10_E = math.log10(math.e)
+LOG_0 = -math.inf
+E0 = 1e-20
+E1N = 1 - 1e-16
+E1P = 1 + 1e-15
 
 
 def unit(x): return x
-def gen_base(x): return math.log10(x)
-def pos_base(p): return math.pow(TEN, p)
+def gen_base(x: float): return math.log10(x)
+def pos_base(p: float): return math.pow(TEN, p)
 
 
-def scale_sin_tan_radians(x):
+def scale_sin_tan(x: float):
     return gen_base(HUNDRED * (math.sin(x) + math.tan(x)) / 2)
 
 
-def angle_opp(x):
+def angle_opp(x: float):
     """The opposite angle in degrees across a right triangle."""
     return DEG_RT - x
-
-
-def clamp(x, min_value, max_value):
-    return max(min(x, max_value), min_value)
 
 
 @dataclass(frozen=True)
@@ -922,11 +930,11 @@ class ScaleFN:
     min_x: float = -math.inf
     max_x: float = math.inf
 
-    def __call__(self, x):
+    def __call__(self, x: float):
         return self.fn(x)
 
-    def clamp_input(self, x):
-        return clamp(x, self.min_x, self.max_x)
+    def clamp_input(self, x: float):
+        return max(min(x, self.max_x), self.min_x)
 
     def inverted(self):
         return ScaleFN(self.inverse, self.fn, not self.is_increasing)
@@ -949,32 +957,32 @@ class ScaleFNs:
     F_to_C = ScaleFN(lambda f: (f - 32) * 5 / 9, lambda c: (c * 9 / 5) + 32)
     neper_to_db = ScaleFN(lambda x_db: x_db / (20 / math.log(TEN)), lambda x_n: x_n * 20 / math.log(TEN))
 
-    Base = ScaleFN(gen_base, pos_base, min_x=ε)
+    Base = ScaleFN(gen_base, pos_base, min_x=E0)
     Square = ScaleFN(lambda x: gen_base(x) / 2, lambda p: pos_base(p * 2))
     Cube = ScaleFN(lambda x: gen_base(x) / 3, lambda p: pos_base(p * 3))
-    Inverse = ScaleFN(lambda x: 1 - gen_base(x), lambda p: pos_base(1 - p), is_increasing=False, min_x=ε)
-    InverseSquare = ScaleFN(lambda x: 1 - gen_base(x) / 2, lambda p: pos_base(1 - p * 2), is_increasing=False, min_x=ε)
-    SquareRoot = ScaleFN(lambda x: gen_base(x) * 2, lambda p: pos_base(p / 2), min_x=ε)
-    CubeRoot = ScaleFN(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3), min_x=ε)
+    Inverse = ScaleFN(lambda x: 1 - gen_base(x), lambda p: pos_base(1 - p), is_increasing=False, min_x=E0)
+    InverseSquare = ScaleFN(lambda x: 1 - gen_base(x) / 2, lambda p: pos_base(1 - p * 2), is_increasing=False, min_x=E0)
+    InverseCube = ScaleFN(lambda x: 1 - gen_base(x) / 3, lambda p: pos_base(1 - p * 3), is_increasing=False, min_x=E0)
+    SquareRoot = ScaleFN(lambda x: gen_base(x) * 2, lambda p: pos_base(p / 2), min_x=E0)
+    CubeRoot = ScaleFN(lambda x: gen_base(x) * 3, lambda p: pos_base(p / 3), min_x=E0)
     Sin = ScaleFN(lambda x: gen_base(TEN * math.sin(math.radians(x))), lambda p: math.asin(pos_base(p)))
     CoSin = ScaleFN(lambda x: gen_base(TEN * math.cos(math.radians(x))), lambda p: math.acos(pos_base(p)),
                     is_increasing=False)
     Tan = ScaleFN(lambda x: gen_base(TEN * math.tan(math.radians(x))), lambda p: math.atan(pos_base(p)))
-    SinTan = ScaleFN(lambda x: scale_sin_tan_radians(math.radians(x)), lambda p: math.atan(pos_base(p)))
-    SinTanRadians = ScaleFN(scale_sin_tan_radians, lambda p: math.atan(pos_base(math.degrees(p))), min_x=1e-5)
+    SinTan = ScaleFN(lambda x: scale_sin_tan(math.radians(x)), lambda p: math.atan(pos_base(p)))
+    SinTanRadians = ScaleFN(scale_sin_tan, lambda p: math.atan(pos_base(math.degrees(p))), min_x=1e-5)
     CoTan = ScaleFN(lambda x: gen_base(TEN * math.tan(math.radians(angle_opp(x)))),
                     lambda p: math.atan(pos_base(angle_opp(p))), is_increasing=False)
-    SinH = ScaleFN(lambda x: gen_base(math.sinh(x)), lambda p: math.asinh(pos_base(p)), min_x=ε)
-    CosH = ScaleFN(lambda x: gen_base(math.cosh(x)), lambda p: math.acosh(pos_base(p)), min_x=ε)
-    TanH = ScaleFN(lambda x: gen_base(math.tanh(x)), lambda p: math.atanh(pos_base(p)), min_x=ε)
+    SinH = ScaleFN(lambda x: gen_base(math.sinh(x)), lambda p: math.asinh(pos_base(p)), min_x=E0)
+    CosH = ScaleFN(lambda x: gen_base(math.cosh(x)), lambda p: math.acosh(pos_base(p)), min_x=E0)
+    TanH = ScaleFN(lambda x: gen_base(math.tanh(x)), lambda p: math.atanh(pos_base(p)), min_x=E0)
     Pythagorean = ScaleFN(lambda x: gen_base(math.sqrt(1 - (x ** 2))) + 1,
                           lambda p: math.sqrt(1 - (pos_base(p) / TEN) ** 2),
-                          is_increasing=False, min_x=-1 + 1e-16, max_x=1 - 1e-16)
-    LogLog = ScaleFN(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)), min_x=1 + 1e-15)
+                          is_increasing=False, min_x=-E1N, max_x=E1N)
+    LogLog = ScaleFN(lambda x: gen_base(math.log(x)), lambda p: math.exp(pos_base(p)), min_x=E1P)
     LogLogNeg = ScaleFN(lambda x: gen_base(-math.log(x)), lambda p: math.exp(pos_base(-p)),
-                        is_increasing=False, min_x=ε, max_x=1 - 1e-16)
-    Hyperbolic = ScaleFN(lambda x: gen_base(math.sqrt((x ** 2) - 1)), lambda p: math.hypot(1, pos_base(p)),
-                         min_x=1 + 1e-15)
+                        is_increasing=False, min_x=E0, max_x=E1N)
+    Hyperbolic = ScaleFN(lambda x: gen_base(math.sqrt((x ** 2) - 1)), lambda p: math.hypot(1, pos_base(p)), min_x=E1P)
 
 
 @dataclass
@@ -1005,10 +1013,10 @@ class Scale:
     """which value, if the scale is displayed extended at start, to show first"""
     ex_end_value: float = None
     """which value, if the scale is displayed extended at end, to show last"""
-    dividers: list = None
-    """which values should the natural scale divide its graduated patterns at"""
-    marks: list = None
-    """which GaugeMarks deserve ticks and labels"""
+    dividers: list[float] = None
+    """which values should the automatic scale graduated patterns transition at"""
+    marks: list[GaugeMark] = None
+    """which marks deserve ticks and labels"""
     numerals: list = None
     """which numerals to label which otherwise wouldn't be"""
     comment: str = None
@@ -1017,21 +1025,17 @@ class Scale:
     min_overhang_frac = 0.02
 
     def __post_init__(self):
-        scaler = self.scaler
-        self.gen_fn = scaler.fn
-        self.pos_fn = scaler.inverse
+        self.gen_fn = self.scaler.fn
+        self.pos_fn = self.scaler.inverse
         if ' ' in self.right_sym:
             self.right_sym = self.right_sym.replace(' ', ' ')
         if self.is_increasing is None:
-            self.is_increasing = scaler.is_increasing
+            self.is_increasing = self.scaler.is_increasing
         if self.key is None:
             self.key = self.left_sym
 
     def __hash__(self):
         return hash(id(self))
-
-    def __eq__(self, other):
-        return id(self) == id(other)
 
     def displays_cyclic(self):
         return self.scaler in {ScaleFNs.Base, ScaleFNs.Inverse, ScaleFNs.Square, ScaleFNs.Cube}
@@ -1069,21 +1073,21 @@ class Scale:
 
     def powers_of_ten_in_range(self):
         start_value, end_value = self.value_range()
-        start_log = math.log10(start_value) if start_value > 0 else LOG_ZERO
-        end_log = math.log10(end_value) if end_value > 0 else LOG_ZERO
+        start_log = math.log10(start_value) if start_value > 0 else LOG_0
+        end_log = math.log10(end_value) if end_value > 0 else LOG_0
         start_log, end_log = min(start_log, end_log), max(start_log, end_log)
         if end_log - start_log == math.inf:
             return None
         return range(math.ceil(start_log), math.ceil(end_log))
 
-    def pos_of(self, x, geom) -> int:
-        return round(geom.SL * self.frac_pos_of(x))
+    def pos_of(self, x: float, g: Geometry) -> int:
+        return round(g.SL * self.frac_pos_of(x))
 
-    def offset_between(self, x_start, x_end, scale_w):
+    def offset_between(self, x_start: float, x_end: float, scale_w):
         return abs(self.frac_pos_of(self.scaler.clamp_input(x_end))
                    - self.frac_pos_of(self.scaler.clamp_input(x_start))) * scale_w
 
-    def min_offset_for_delta(self, x_start, x_end, x_delta, scale_w=1):
+    def min_offset_for_delta(self, x_start: float, x_end: float, x_delta: float, scale_w=1):
         return min(
             self.offset_between(x_start, x_start + x_delta, scale_w),
             self.offset_between(x_end - x_delta, x_end, scale_w)
@@ -1099,7 +1103,7 @@ class Scale:
         """
         return round(scale_w * self.frac_pos_of(x, shift_adj=shift_adj))
 
-    def grad_pat_default(self, r, y_off, al, extended=True):
+    def grad_pat_default(self, r: Renderer, y_off, al, extended=True):
         """graduated pattern, with as many defaults as can be inferred from the scale itself"""
         start_value = self.ex_start_value or self.value_at_start() if extended else None
         end_value = self.ex_end_value or self.value_at_end() if extended else None
@@ -1118,15 +1122,15 @@ class Scale:
         else:
             r.pat_auto(y_off, self, al, x_start=start_value, x_end=end_value, include_last=True)
 
-    def band_bg(self, r, y_off, color, start_value=None, end_value=None):
-        geom = r.geometry
-        li = geom.li
+    def band_bg(self, r: Renderer, y_off, color, start_value=None, end_value=None):
+        g = r.geometry
+        li = g.li
         if start_value is None:
             start_value = self.value_at_start()
         if end_value is None:
             end_value = self.value_at_end()
-        start_pos = self.pos_of(start_value, geom)
-        r.fill_rect(li + start_pos, y_off, self.pos_of(end_value, geom) - start_pos, geom.scale_h(self), color)
+        start_pos = self.pos_of(start_value, g)
+        r.fill_rect(li + start_pos, y_off, self.pos_of(end_value, g) - start_pos, g.scale_h(self), color)
 
     def renamed(self, new_key: str, **kwargs):
         if 'left_sym' not in kwargs:
@@ -1139,22 +1143,26 @@ pi_fold_shift = ScaleFNs.Inverse(PI)
 
 class Scales:
     A = Scale('A', 'x²', ScaleFNs.Square, opp_key='B', marks=[Marks.pi])
+    AI = Scale('AI', '1/x²', ScaleFNs.InverseSquare)
     B = Scale('B', 'x²_y', ScaleFNs.Square, on_slide=True, opp_key='A', marks=A.marks)
     BI = Scale('BI', '1/x²_y', ScaleFNs.InverseSquare, on_slide=True)
     C = Scale('C', 'x_y', ScaleFNs.Base, on_slide=True, opp_key='D', marks=[Marks.pi, Marks.deg_per_rad, Marks.tau])
     CF = Scale('CF', 'πx_y', ScaleFNs.Base, shift=pi_fold_shift, on_slide=True, opp_key='DF',
                marks=[Marks.pi, replace(Marks.pi, value=Marks.pi.value/TEN)])
     DF = Scale('DF', 'πx', ScaleFNs.Base, shift=pi_fold_shift, opp_key='CF', marks=CF.marks)
-    DFM = Scale('DFM', 'x log e', ScaleFNs.Base, shift=ScaleFNs.Inverse(LOGTEN_E), marks=CF.marks)
-    DF_M = Scale('DF/M', 'x ln 10', ScaleFNs.Base, shift=ScaleFNs.Inverse(LOG_TEN), marks=CF.marks)
+    DFM = Scale('DFM', 'x log e', ScaleFNs.Base, shift=ScaleFNs.Inverse(LOG10_E), marks=CF.marks)
+    DF_M = Scale('DF/M', 'x ln 10', ScaleFNs.Base, shift=ScaleFNs.Inverse(LN_TEN), marks=CF.marks)
     CI = Scale('CI', '1/x_y', ScaleFNs.Inverse, on_slide=True, opp_key='DI', marks=CF.marks)
     CIF = Scale('CIF', '1/πx_y', ScaleFNs.Inverse, shift=pi_fold_shift - 1, on_slide=True, marks=C.marks)
     D = Scale('D', 'x', ScaleFNs.Base, opp_key='C', marks=C.marks)
     DI = Scale('DI', '1/x', ScaleFNs.Inverse, opp_key='CI', marks=C.marks)
     DIF = CIF.renamed('DIF', right_sym='1/πx', on_slide=False)
     K = Scale('K', 'x³', ScaleFNs.Cube)
-    L = Scale('L', 'log x', ScaleFN(lambda x: x / TEN, lambda p: p * TEN, min_x=ε))
-    Ln = Scale('Ln', 'ln x', ScaleFN(lambda x: x / LOG_TEN, lambda p: p * LOG_TEN, min_x=ε))
+    KI = Scale('KI', '1/x³', ScaleFNs.InverseCube)
+    L = Scale('L', 'log x', ScaleFN(lambda x: x / TEN, lambda p: p * TEN, min_x=E0))
+    # TODO implement "folded-log" L scale with 1/2 log x with the rest of the range across backwards
+    L_FOLDED = Scale('L', '½ log x', ScaleFN(lambda x: x / TEN / 2, lambda p: p * TEN * 2, min_x=E0))
+    Ln = Scale('Ln', 'ln x', ScaleFN(lambda x: x / LN_TEN, lambda p: p * LN_TEN, min_x=E0))
     LL0 = Scale('LL₀', 'e^0.001x', ScaleFNs.LogLog, shift=3, key='LL0',
                 dividers=[1.002, 1.004, 1.010], ex_start_value=1.00095, ex_end_value=1.0105)
     LL1 = Scale('LL₁', 'e^0.01x', ScaleFNs.LogLog, shift=2, key='LL1',
@@ -1174,8 +1182,7 @@ class Scales:
                  dividers=[0.8, 0.9], ex_start_value=0.35, ex_end_value=0.91, marks=[Marks.inv_e])
     LL03 = Scale('LL₀₃', 'e^-x', ScaleFNs.LogLogNeg, key='LL03',
                  dividers=[5e-4, 1e-3, 1e-2, 0.1], ex_start_value=1e-4, ex_end_value=0.39, marks=[Marks.inv_e])
-    LL_0, LL_1, LL_2, LL_3 = (LL00.renamed('LL/0'), LL01.renamed('LL/1'),
-                              LL02.renamed('LL/2'), LL03.renamed('LL/3'))
+    LL_0, LL_1, LL_2, LL_3 = LL00.renamed('LL/0'), LL01.renamed('LL/1'), LL02.renamed('LL/2'), LL03.renamed('LL/3')
     P = Scale('P', '√1-(0.1x)²', ScaleFNs.Pythagorean, key='P',
               dividers=[0.3, 0.6, 0.8, 0.9, 0.98, 0.99], ex_start_value=0.1, ex_end_value=.995)
     P1 = P.renamed('P_1')
@@ -1184,8 +1191,9 @@ class Scales:
     Q1 = Scale('Q₁', '∛x', ScaleFNs.CubeRoot, marks=[Marks.cube_root_ten], key='Q1')
     Q2 = Scale('Q₂', '∛10x', ScaleFNs.CubeRoot, shift=-1, marks=[Marks.cube_root_ten], key='Q2')
     Q3 = Scale('Q₃', '∛100x', ScaleFNs.CubeRoot, shift=-2, marks=[Marks.cube_root_ten], key='Q3')
-    Sq1 = R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
-    Sq2 = R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
+    R1 = Scale('R₁', '√x', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
+    R2 = Scale('R₂', '√10x', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
+    Sq1, Sq2 = R1.renamed('Sq1'), R2.renamed('Sq2')
     S = Scale('S', '∡sin x°', ScaleFNs.Sin, mirror_key='CoS')
     CoS = Scale('C', '∡cos x°', ScaleFNs.CoSin, key='CoS', mirror_key='S')
     # SRT = Scale('SRT', '∡tan 0.01x', ScaleFNs.SinTanRadians)
@@ -1360,8 +1368,7 @@ class Layout:
             side_overrides = self.scale_aligns[side]
             side_seen = set()
             for part in RulePart:
-                part_scales = self.scales_at(side, part)
-                last_i = len(part_scales) - 1
+                last_i = len(part_scales := self.scales_at(side, part)) - 1
                 for i, sc in enumerate(part_scales):
                     if sc.key not in side_overrides:
                         if isinstance(sc, Ruler):  # rulers are always edge-aligned
@@ -1386,57 +1393,75 @@ class Ruler:
     Like a scale, it has a tick pattern. Unlike a scale, it only aligns with the geometry itself.
     Also, tick placement is physically-oriented, so we need to avoid numeric error.
     """
-    key: str = 'px'
-    tick_pattern: TickFactors = TF_BY_MIN[1]
+    key: str = None
+    unit: str = None
+    tick_pattern: TickFactors = None
     left_offset: float = 0.0
     """margin from left side of Geometry in units"""
     num_units: int = 1000
     """number of units to show; should be generated or at least limited from geometry"""
     pixels_per_unit: float = 1
 
-    def pos_of(self, x_cm):
-        return (self.left_offset + x_cm) * self.pixels_per_unit
+    def pos_of(self, x: float) -> int:
+        return int((self.left_offset + x) * self.pixels_per_unit)
 
-    def value_at(self, x):
-        return (x / self.pixels_per_unit) - self.left_offset
+    def value_at(self, p: int) -> float:
+        return (p / self.pixels_per_unit) - self.left_offset
+
+    def scale_w(self, g: Geometry):
+        return self.num_units_in(g) * self.pixels_per_unit
+
+    def num_units_in(self, g: Geometry) -> int:
+        return min(self.num_units, math.floor(g.side_w / self.pixels_per_unit - self.left_offset) if g else math.inf)
 
     @property
     def is_increasing(self):
         return True
 
     def pat(self, r: Renderer, y_off: int, al: Align):
-        g = r.geometry
+        s, g = r.style, r.geometry
         li = g.li
         th1, th2, th3, th4 = (g.tick_h(HMod.LG), g.tick_h(HMod.MED), g.tick_h(HMod.XS), g.tick_h(HMod.DOT))
-        font1, font2 = (r.style.font_for(FontSize.N_LG), None)
+        font1 = s.font_for(FontSize.N_LG)
         scale_h = g.scale_h(self)
-        sym_col = r.style.fg_col(self.key, is_increasing=self.is_increasing)
-        tenth_col = r.style.decimal_color
-        i_sf = self.tick_pattern[0] * self.tick_pattern[1] * self.tick_pattern[2]
+        if DEBUG:
+            r.draw_box(self.pos_of(0), y_off, self.scale_w(g), scale_h, Color.DEBUG)
+        sym_col = s.fg_col(self.key, is_increasing=self.is_increasing)
+        i_sf = math.prod(self.tick_pattern)
         step1, step2, step3, _ = t_s(i_sf, self.tick_pattern)
-        num_units = min(self.num_units, int(g.side_w / self.pixels_per_unit - self.left_offset))
-        for i in range(0, num_units * i_sf + 1):
+        for i in range(0, self.num_units_in(g) * i_sf + 1):
             num = i / i_sf
             x = self.pos_of(num) - li
             tick_h = th4
             if i % step1 == 0:
                 tick_h = th1
-                if font1:
-                    r.draw_numeral(num, y_off, sym_col, scale_h, x, th1, font1, al)
+                r.draw_numeral(num, y_off, sym_col, scale_h, x, th1, font1, al)
             elif i % step2 == 0:
                 tick_h = th2
-                if font2:
-                    r.draw_numeral(Sym.last_digit_of(num), y_off, tenth_col, scale_h, x, th2, font2, al)
             elif i % step3 == 0:
                 tick_h = th3
             r.draw_tick(y_off, x, tick_h, sym_col, scale_h, al)
 
+    def generate(self, r: Renderer, y_off: int, al: Align, side: Side = Side.FRONT):
+        s, g = r.style, r.geometry
+        # Units symbol on right
+        scale_h = g.scale_h(self, side=side)
+        sym_col = s.fg_col(self.key, is_increasing=self.is_increasing)
+        f_lbl_r = s.font_for(FontSize.SC_LBL if scale_h > FontSize.SC_LBL.value * 1.5 else scale_h // 2)
+        w2, h2 = s.sym_dims(right_sym := self.unit, f_lbl_r)
+        y2 = (g.SH - h2) // 2  # Ignore custom height/spacing for legend symbols
+        x_right = self.pos_of(self.num_units_in(g)) + w2
+        r.draw_symbol(right_sym, sym_col, x_right,  y_off + y2, f_lbl_r)
+        # Ticks
+        self.pat(r, y_off, al)
+
 
 class Rulers:
-    PT = Ruler('pt', TF_BY_MIN[10], 0, 25 * 72, Geometry.PixelsPerIN // 72)
-    CM = Ruler('cm', TF_BY_MIN[20], 1.5, 30, Geometry.PixelsPerCM)
-    IN_DEC = Ruler('in', TF_BY_MIN[50], 0.5, 12, Geometry.PixelsPerIN)
-    IN_BIN = Ruler('in', TF_BIN, 0.5, 12, Geometry.PixelsPerIN)
+    PX = Ruler('px', '100px', TF_BY_MIN[10], 0, 100, 100)
+    PT = Ruler('pt', 'pt', TF_BY_MIN[10], 0, 25 * 72, Geometry.PixelsPerIN // 72)
+    CM = Ruler('cm', 'cm', TF_BY_MIN[20], 1.5, 30, Geometry.PixelsPerCM)
+    IN_DEC = Ruler('in10', 'in', TF_BY_MIN[50], 0.5, 12, Geometry.PixelsPerIN)
+    IN_BIN = Ruler('in2', 'in', TF_BIN, 0.5, 12, Geometry.PixelsPerIN)
     IN = IN_DEC
 
 
@@ -1471,12 +1496,33 @@ class Model:
     def from_toml_file(cls, toml_filename: str):
         return cls.from_dict(toml.load(toml_filename))
 
+    example_dir_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'examples')
+
+    @classmethod
+    def from_example(cls, example_name: str):
+        return cls.from_toml_file(os.path.join(cls.example_dir_path, f'Model-{example_name}.toml'))
+
+    @classmethod
+    def load(cls, model_name):
+        if model_name == 'Demo':
+            return DemoModel
+        return cls.from_toml_file(model_name) if os.path.exists(model_name) else cls.from_example(model_name)
+
+    @classmethod
+    def example_names(cls):
+        for fn in os.listdir(cls.example_dir_path):
+            if match := re.match(r'Model-(.*)\.toml$', fn):
+                yield match.group(1)
+
     def scale_h_per(self, side: Side, part: RulePart):
         result = 0
         for sc in self.layout.scales_at(side, part):
             result += self.geometry.scale_margin(sc, side)
             result += self.geometry.scale_h(sc, side)
         return result
+
+    def max_scale_w(self):
+        return max(self.geometry.scale_w(sc, with_labels=True) for sc in self.layout.all_scales())
 
     def auto_stock_h(self):
         result = 0
@@ -1492,89 +1538,75 @@ class Model:
         return result
 
 
-class Models:
-    Demo = Model.from_toml_file('examples/Model-Demo.toml')
-    MannheimOriginal = Model.from_toml_file('examples/Model-MannheimOriginal.toml')
-    Ruler = replace(MannheimOriginal, layout=Layout('IN_DEC [IN_BIN] CM'))
-    MannheimWithRuler = replace(MannheimOriginal, layout=Layout('A/B C/D', 'IN [] CM'))
-
-    Aristo868 = Model.from_toml_file('examples/Model-Aristo868.toml')
-    Aristo965 = Model.from_toml_file('examples/Model-Aristo965.toml')
-    PickettN515T = Model.from_toml_file('examples/Model-PickettN515T.toml')
-    FaberCastell283 = Model.from_toml_file('examples/Model-FaberCastell283.toml')
-    FaberCastell283N = Model.from_toml_file('examples/Model-FaberCastell283N.toml')
-    Graphoplex621 = Model.from_toml_file('examples/Model-Graphoplex621.toml')
-    Hemmi153 = Model.from_toml_file('examples/Model-Hemmi153.toml')
-    UltraLog = Model.from_toml_file('examples/Model-UltraLog.toml')
+DemoModel = Model.from_example('Demo')
 
 
 def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
-    geom = r.geometry
-    style = r.style
-    if style.override_for(sc.key, 'hide', False):
+    s, g = r.style, r.geometry
+    if s.override_for(sc.key, 'hide', False):
         return
 
-    scale_h = geom.scale_h(sc, side=side)
-    scale_h_ratio = geom.scale_h_ratio(sc, side=side)
+    scale_h = g.scale_h(sc, side=side)
+    scale_h_ratio = g.scale_h_ratio(sc, side=side)
 
     # Place Index Symbols (Left and Right)
-    f_lbl = style.font_for(FontSize.SC_LBL if scale_h > FontSize.SC_LBL.value * 1.5 else scale_h // 2)
-    f_lbl_s = style.font_for(FontSize.N_XL if scale_h > FontSize.N_XL.value * 2 else scale_h // 2)
-    f_xln = style.font_for(FontSize.N_XL, h_ratio=scale_h_ratio)
-    f_lgn = style.font_for(FontSize.N_LG, h_ratio=scale_h_ratio)
-    f_mdn = style.font_for(FontSize.N_MD, h_ratio=scale_h_ratio)
-    f_smn = style.font_for(FontSize.N_SM, h_ratio=scale_h_ratio)
-    f_mdn_i = style.font_for(FontSize.N_MD, h_ratio=scale_h_ratio, italic=True)
-    f_md2 = style.font_for(FontSize.N_MD2, h_ratio=scale_h_ratio)
-    f_md2_i = style.font_for(FontSize.N_MD2, h_ratio=scale_h_ratio, italic=True)
+    f_lbl = s.font_for(FontSize.SC_LBL if scale_h > FontSize.SC_LBL.value * 1.5 else scale_h // 2)
+    f_lbl_s = s.font_for(FontSize.N_XL if scale_h > FontSize.N_XL.value * 2 else scale_h // 2)
+    f_xln = s.font_for(FontSize.N_XL, h_ratio=scale_h_ratio)
+    f_lgn = s.font_for(FontSize.N_LG, h_ratio=scale_h_ratio)
+    f_mdn = s.font_for(FontSize.N_MD, h_ratio=scale_h_ratio)
+    f_smn = s.font_for(FontSize.N_SM, h_ratio=scale_h_ratio)
+    f_mdn_i = s.font_for(FontSize.N_MD, h_ratio=scale_h_ratio, italic=True)
+    f_md2 = s.font_for(FontSize.N_MD2, h_ratio=scale_h_ratio)
+    f_md2_i = s.font_for(FontSize.N_MD2, h_ratio=scale_h_ratio, italic=True)
 
-    li = geom.li
-    scale_w = geom.SL
+    scale_w = g.SL
     if DEBUG:
-        r.draw_box(li, y_off, scale_w, scale_h, Color.DEBUG)
+        r.draw_box(g.li, y_off, scale_w, scale_h, Color.DEBUG)
 
-    sym_col = style.fg_col(sc.key, is_increasing=sc.is_increasing)
-    bg_col = style.bg_col(sc.key)
+    sym_col = s.fg_col(sc.key, is_increasing=sc.is_increasing)
+    bg_col = s.bg_col(sc.key)
     if bg_col:
         sc.band_bg(r, y_off, bg_col)
 
-    label_offset_frac = geom.label_offset_frac(sc)
+    label_offset_frac = g.label_offset_frac(sc)
+
+    # Special Symbols for S, and T
+    sc_alt: Scale = getattr(Scales, sc.mirror_key, None) if sc.mirror_key else None
+    alt_col = s.fg_col(sc_alt.key, is_increasing=not sc_alt.is_increasing) if sc_alt else None
 
     # Right
     (right_sym, expon, _) = Sym.parts_of(sc.right_sym)
     f_lbl_r = f_lbl_s if len(sc.right_sym) > 6 or expon and len(expon) > 1 else f_lbl
-    w2, h2 = style.sym_dims(right_sym, f_lbl_r)
-    y2 = (geom.SH - h2) / 2  # Ignore custom height/spacing for legend symbols
-    x_right = (1 + label_offset_frac) * scale_w + w2 / 2
-    r.draw_sym_al(sc.right_sym, y_off, sym_col, scale_h, x_right, y2, f_lbl_r, al)
+    w2, h2 = s.sym_dims(right_sym, f_lbl_r)
+    y2 = (g.SH - h2) // 2  # Ignore custom height/spacing for legend symbols
+    if s.right_sym:
+        x_right = round((1 + label_offset_frac) * scale_w + w2 / 2)
+        r.draw_sym_al(sc.right_sym, y_off, sym_col, scale_h, x_right, y2, f_lbl_r, al)
+        if sc_alt or sc == Scales.ST:
+            right_sym = sc_alt.right_sym if sc_alt else '∡sin 0.01x°'
+            r.draw_sym_al(right_sym, y_off, alt_col or sym_col, scale_h, x_right, round(y2 - h2 * 0.8), f_lbl_r, al)
 
     # Left
     (left_sym, _, subscript) = Sym.parts_of(sc.left_sym)
-    w1, h1 = style.sym_dims(left_sym, f_lbl)
+    w1, h1 = s.sym_dims(left_sym, f_lbl)
     if subscript:
-        w1 += style.sym_dims(subscript, f_lgn)[0]
-    y1 = (geom.SH - h1) / 2  # Ignore custom height/spacing for legend symbols
-    x_left = (0 - label_offset_frac) * scale_w - w1 / 2
+        w1 += s.sym_dims(subscript, f_lgn)[0]
+    y1 = (g.SH - h1) // 2  # Ignore custom height/spacing for legend symbols
+    x_left = round((0 - label_offset_frac) * scale_w - w1 / 2)
     r.draw_sym_al(sc.left_sym, y_off, sym_col, scale_h, x_left, y1, f_lbl, al)
+    if alt_col:
+        r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, scale_h, x_left - s.sym_w('__', f_lbl), y2, f_lbl, al)
 
-    # Special Symbols for S, and T
-    sc_alt: Scale = getattr(Scales, sc.mirror_key, None) if sc.mirror_key else None
-    if sc_alt:
-        alt_col = style.fg_col(sc_alt.key, is_increasing=not sc_alt.is_increasing)
-        r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, scale_h, x_left - style.sym_w('__', f_lbl), y2, f_lbl, al)
-        r.draw_sym_al(sc_alt.right_sym, y_off, alt_col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
-    elif sc == Scales.ST:
-        r.draw_sym_al('∡sin 0.01x°', y_off, sym_col, scale_h, x_right, y2 - h2 * 0.8, f_lbl_r, al)
-
-    th_med = geom.tick_h(HMod.MED)
-    th_xl = geom.tick_h(HMod.XL)
-    th_lg = geom.tick_h(HMod.LG)
-    th_sm = geom.tick_h(HMod.SM)
-    th_xs = geom.tick_h(HMod.XS)
-    th_dot = geom.tick_h(HMod.DOT)
+    th_xl = g.tick_h(HMod.XL, scale_h_ratio)
+    th_lg = g.tick_h(HMod.LG, scale_h_ratio)
+    th_med = g.tick_h(HMod.MED, scale_h_ratio)
+    th_sm = g.tick_h(HMod.SM, scale_h_ratio)
+    th_xs = g.tick_h(HMod.XS, scale_h_ratio)
+    th_dot = g.tick_h(HMod.DOT, scale_h_ratio)
 
     # Tick Placement (the bulk!)
-    fonts_lbl = (f_lbl, None, None)
+    fonts1 = (f_lbl, None, None)
     fonts2 = (f_lbl, f_mdn, None)
     fonts_xl = (f_xln, None, None)
     ths1 = (th_med, th_xl, th_sm, th_xs)
@@ -1583,61 +1615,59 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
     ths4 = (th_med, th_xl, th_sm, th_dot)
     ths5 = (th_med, th_med, th_sm, th_xs)
     sf = 1000  # Reflects the minimum significant figures needed for standard scales to avoid FP inaccuracy
-    digits2 = (True, True, False)
+    d0, d1, d2 = (False, False, False), (True, False, False), (True, True, False)
     if sc == Scales.Const:
         pass
     elif (sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse}) and sc.shift == 0:  # C/D and CI/DI
         fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, digits2)
-        r.pat(y_off, sc, al, fp2, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, False)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths1, fonts_lbl, True)
-    elif sc.scaler == ScaleFNs.Square or sc == Scales.BI:
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, d2)
+        r.pat(y_off, sc, al, fp2, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts1, d0)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths1, fonts1, d1)
+    elif sc in {Scales.A, Scales.B, Scales.AI, Scales.BI}:
         for b in (sf * 10 ** n for n in range(0, 2)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
-            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(b, TF_BY_MIN[50]), ths1, fonts_lbl, True)
-            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(b, TF_BY_MIN[20]), ths1, fonts_lbl, True)
-            r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, TF_BY_MIN[10]), ths2, fonts_lbl, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(b, TF_BY_MIN[50]), ths1, fonts1, d1)
+            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(b, TF_BY_MIN[20]), ths1, fonts1, d1)
+            r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, TF_BY_MIN[10]), ths2, fonts1, d1)
 
-    elif sc == Scales.K:
+    elif sc in {Scales.K, Scales.KI}:
         for b in (sf * (10 ** n) for n in range(0, 3)):
             fp1, fp2, fp3, fpe = (fp * b for fp in (1, 3, 6, 10))
-            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(b, TF_BY_MIN[20]), ths1, fonts_xl, True)
-            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(b, TF_BY_MIN[10]), ths2, fonts_xl, True)
-            r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, TF_BY_MIN[5]), ths2, fonts_xl, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(b, TF_BY_MIN[20]), ths1, fonts_xl, d1)
+            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(b, TF_BY_MIN[10]), ths2, fonts_xl, d1)
+            r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, TF_BY_MIN[5]), ths2, fonts_xl, d1)
 
-    elif sc == Scales.R1:
+    elif sc in {Scales.R1, Scales.Sq1}:
         fp1, fp2, fpe = (int(fp * sf) for fp in (1, 2, 3.17))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf // 10, TF_BY_MIN[20]), ths1, r.no_fonts, True)
-        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[100]), ths5, fonts2, digits2)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf // 10, TF_BY_MIN[20]), ths1, r.no_fonts, d1)
+        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[100]), ths5, fonts2, d2)
 
-        # 1-10 Labels
-        for x in range(1, 2):
-            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
-        # 1.1-1.9 Labels
+        # 1-1.9 Labels
+        r.draw_numeral_sc(sc, 1, y_off, sym_col, scale_h, th_med, f_lbl, al)
         for x in (x / 10 for x in range(11, 20)):
-            r.draw_numeral(Sym.last_digit_of(x), y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lgn, al)
+            r.draw_numeral(Sym.last_digit_of(x), y_off, sym_col, scale_h, sc.pos_of(x, g), th_med, f_lgn, al)
 
-    elif sc == Scales.R2:
+    elif sc in {Scales.R2, Scales.Sq2}:
         fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, digits2)
-        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, digits2)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, d2)
+        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts1, d2)
 
-    elif (sc.scaler == ScaleFNs.Base and sc.shift == pi_fold_shift) or sc == Scales.CIF:  # CF/DF/CIF
+    elif sc in {Scales.CF, Scales.DF, Scales.CIF}:
         is_cif = sc == Scales.CIF
         fp1 = int((0.31 if is_cif else 0.314) * sf)
         i1 = sf // TEN
         fp2, fp3, fp4 = (fp * i1 for fp in (4, 10, 20))
         fpe = int(3.2 * sf) if is_cif else fp1 * TEN
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(i1, TF_BY_MIN[50]), ths1, fonts_lbl, digits2)
-        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(i1, TF_BY_MIN[20]), ths1, fonts_lbl, digits2)
-        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, digits2)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts_lbl, digits2)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(i1, TF_BY_MIN[50]), ths1, fonts1, d2)
+        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(i1, TF_BY_MIN[20]), ths1, fonts1, d2)
+        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, d2)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts1, d2)
 
     elif sc == Scales.L:
         r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, t_s(sf, TF_BY_MIN[50]),
-              (th_lg, th_xl, th_med, th_xs), r.no_fonts, True)
+              (th_lg, th_xl, th_med, th_xs), r.no_fonts, d0)
         for x in range(0, 11):
-            r.draw_numeral(x / 10, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
+            r.draw_numeral(x / 10, y_off, sym_col, scale_h, sc.pos_of(x, g), th_med, f_lbl, al)
 
     elif sc.scaler in {ScaleFNs.Sin, ScaleFNs.CoSin} or sc in {Scales.T, Scales.T1, Scales.CoT}:
         is_tan = sc.scaler in {ScaleFNs.Tan, ScaleFNs.CoTan}
@@ -1647,68 +1677,67 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
         if is_tan:
             fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
             fpe += 1
-            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[20]), ths_y, r.no_fonts, True)
-            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
-            r.pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, (5, 5, 1)), (th_xl, th_med, th_xs, th_xs), r.no_fonts, True)
+            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[20]), ths_y, r.no_fonts, d1)
+            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, d1)
+            r.pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, (5, 5, 1)), (th_xl, th_med, th_xs, th_xs), r.no_fonts, d1)
         else:
             fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, DEG_RT))
             fpe += 1
-            r.pat(y_off, sc_t, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
-            r.pat(y_off, sc_t, al, fp2, fp3, sf, t_s(sf * 5, (5, 5, 1)), ths_z, r.no_fonts, True)
-            r.pat(y_off, sc_t, al, fp3, fp4, sf, t_s(sf * 10, TF_BY_MIN[20]), ths_y, r.no_fonts, True)
-            r.pat(y_off, sc_t, al, fp4, fp5, sf, t_s(sf * 10, TF_BY_MIN[10]), ths_z, r.no_fonts, True)
-            r.pat(y_off, sc_t, al, fp5, fpe, sf, t_s(sf * 10, TF_BY_MIN[2]), ths1, r.no_fonts, True)
+            r.pat(y_off, sc_t, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, d1)
+            r.pat(y_off, sc_t, al, fp2, fp3, sf, t_s(sf * 5, (5, 5, 1)), ths_z, r.no_fonts, d1)
+            r.pat(y_off, sc_t, al, fp3, fp4, sf, t_s(sf * 10, TF_BY_MIN[20]), ths_y, r.no_fonts, d1)
+            r.pat(y_off, sc_t, al, fp4, fp5, sf, t_s(sf * 10, TF_BY_MIN[10]), ths_z, r.no_fonts, d1)
+            r.pat(y_off, sc_t, al, fp5, fpe, sf, t_s(sf * 10, TF_BY_MIN[2]), ths1, r.no_fonts, d1)
 
         # Degree Labels
-        f = geom.STH * 1.1 if is_tan else th_med
-        range1 = range(6, 16)
-        range2 = range(16, 21)
-        alt_col = style.fg_col(sc_alt.key, is_increasing=sc_alt.is_increasing)
+        f = g.STH * 1.1 if is_tan else th_med
+        range1, range2 = range(6, 16), range(16, 21)
+        alt_col = s.fg_col(sc_alt.key, is_increasing=sc_alt.is_increasing)
         for x in chain(range1, range2, range(25, 41, 5), () if is_tan else range(50, 80, 10)):
             f_l = f_md2_i if x in range1 else f_mdn_i
             f_r = f_md2 if x in range1 else f_mdn
-            x_coord = sc_t.pos_of(x, geom) + 1.2 / 2 * style.sym_w(str(x), f_l)
+            x_coord = round(sc_t.pos_of(x, g) + 1.2 / 2 * s.sym_w(str(x), f_l))
             r.draw_numeral(x, y_off, sym_col, scale_h, x_coord, f, f_r, al)
             if x not in range2:
                 xi = angle_opp(x)
-                x_coord_opp = sc_t.pos_of(x, geom) - 1.4 / 2 * style.sym_w(str(xi), f_l)
+                x_coord_opp = round(sc_t.pos_of(x, g) - 1.4 / 2 * s.sym_w(str(xi), f_l))
                 r.draw_numeral(xi, y_off, alt_col, scale_h, x_coord_opp, f, f_l, al)
 
         r.draw_numeral(45 if is_tan else DEG_RT, y_off, sym_col, scale_h, scale_w, f, f_lgn, al)
 
     elif sc == Scales.T2:
         fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, angle_opp(5.7)))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, (5, 2, 5)), ths4, fonts_xl, False)
-        r.pat(y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, (5, 2, 10)), ths4, fonts_xl, False)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, (5, 2, 5)), ths4, fonts_xl, d0)
+        r.pat(y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, (5, 2, 10)), ths4, fonts_xl, d0)
 
     elif sc == Scales.ST:
         fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.57, 1, 2, 4, 5.8))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, (20, 5, 2)), ths1, r.no_fonts, True)
-        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[100]), ths5, r.no_fonts, True)
-        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths5, r.no_fonts, True)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths5, r.no_fonts, True)
+        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, (20, 5, 2)), ths1, r.no_fonts, d1)
+        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[100]), ths5, r.no_fonts, d1)
+        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths5, r.no_fonts, d1)
+        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths5, r.no_fonts, d1)
 
         # Degree Labels
-        r.draw_sym_al('1°', y_off, sym_col, scale_h, sc.pos_of(1, geom), th_med, f_lbl, al)
+        r.draw_sym_al('1°', y_off, sym_col, scale_h, sc.pos_of(1, g), th_med, f_lbl, al)
         for x in chain((x / 10 for x in range(6, 10)), (x + 0.5 for x in range(1, 4)), range(2, 6)):
-            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_lbl, al)
+            r.draw_numeral_sc(sc, x, y_off, sym_col, scale_h, th_med, f_lbl, al)
 
     elif sc == custom_scale_sets['Merchant']['P%']:
         if DEBUG:
             sc.grad_pat_default(r, y_off, al)
         for pct_value in (0, 5, 10, 15, 20, 35, 30, 40):
-            r.draw_numeral(pct_value, y_off, sym_col, scale_h, sc.pos_of(pct_value, geom), 0, f_lgn, Align.LOWER)
-            r.draw_numeral(pct_value, y_off, sym_col, scale_h, sc.pos_of(-pct_value, geom), 0, f_lgn, Align.LOWER)
+            r.draw_numeral_sc(sc, pct_value, y_off, sym_col, scale_h, 0, f_lgn, Align.LOWER)
+            r.draw_numeral(pct_value, y_off, sym_col, scale_h, sc.pos_of(-pct_value, g), 0, f_lgn, Align.LOWER)
         for sym, val in (('-50%', -50), ('50%', 50), ('-33⅓', -100/3), ('33⅓', 100/3), ('+100%', 100)):
-            r.draw_sym_al(sym, y_off, sym_col, scale_h, sc.pos_of(val, geom), 0, f_lgn, Align.LOWER)
+            r.draw_sym_al(sym, y_off, sym_col, scale_h, sc.pos_of(val, g), 0, f_lgn, Align.LOWER)
 
     elif sc == custom_scale_sets['Merchant']['ZZ%']:
         if DEBUG:
             sc.grad_pat_default(r, y_off, al)
         for x in range(1, 12):
-            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), 0, f_lgn, Align.LOWER)
+            r.draw_numeral_sc(sc, x, y_off, sym_col, scale_h, 0, f_lgn, Align.LOWER)
         for x in (x / 10 for x in range(15, 110, 10)):
-            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), 0, f_lgn, Align.LOWER)
+            r.draw_numeral_sc(sc, x, y_off, sym_col, scale_h, 0, f_lgn, Align.LOWER)
 
     else:  # Fallback to our generic algorithm, then fill in marks and numerals as helpful
         sc.grad_pat_default(r, y_off, al)
@@ -1719,28 +1748,30 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
             r.draw_mark(mark, y_off, sc, f_mark, al, sym_col, side=side)
     if sc.numerals:
         for x in sc.numerals:
-            r.draw_numeral(x, y_off, sym_col, scale_h, sc.pos_of(x, geom), th_med, f_smn, al)
+            r.draw_numeral_sc(sc, x, y_off, sym_col, scale_h, th_med, f_smn, al)
 
 
 class Mode(Enum):
     RENDER, DIAGNOSTIC, STICKERPRINT = 'render', 'diagnostic', 'stickerprint'
 
 
-def transcribe(src_img: Image.Image, dst_img: Image.Image, src_x, src_y, size_x, size_y, target_x, target_y):
+def transcribe(src_img: Image.Image, dst_img: Image.Image,
+               src_x: int, src_y: int, size_x: int, size_y: int, target_x: int, target_y: int):
     """Transfer a pixel rectangle from a SOURCE (for rendering) to DESTINATION (for stickerprint)"""
+    assert size_x > 0
+    assert size_y > 0
     src_box = src_img.crop((src_x, src_y, src_x + size_x, src_y + size_y))
     dst_img.paste(src_box, (target_x, target_y))
 
 
 def image_for_rendering(model: Model, w=None, h=None):
-    geom = model.geometry
-    return Image.new('RGB', (w or geom.total_w, h or geom.print_h), model.style.bg.value)
+    g = model.geometry
+    return Image.new('RGB', (int(w or g.total_w), int(h or g.print_h)), model.style.bg.value)
 
 
 def save_png(img_to_save: Image, basename: str, output_suffix=None):
     output_filename = f"{basename}{'.' + output_suffix if output_suffix else ''}.png"
-    from os.path import abspath
-    output_full_path = abspath(output_filename)
+    output_full_path = os.path.abspath(output_filename)
     img_to_save.save(output_full_path, 'PNG')
     print(f'Result saved to: file://{output_full_path}')
 
@@ -1756,7 +1787,7 @@ def main():
                              choices=[m.value for m in Mode],
                              help='What to render')
     args_parser.add_argument('--model',
-                             choices=keys_of(Models),
+                             choices=list(Model.example_names()),
                              default='Demo',
                              help='Which sliderule model')
     args_parser.add_argument('--suffix',
@@ -1771,9 +1802,9 @@ def main():
                              action='store_true',
                              help='Render debug indications (corners and bounding boxes)')
     cli_args = args_parser.parse_args()
-    render_mode: Mode = next(mode for mode in Mode if mode.value == cli_args.mode)
+    mode: Mode = next(mode for mode in Mode if mode.value == cli_args.mode)
     model_name = cli_args.model
-    model: Model = getattr(Models, model_name)
+    model = Model.load(model_name)
     output_suffix = cli_args.suffix or ('test' if cli_args.test else None)
     render_cutoffs = cli_args.cutoffs
     global DEBUG
@@ -1782,19 +1813,20 @@ def main():
     start_time = time.process_time()
 
     sliderule_img = None
-    if render_mode in {Mode.RENDER, Mode.STICKERPRINT}:
+    if mode in {Mode.RENDER, Mode.STICKERPRINT}:
+        mode_render = mode == Mode.RENDER
         sliderule_img = render_sliderule_mode(model, sliderule_img,
-                                              borders=render_mode == Mode.RENDER, cutoffs=render_cutoffs)
+                                              borders=mode_render, cutoffs=render_cutoffs)
         print(f'Slide Rule render finished at: {round(time.process_time() - start_time, 3)} seconds')
-        if render_mode == Mode.RENDER:
+        if mode_render:
             save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
 
-    if render_mode == Mode.DIAGNOSTIC:
-        diagnostic_img = render_diagnostic_mode(model, all_scales=model != Models.Demo)
+    if mode == Mode.DIAGNOSTIC:
+        diagnostic_img = render_diagnostic_mode(model, all_scales=model != DemoModel)
         print(f'Diagnostic render finished at: {round(time.process_time() - start_time, 3)} seconds')
         save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
 
-    if render_mode == Mode.STICKERPRINT:
+    if mode == Mode.STICKERPRINT:
         stickerprint_img = render_stickerprint_mode(model, sliderule_img)
         print(f'Stickerprint render finished at: {round(time.process_time() - start_time, 3)} seconds')
         save_png(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
@@ -1805,34 +1837,33 @@ def main():
 def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = False, cutoffs: bool = False):
     if not sliderule_img:
         sliderule_img = image_for_rendering(model)
-    geom = model.geometry
-    layout = model.layout
-    y_front_start = geom.oY
-    r = Renderer.make(sliderule_img, geom, model.style)
-    y_rear_start = y_front_start + geom.side_h + geom.oY
+    g, layout = model.geometry, model.layout
+    y_front_start = g.oY
+    r = Renderer.make(sliderule_img, g, model.style)
+    y_rear_start = y_front_start + g.side_h + g.oY
     # Front Scale
     # Titling
     y_off = y_side_start = y_front_start
-    if model == Models.Demo:
+    if model == DemoModel:
         y_off_titling = 25 + y_off
         title_col = Color.RED
         f_lbl = model.style.font_for(FontSize.SC_LBL)
-        side_w_q = geom.side_w // 4
-        for sym, x in ((model.name, side_w_q), (model.subtitle, side_w_q * 2 + geom.oX), (model.brand, side_w_q * 3)):
-            r.draw_sym_al(sym, y_off_titling, title_col, 0, x - geom.li, 0, f_lbl, Align.UPPER)
+        side_w_q = g.side_w // 4
+        for sym, x in ((model.name, side_w_q), (model.subtitle, side_w_q * 2 + g.oX), (model.brand, side_w_q * 3)):
+            r.draw_sym_al(sym, y_off_titling, title_col, 0, x - g.li, 0, f_lbl, Align.UPPER)
         y_off = y_off_titling + f_lbl.size
     # Scales
     for side in Side:
         for part in RulePart:
-            part_y_start = y_side_start + geom.edge_h(part, True)
-            part_y_end = part_y_start + geom.part_h(part)
+            part_y_start = y_side_start + g.edge_h(part, True)
+            part_y_end = part_y_start + g.part_h(part)
             part_scales = layout.scales_at(side, part)
             if not part_scales:
                 y_off = part_y_end
                 continue
             last_i = len(part_scales) - 1
             for i, sc in enumerate(part_scales):
-                scale_h = geom.scale_h(sc, side)
+                scale_h = g.scale_h(sc, side)
                 scale_al = layout.scale_al(sc, side, part)
                 # Handle edge-aligned scales:
                 if i == 0 and scale_al == Align.UPPER:
@@ -1840,16 +1871,16 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
                 elif i == last_i and scale_al == Align.LOWER:
                     y_off = part_y_end - scale_h
                 else:  # Incremental displacement by default
-                    y_off += geom.scale_margin(sc, side)
+                    y_off += g.scale_margin(sc, side)
                 if isinstance(sc, Scale):
                     gen_scale(r, y_off, sc, al=scale_al, side=side)
                 elif isinstance(sc, Ruler):
-                    sc.pat(r, y_off, scale_al)
+                    sc.generate(r, y_off, scale_al, side)
                 y_off += scale_h
 
         y_off = y_rear_start
         y_side_start = y_rear_start
-        y_off += geom.top_margin
+        y_off += g.top_margin
     # Borders and (optionally) cutoffs
     if borders:
         for side in Side:
@@ -1863,63 +1894,58 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
 def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     """Stickers break down by side, then part, then side cutoffs vs middle.
     18 total stickers: 2 sides x 3 parts x 3 bands."""
-    o_x2 = 50  # x dir margins
-    o_y2 = 50  # y dir margins
+    o_x2, o_y2 = 50, 50  # margins
     o_a = 50  # overhang amount
     ext = 20  # extension amount
-    geom = m.geometry
-    scale_x_margin = (geom.side_w - geom.SL) // 2 - geom.brace_w + 30
-    scale_w = geom.side_w - scale_x_margin * 2
-    scale_h = geom.SH
-    geom_s = replace(geom, side_w=scale_w, oX=0, oY=0)
-    style = m.style
-    slide_h = geom.slide_h
-    stator_h = geom.stator_h
+    g = m.geometry
+    has_braces = g.brace_w
+    side_w, side_h, slide_h, stator_h = int(g.side_w), int(g.side_h), int(g.slide_h), int(g.stator_h)
+    scale_x_margin = max(0, (side_w - (g.SL if m == DemoModel else m.max_scale_w())) // 2 - g.brace_w) + 30
+    scale_w = side_w - scale_x_margin * 2
     total_w = scale_w + 2 * o_x2
     sticker_row_h = max(slide_h, stator_h) + o_a
-    total_h = (geom.side_h + 2 * o_a) * 2 + o_a * 3 + sticker_row_h * 2 + 145
+    total_h = o_y2 * 2 + (side_h + 2 * o_a) * 2 + o_a * 3 + (sticker_row_h * 2 if has_braces else 0) + 45
     dst_img = image_for_rendering(m, w=total_w, h=total_h)
-    r = Renderer.make(dst_img, geom_s, style)
-
+    r = Renderer.make(dst_img, replace(g, side_w=scale_w, oX=0, oY=0), m.style)
     y = o_y2
     # Middle band stickers:
     cut_col = Color.to_pil(Color.CUT)
-    for (front, y_side) in ((True, geom.oY), (False, geom.oY + geom.side_h + geom.oY)):
+    for (front, y_side) in ((True, g.oY), (False, g.oY + side_h + g.oY)):
         for (i, y_src, h) in ((0, 0, stator_h),
                               (1, stator_h + 1 - (0 if front else 3), slide_h),
-                              (2, geom.side_h - stator_h, stator_h)):
+                              (2, side_h - stator_h, stator_h)):
             y += o_a
-            transcribe(sliderule_img, dst_img, geom.oX + scale_x_margin, y_side + y_src, scale_w, h, o_x2, y)
+            transcribe(sliderule_img, dst_img, g.oX + scale_x_margin, y_side + y_src, scale_w, h, o_x2, y)
             if i > 0:
                 extend(dst_img, scale_w, y + 1, BleedDir.UP, ext)
             extend(dst_img, scale_w, y + h - 1, BleedDir.DOWN, ext)
             r.draw_corners(o_x2, y - o_a if i == 0 else y, scale_w, h if i == 1 else h + o_a, cut_col)
             y += h
         y += o_a + (o_a if front else 0)
-    # Side stickers:
-    y_b = y + 20
-    box_w = geom.brace_w + 30
-    boxes = [
-        (o_a,                     y_b, box_w + o_a, stator_h + o_a),
-        (box_w + 3 * o_a,         y_b, scale_x_margin + o_a, slide_h),
-        (box_w + 5 * o_a + scale_x_margin, y_b, scale_x_margin + o_a, stator_h + o_a)
-    ]
-    box_x_mirror = 13 * o_a // 2 + box_w + 2 * scale_x_margin
-    for (x0, y0, dx, dy) in boxes:
-        for x1 in (x0, 2 * box_x_mirror - x0 - dx):
-            for y1 in (y0, y0 + slide_h + o_a):
-                r.draw_box(x1, y1, dx, dy, cut_col)
-    p1 = [
-        (2 * o_a + 120,                         y_b + o_a + scale_h),
-        (6 * o_a + box_w + scale_x_margin + scale_h,     y_b + 2 * scale_h),
-        (6 * o_a + box_w + scale_x_margin + 2 * scale_h, y_b + scale_h),
-    ]
-    points = p1 + [(cx, cy + sticker_row_h + (o_a if i > 0 else -o_a))
-                   for (i, (cx, cy)) in enumerate(p1)]
-    hole_r = 34  # (2.5mm diameter screw holes) = math.ceil(0.25 * Geometry.PixelsPerCM / 2)
-    for (cx, cy) in points:
-        for x in (cx, 2 * box_x_mirror - cx):
-            r.draw_circle(x, cy, hole_r, cut_col)
+    if has_braces:  # Side stickers:
+        y_b = y + 20
+        box_w = g.brace_w + 30
+        boxes = [  # (x0, y0, dx, dy)
+            (o_a,                              y_b, box_w + o_a,          stator_h + o_a),
+            (box_w + 3 * o_a,                  y_b, scale_x_margin + o_a, slide_h),
+            (box_w + 5 * o_a + scale_x_margin, y_b, scale_x_margin + o_a, stator_h + o_a)
+        ]
+        box_x_mirror = 13 * o_a // 2 + box_w + 2 * scale_x_margin
+        for (x0, y0, dx, dy) in boxes:
+            for x1 in (x0, 2 * box_x_mirror - x0 - dx):
+                for y1 in (y0, y0 + slide_h + o_a):
+                    r.draw_box(x1, y1, dx, dy, cut_col)
+        scale_h = g.SH
+        p1 = [
+            (2 * o_a + 120,                                  y_b + o_a + scale_h),
+            (6 * o_a + box_w + scale_x_margin + scale_h,     y_b + 2 * scale_h),
+            (6 * o_a + box_w + scale_x_margin + 2 * scale_h, y_b + scale_h),
+        ]
+        points = p1 + [(cx, cy + sticker_row_h + (o_a if i > 0 else -o_a))
+                       for (i, (cx, cy)) in enumerate(p1)]
+        for (cx, cy) in points:
+            for x in (cx, 2 * box_x_mirror - cx):
+                r.draw_circle(x, cy, g.brace_hole_r, cut_col)
     return dst_img
 
 
@@ -1930,13 +1956,11 @@ def render_diagnostic_mode(model: Model, all_scales=False):
     If you're reading this, you're a real one
     +5 brownie points to you
     """
-    scale_h = Geometry.SH
+    scale_h = model.geometry.SH
     k = 120 + scale_h
-    is_demo = model == Models.Demo
-    layout = model.layout
-    style = model.style
+    layout, style = model.layout, model.style
     upper = Align.UPPER
-    sh_with_margins = scale_h + (40 if is_demo else 10)
+    sh_with_margins = scale_h + (40 if model == DemoModel else 10)
     scale_names = ['A', 'B', 'C', 'D', 'K', 'R1', 'R2', 'CI', 'DI', 'CF', 'DF', 'CIF', 'L', 'S', 'T', 'ST']
     for sc_name in keys_of(Scales) + list(layout.sc_keys_in_order()) if all_scales else layout.sc_keys_in_order():
         if sc_name not in scale_names:
@@ -1956,13 +1980,17 @@ def render_diagnostic_mode(model: Model, all_scales=False):
     sc_names_str = ' '.join(scale_names)
     r.draw_sym_al(sc_names_str, 200, style.fg, 0, title_x, 0,
                   style.font_for(FontSize.SUBTITLE, h_ratio=min(1.0, 100 / len(sc_names_str))), upper)
+    if DEBUG:
+        band_w = Scales.L.gen_fn(1) * geom_d.SL
+        for i in range(-2, 12, 2):
+            r.fill_rect(geom_d.li + band_w * i, k, band_w, total_h, Color.RED_WHITE_1)
     for n, sc_name in enumerate(scale_names):
-        sc = model.layout.scale_named(sc_name)
+        sc = layout.scale_named(sc_name)
         assert sc, f'Scale not found: {sc_name}'
-        al = Align.LOWER if is_demo else layout.scale_al(sc, Side.FRONT, RulePart.SLIDE)
+        al = Align.LOWER if model == DemoModel else layout.scale_al(sc, Side.FRONT, RulePart.SLIDE)
         y_off = k + (n + 1) * sh_with_margins
         if isinstance(sc, Ruler):
-            sc.pat(r, y_off, al)
+            sc.generate(r, y_off, al)
         elif isinstance(sc, Scale):
             gen_scale(r, y_off, sc, al)
     return diagnostic_img

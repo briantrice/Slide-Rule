@@ -4,8 +4,7 @@ import os.path
 import time
 
 from SlideRule import (
-    Models, Model, keys_of,
-    render_diagnostic_mode, render_sliderule_mode, render_stickerprint_mode, Mode
+    Model, Mode, render_diagnostic_mode, render_sliderule_mode, render_stickerprint_mode
 )
 
 
@@ -15,8 +14,9 @@ def main():
                              choices=[m.value for m in Mode],
                              default=None,
                              help='Which mode to render (all by default)')
+    example_models = list(Model.example_names())
     args_parser.add_argument('--model',
-                             choices=keys_of(Models),
+                             choices=example_models,
                              default=None,
                              help='Which sliderule model (all by default)')
     args_parser.add_argument('--all-scales',
@@ -26,9 +26,9 @@ def main():
     base_dir = os.path.relpath('examples/')
     os.makedirs(base_dir, exist_ok=True)
     modes = [next(m for m in Mode if m.value == cli_args.mode)] if cli_args.mode else Mode
-    for model_name in ([cli_args.model] if cli_args.model else keys_of(Models)):
+    for model_name in ([cli_args.model] if cli_args.model else example_models):
         print(f'Building example outputs for: {model_name}')
-        model = getattr(Models, model_name) or Model.from_toml_file(os.path.join(base_dir, f'Model-{model_name}.toml'))
+        model = Model.load(model_name)
 
         start_time = time.process_time()
         if Mode.DIAGNOSTIC in modes:

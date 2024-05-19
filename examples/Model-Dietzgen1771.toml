@@ -1,0 +1,13 @@
+brand = 'Dietzgen'
+subtitle = 'RediRule'
+name = '1771'
+
+[geometry]
+side_wh = [4000, 1000]  # 6in x 1.5in
+margins_xy = [100, 100]
+scale_wh = [3390, 110]  # 5in x
+slide_h = 400 # SH * 5 // 2
+brace_shape = false
+[layout]
+front = 'IN, A [ B, C ] D, K CM'
+rear = '[ S, L, T ]'

@@ -1,0 +1,17 @@
+brand = 'Sun Hemmi'
+subtitle = 'Japan'
+name = '149A'
+
+[geometry]
+side_wh = ['17cm', '3.4cm']  # 17cm x 3.5cm
+scale_wh = ['3350px', '76px']  # 12.54cm x 2.83mm
+margins_xy = [50, 50]
+top_margin = 0
+slide_h = '1.13cm' # side_h / 3!
+brace_shape = 'C'
+[layout]
+front = 'L K A [ B T S C ] D LL0 LL/0'
+rear = 'LL/1 LL/2 LL/3 DF [ CF CIF CI C ] LL3 LL2 LL1'
+[style]
+font_family = 'CMUBright'
+right_sym = false

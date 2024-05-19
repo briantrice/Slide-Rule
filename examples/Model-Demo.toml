@@ -10,6 +10,7 @@ tick_wh = [3, 70]
 slide_h = 640
 top_margin = 109
 margin_overrides={front = {-5 = ['L', 'R2']}, rear = {80 = ['DI']}}
+brace_hole_r = 34  # 2.5mm = math.ceil(0.25 * Geometry.PixelsPerCM / 2)
 [layout]
 front = '|  L,  DF [ CF,CIF,CI,C ] D, R1, R2 |'
 rear = '|  K,  A  [ B, T, ST, S ] D,  DI    |'
