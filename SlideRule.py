@@ -541,7 +541,7 @@ class Renderer:
         self.r.rectangle((x0, y0, x0 + dx, y0 + dy), outline=Color.to_pil(col), width=width)
 
     def fill_rect(self, x0, y0, dx, dy, col):
-        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), fill=Color.to_pil(col))
+        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), fill=col)
 
     def draw_circle(self, xc, yc, r, col):
         self.r.ellipse((xc - r, yc - r, xc + r, yc + r), outline=Color.to_pil(col))
@@ -574,24 +574,25 @@ class Renderer:
         f1, f2, f3 = steps_font
         d1, d2, d3 = digit1
         scale_w, scale_h = self.geometry.SL, self.geometry.scale_h(sc)
-        col = self.style.fg_col(sc.key, is_increasing=sc.is_increasing)
-        tenth_col = self.style.decimal_color if sc.is_increasing else col
+        col = Color.to_pil(self.style.fg_col(sc.key, is_increasing=sc.is_increasing))
+        tenth_col = Color.to_pil(self.style.decimal_color if sc.is_increasing else col)
         for i in range(i_start, i_end, step4):
             n = i / i_sf
             x = sc.scale_to(n, scale_w)
-            tick_h = th4
             if i % step1 == 0:
                 tick_h = th1
                 if f1:
-                    self.draw_numeral(Sym.sig_digit_of(n) if d1 else n, y_off, col, scale_h, x, th1, f1, al)
+                    self.draw_numeral(Sym.sig_digit_of(n) if d1 else n, y_off, col, scale_h, x, tick_h, f1, al)
             elif i % step2 == 0:
                 tick_h = th2
                 if f2:
-                    self.draw_numeral(Sym.sig_digit_of(n) if d2 else n, y_off, col, scale_h, x, th2, f2, al)
+                    self.draw_numeral(Sym.sig_digit_of(n) if d2 else n, y_off, col, scale_h, x, tick_h, f2, al)
             elif i % step3 == 0:
                 tick_h = th3
                 if f3:
-                    self.draw_numeral(Sym.sig_digit_of(n) if d3 else n, y_off, tenth_col, scale_h, x, th3, f3, al)
+                    self.draw_numeral(Sym.sig_digit_of(n) if d3 else n, y_off, tenth_col, scale_h, x, tick_h, f3, al)
+            else:
+                tick_h = th4
             self.draw_tick(y_off, x, tick_h, col, scale_h, al)
 
     def pat_auto(self, y_off, sc, al, x_start=None, x_end=None, include_last=False):
@@ -728,6 +729,7 @@ class Renderer:
         g = self.geometry
         total_w = g.total_w
         o_x = g.oX
+        color = Color.to_pil(color)
         for i, part in enumerate(RulePart):
             self.fill_rect(o_x, y0 + g.edge_h(part, True) - (i + 1) // 2, g.side_w, 1, color)
         self.fill_rect(o_x, y0 + g.side_h - 2, g.side_w, 1, color)
@@ -1426,7 +1428,7 @@ class Ruler:
         scale_h = g.scale_h(self)
         if DEBUG:
             r.draw_box(self.pos_of(0), y_off, self.scale_w(g), scale_h, Color.DEBUG)
-        sym_col = s.fg_col(self.key, is_increasing=self.is_increasing)
+        sym_col = Color.to_pil(s.fg_col(self.key, is_increasing=self.is_increasing))
         i_sf = math.prod(self.tick_pattern)
         step1, step2, step3, _ = t_s(i_sf, self.tick_pattern)
         for i in range(0, self.num_units_in(g) * i_sf + 1):
@@ -1564,8 +1566,8 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
     if DEBUG:
         r.draw_box(g.li, y_off, scale_w, scale_h, Color.DEBUG)
 
-    sym_col = s.fg_col(sc.key, is_increasing=sc.is_increasing)
-    bg_col = s.bg_col(sc.key)
+    sym_col = Color.to_pil(s.fg_col(sc.key, is_increasing=sc.is_increasing))
+    bg_col = Color.to_pil(s.bg_col(sc.key))
     if bg_col:
         sc.band_bg(r, y_off, bg_col)
 
