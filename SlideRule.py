@@ -995,9 +995,9 @@ class Scale:
     right_sym: str
     """right scale symbol"""
     scaler: ScaleFN
-    gen_fn: callable = None
+    gen_fn: Callable[[float], float] = None
     """generating function (producing a fraction of output width)"""
-    pos_fn: callable = None
+    pos_fn: Callable[[float], float] = None
     """positioning function (takes a proportion of output width, returning what value is there)"""
     shift: float = 0
     """scale shift from left index (as a fraction of output width)"""
