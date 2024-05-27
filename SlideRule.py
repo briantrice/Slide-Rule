@@ -749,7 +749,7 @@ class Renderer:
         g = self.geometry
         verticals = [g.brace_w + g.oX, g.total_w - g.brace_w - g.oX]
         for i, start in enumerate(verticals):
-            self.fill_rect(start - 1, y_off, 2, i, Color.CUTOFF)
+            self.fill_rect(start - 1, y_off, 2, i, Color.CUTOFF.value)
 
         brace_fl = g.brace_outline(y_off)
         if brace_fl is None:
