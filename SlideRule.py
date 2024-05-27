@@ -323,7 +323,7 @@ class Geometry:
     @property
     def brace_w(self):
         """Brace width default, to ensure a square anchor piece."""
-        return 0 if not self.brace_shape else self.stator_h
+        return 0 if self.brace_shape is None else self.stator_h
 
     @property
     def li(self):
@@ -599,9 +599,9 @@ class Renderer:
         Draw a graduated pattern of tick marks across the scale range, by algorithmic selection.
         From some tick patterns in order and by generic suitability, pick the most detailed with a sufficient tick gap.
         """
-        if not x_start:
+        if x_start is None:
             x_start = sc.value_at_start()
-        if not x_end:
+        if x_end is None:
             x_end = sc.value_at_end()
         if x_start > x_end:
             x_start, x_end = x_end, x_start
@@ -712,7 +712,7 @@ class Renderer:
 
     def draw_mark(self, mark: GaugeMark, y_off: int, sc, font, al, col=None, shift_adj=0, side=None):
         s, g = self.style, self.geometry
-        if not col:
+        if col is None:
             col = s.fg_col(sc.key, is_increasing=sc.is_increasing)
         x = sc.scale_to(mark.value, g.SL, shift_adj=shift_adj)
         scale_h = g.scale_h(sc, side=side)
@@ -750,7 +750,7 @@ class Renderer:
             self.fill_rect(start - 1, y_off, 2, i, Color.CUTOFF)
 
         brace_fl = g.brace_outline(y_off)
-        if not brace_fl:
+        if brace_fl is None:
             return
 
         # Symmetrically create the right piece
@@ -1348,7 +1348,7 @@ class Layout:
 
     def check_scales(self):
         for scale_name in self.sc_keys_in_order():
-            if not self.scale_named(scale_name):
+            if self.scale_named(scale_name) is None:
                 raise ValueError(f'Unrecognized front scale name: {scale_name}')
 
     def scale_named(self, sc_name: str):
@@ -1835,7 +1835,7 @@ def main():
 
 
 def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = False, cutoffs: bool = False):
-    if not sliderule_img:
+    if sliderule_img is None:
         sliderule_img = image_for_rendering(model)
     g, layout = model.geometry, model.layout
     y_front_start = g.oY
