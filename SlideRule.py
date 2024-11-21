@@ -626,27 +626,27 @@ class Renderer:
         if (i_offset := i_start % step4) > 0:  # Align to first tick on or after start
             i_start = i_start - i_offset + step4
         # Determine numeral font size
-        scale_hf = g.scale_h_ratio(sc)
-        num_font = s.font_for(FontSize.N_LG, h_ratio=scale_hf)
+        h_ratio = g.scale_h_ratio(sc)
+        num_font = s.font_for(FontSize.N_LG, h_ratio)
         numeral_tick_offset = sc.min_offset_for_delta(x_start, x_end, step_num / sf, scale_w)
         if (max_num_chars := numeral_tick_offset // s.sym_w('_', num_font)) < 2:
-            num_font = s.font_for(FontSize.N_SM, h_ratio=scale_hf)
+            num_font = s.font_for(FontSize.N_SM, h_ratio)
         # If there are sub-digit ticks to draw, and enough space for single-digit numerals:
         sub_num = (step4 < step3 < step_num) and max_num_chars > 8
         # Tick Heights:
-        dot_th = g.tick_h(HMod.DOT, scale_hf)
+        dot_th = g.tick_h(HMod.DOT, h_ratio)
         self.pat(y_off, sc, al,
                  i_start, int(x_end * sf + (1 if include_last else 0)), sf,
                  (step_num, step2, step3, step4),
                  (
-                     g.tick_h(HMod.MED, scale_hf),
-                     g.tick_h(HMod.XL if step3 == step_num // 2 and step4 < step3 else HMod.XS, scale_hf),
-                     g.tick_h(HMod.XS, scale_hf) if step4 < step3 else dot_th,
+                     g.tick_h(HMod.MED, h_ratio),
+                     g.tick_h(HMod.XL if step3 == step_num // 2 and step4 < step3 else HMod.XS, h_ratio),
+                     g.tick_h(HMod.XS, h_ratio) if step4 < step3 else dot_th,
                      dot_th),
                  (num_font,
-                  s.font_for(FontSize.N_SM, h_ratio=scale_hf) if (sub_num and step2 == step_num // 10
-                                                                  or step2 == step_num // 2) else None,
-                  s.font_for(FontSize.N_XS, h_ratio=scale_hf) if sub_num and step3 == step_num // 10 else None),
+                  s.font_for(FontSize.N_SM, h_ratio) if (sub_num and step2 == step_num // 10
+                                                         or step2 == step_num // 2) else None,
+                  s.font_for(FontSize.N_XS, h_ratio) if sub_num and step3 == step_num // 10 else None),
                  (max_num_chars < 3, max_num_chars < 16, max_num_chars < 128))
 
     def draw_symbol(self, symbol: str, color, x_left: float, y_top: float, font: ImageFont, draw_radicals=True):
@@ -1302,7 +1302,7 @@ class Layout:
             result = {Side.FRONT: {}, Side.REAR: {}}
             for k, v in layout_def['align_overrides'].items():
                 for sc_key, al in v.items():
-                    result[Side[k.upper()]][sc_key] = Align[al.upper()]
+                    result[Side(k.lower())][sc_key] = Align[al.upper()]
             layout_def['align_overrides'] = result
         if 'scale_ns' in layout_def:
             layout_def['scale_ns'] = custom_scale_sets[layout_def['scale_ns']]
@@ -1327,7 +1327,7 @@ class Layout:
         return [side_layout, '', '']
 
     @classmethod
-    def parse_side_layout(cls, layout: str) -> dict[RulePart, [str]]:
+    def parse_side_layout(cls, layout: str) -> dict[RulePart, list[str]]:
         top_scales = None
         bottom_scales = None
         slide_scales = None
@@ -1548,23 +1548,23 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
     if s.override_for(sc.key, 'hide', False):
         return
 
-    scale_h = g.scale_h(sc, side=side)
-    scale_h_ratio = g.scale_h_ratio(sc, side=side)
+    h = g.scale_h(sc, side=side)
+    h_ratio = g.scale_h_ratio(sc, side=side)
 
     # Place Index Symbols (Left and Right)
-    f_lbl = s.font_for(FontSize.SC_LBL if scale_h > FontSize.SC_LBL.value * 1.5 else scale_h // 2)
-    f_lbl_s = s.font_for(FontSize.N_XL if scale_h > FontSize.N_XL.value * 2 else scale_h // 2)
-    f_xln = s.font_for(FontSize.N_XL, h_ratio=scale_h_ratio)
-    f_lgn = s.font_for(FontSize.N_LG, h_ratio=scale_h_ratio)
-    f_mdn = s.font_for(FontSize.N_MD, h_ratio=scale_h_ratio)
-    f_smn = s.font_for(FontSize.N_SM, h_ratio=scale_h_ratio)
-    f_mdn_i = s.font_for(FontSize.N_MD, h_ratio=scale_h_ratio, italic=True)
-    f_md2 = s.font_for(FontSize.N_MD2, h_ratio=scale_h_ratio)
-    f_md2_i = s.font_for(FontSize.N_MD2, h_ratio=scale_h_ratio, italic=True)
+    f_lbl = s.font_for(FontSize.SC_LBL if h > FontSize.SC_LBL.value * 1.5 else h // 2)
+    f_lbl_s = s.font_for(FontSize.N_XL if h > FontSize.N_XL.value * 2 else h // 2)
+    f_xln = s.font_for(FontSize.N_XL, h_ratio)
+    f_lgn = s.font_for(FontSize.N_LG, h_ratio)
+    f_mdn = s.font_for(FontSize.N_MD, h_ratio)
+    f_smn = s.font_for(FontSize.N_SM, h_ratio)
+    f_mdn_i = s.font_for(FontSize.N_MD, h_ratio, italic=True)
+    f_md2 = s.font_for(FontSize.N_MD2, h_ratio)
+    f_md2_i = s.font_for(FontSize.N_MD2, h_ratio, italic=True)
 
     scale_w = g.SL
     if DEBUG:
-        r.draw_box(g.li, y_off, scale_w, scale_h, Color.DEBUG)
+        r.draw_box(g.li, y_off, scale_w, h, Color.DEBUG)
 
     sym_col = Color.to_pil(s.fg_col(sc.key, is_increasing=sc.is_increasing))
     bg_col = Color.to_pil(s.bg_col(sc.key))
@@ -1584,10 +1584,10 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
     y2 = (g.SH - h2) // 2  # Ignore custom height/spacing for legend symbols
     if s.right_sym:
         x_right = round((1 + label_offset_frac) * scale_w + w2 / 2)
-        r.draw_sym_al(sc.right_sym, y_off, sym_col, scale_h, x_right, y2, f_lbl_r, al)
+        r.draw_sym_al(sc.right_sym, y_off, sym_col, h, x_right, y2, f_lbl_r, al)
         if sc_alt or sc == Scales.ST:
             right_sym = sc_alt.right_sym if sc_alt else '∡sin 0.01x°'
-            r.draw_sym_al(right_sym, y_off, alt_col or sym_col, scale_h, x_right, round(y2 - h2 * 0.8), f_lbl_r, al)
+            r.draw_sym_al(right_sym, y_off, alt_col or sym_col, h, x_right, round(y2 - h2 * 0.8), f_lbl_r, al)
 
     # Left
     (left_sym, _, subscript) = Sym.parts_of(sc.left_sym)
@@ -1596,150 +1596,137 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
         w1 += s.sym_dims(subscript, f_lgn)[0]
     y1 = (g.SH - h1) // 2  # Ignore custom height/spacing for legend symbols
     x_left = round((0 - label_offset_frac) * scale_w - w1 / 2)
-    r.draw_sym_al(sc.left_sym, y_off, sym_col, scale_h, x_left, y1, f_lbl, al)
+    r.draw_sym_al(sc.left_sym, y_off, sym_col, h, x_left, y1, f_lbl, al)
     if alt_col:
-        r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, scale_h, x_left - s.sym_w('__', f_lbl), y2, f_lbl, al)
+        r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, h, x_left - s.sym_w('__', f_lbl), y2, f_lbl, al)
 
-    th_xl = g.tick_h(HMod.XL, scale_h_ratio)
-    th_lg = g.tick_h(HMod.LG, scale_h_ratio)
-    th_med = g.tick_h(HMod.MED, scale_h_ratio)
-    th_sm = g.tick_h(HMod.SM, scale_h_ratio)
-    th_xs = g.tick_h(HMod.XS, scale_h_ratio)
-    th_dot = g.tick_h(HMod.DOT, scale_h_ratio)
+    th_xl, th_l, th, th_s, th_xs, th_dot = [
+        g.tick_h(x, h_ratio) for x in (HMod.XL, HMod.LG, HMod.MED, HMod.SM, HMod.XS, HMod.DOT)]
 
     # Tick Placement (the bulk!)
-    fonts1 = (f_lbl, None, None)
-    fonts2 = (f_lbl, f_mdn, None)
-    fonts_xl = (f_xln, None, None)
-    ths1 = (th_med, th_xl, th_sm, th_xs)
-    ths2 = (th_med, th_xl, th_xs, th_xs)
-    ths3 = (th_med, th_sm, th_sm, th_xs)
-    ths4 = (th_med, th_xl, th_sm, th_dot)
-    ths5 = (th_med, th_med, th_sm, th_xs)
+    fonts1, fonts2, fonts_xl = (f_lbl, None, None), (f_lbl, f_mdn, None), (f_xln, None, None)
+    ths1 = (th, th_xl, th_s, th_xs)
+    ths2 = (th, th_xl, th_xs, th_xs)
+    ths3 = (th, th_s, th_s, th_xs)
+    ths4 = (th, th_xl, th_s, th_dot)
+    ths5 = (th, th, th_s, th_xs)
     sf = 1000  # Reflects the minimum significant figures needed for standard scales to avoid FP inaccuracy
     d0, d1, d2 = (False, False, False), (True, False, False), (True, True, False)
+
+    def pats(fp_v, tf_v, th_v, font_v, d_v):
+        for i in range(0, len(fp_v) - 1):
+            fp_next = fp_v[i + 1] + (1 if i == len(fp_v) - 2 else 0)  # Ensure the last fencepost value is drawn
+            r.pat(y_off, sc, al, int(fp_v[i]), int(fp_next), sf, tf_v[i], th_v[i], font_v[i], d_v[i])
+
     if sc == Scales.Const:
         pass
     elif (sc.scaler in {ScaleFNs.Base, ScaleFNs.Inverse}) and sc.shift == 0:  # C/D and CI/DI
-        fp1, fp2, fp4, fpe = (fp * sf for fp in (1, 2, 4, 10))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, d2)
-        r.pat(y_off, sc, al, fp2, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts1, d0)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths1, fonts1, d1)
+        pats([sf * fp for fp in (1, 2, 4, 10)],
+             (t_s(sf, TF_BY_MIN[100]), t_s(sf, TF_BY_MIN[50]), t_s(sf, TF_BY_MIN[20])),
+             (ths3, ths1, ths1), (fonts2, fonts1, fonts1), (d2, d0, d1))
     elif sc in {Scales.A, Scales.B, Scales.AI, Scales.BI}:
         for b in (sf * 10 ** n for n in range(0, 2)):
-            fp1, fp2, fp3, fpe = (fp * b for fp in (1, 2, 5, 10))
-            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(b, TF_BY_MIN[50]), ths1, fonts1, d1)
-            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(b, TF_BY_MIN[20]), ths1, fonts1, d1)
-            r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, TF_BY_MIN[10]), ths2, fonts1, d1)
+            pats([fp * b for fp in (1, 2, 5, 10)],
+                 (t_s(b, TF_BY_MIN[50]), t_s(b, TF_BY_MIN[20]), t_s(b, TF_BY_MIN[10])),
+                 (ths1, ths1, ths2), (fonts1, fonts1, fonts1), [d1] * 3)
 
     elif sc in {Scales.K, Scales.KI}:
         for b in (sf * (10 ** n) for n in range(0, 3)):
-            fp1, fp2, fp3, fpe = (fp * b for fp in (1, 3, 6, 10))
-            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(b, TF_BY_MIN[20]), ths1, fonts_xl, d1)
-            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(b, TF_BY_MIN[10]), ths2, fonts_xl, d1)
-            r.pat(y_off, sc, al, fp3, fpe + 1, sf, t_s(b, TF_BY_MIN[5]), ths2, fonts_xl, d1)
+            pats([fp * b for fp in (1, 3, 6, 10)],
+                 (t_s(b, TF_BY_MIN[20]), t_s(b, TF_BY_MIN[10]), t_s(b, TF_BY_MIN[5])),
+                 (ths1, ths2, ths2), [fonts_xl] * 3, [d1] * 3)
 
     elif sc in {Scales.R1, Scales.Sq1}:
-        fp1, fp2, fpe = (int(fp * sf) for fp in (1, 2, 3.17))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf // 10, TF_BY_MIN[20]), ths1, r.no_fonts, d1)
-        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[100]), ths5, fonts2, d2)
+        pats([int(fp * sf) for fp in (1, 2, 3.17)],
+             (t_s(sf // 10, TF_BY_MIN[20]), t_s(sf, TF_BY_MIN[100])),
+             (ths1, ths5), (r.no_fonts, fonts2), (d1, d2))
 
         # 1-1.9 Labels
-        r.draw_numeral_sc(sc, 1, y_off, sym_col, scale_h, th_med, f_lbl, al)
+        r.draw_numeral_sc(sc, 1, y_off, sym_col, h, th, f_lbl, al)
         for x in (x / 10 for x in range(11, 20)):
-            r.draw_numeral(Sym.last_digit_of(x), y_off, sym_col, scale_h, sc.pos_of(x, g), th_med, f_lgn, al)
+            r.draw_numeral(Sym.last_digit_of(x), y_off, sym_col, h, sc.pos_of(x, g), th, f_lgn, al)
 
     elif sc in {Scales.R2, Scales.Sq2}:
-        fp1, fp2, fpe = (int(fp * sf) for fp in (3.16, 5, 10))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, d2)
-        r.pat(y_off, sc, al, fp2, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts1, d2)
+        pats([int(fp * sf) for fp in (3.16, 5, 10)],
+             (t_s(sf, TF_BY_MIN[100]), t_s(sf, TF_BY_MIN[50])),
+             (ths3, ths1), (fonts2, fonts1), [d2] * 2)
 
     elif sc in {Scales.CF, Scales.DF, Scales.CIF}:
         is_cif = sc == Scales.CIF
         fp1 = int((0.31 if is_cif else 0.314) * sf)
         i1 = sf // TEN
-        fp2, fp3, fp4 = (fp * i1 for fp in (4, 10, 20))
-        fpe = int(3.2 * sf) if is_cif else fp1 * TEN
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(i1, TF_BY_MIN[50]), ths1, fonts1, d2)
-        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(i1, TF_BY_MIN[20]), ths1, fonts1, d2)
-        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[100]), ths3, fonts2, d2)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[50]), ths1, fonts1, d2)
+        pats([fp1] + [fp * i1 for fp in (4, 10, 20)] + [int(3.2 * sf) if is_cif else fp1 * TEN],
+             (t_s(i1, TF_BY_MIN[50]), t_s(i1, TF_BY_MIN[20]), t_s(sf, TF_BY_MIN[100]), t_s(sf, TF_BY_MIN[50])),
+             (ths1, ths1, ths3, ths1), (fonts1, fonts1, fonts2, fonts1), [d2] * 4)
 
     elif sc == Scales.L:
         r.pat(y_off, sc, al, 0, TEN * sf + 1, sf, t_s(sf, TF_BY_MIN[50]),
-              (th_lg, th_xl, th_med, th_xs), r.no_fonts, d0)
+              (th_l, th_xl, th, th_xs), r.no_fonts, d0)
         for x in range(0, 11):
-            r.draw_numeral(x / 10, y_off, sym_col, scale_h, sc.pos_of(x, g), th_med, f_lbl, al)
+            r.draw_numeral(x / 10, y_off, sym_col, h, sc.pos_of(x, g), th, f_lbl, al)
 
     elif sc.scaler in {ScaleFNs.Sin, ScaleFNs.CoSin} or sc in {Scales.T, Scales.T1, Scales.CoT}:
         is_tan = sc.scaler in {ScaleFNs.Tan, ScaleFNs.CoTan}
-        ths_y = (th_xl, th_xl, th_sm, th_xs)
-        ths_z = (th_xl, th_sm, th_xs, th_xs)
+        ths_y = (th_xl, th_xl, th_s, th_xs)
+        ths_z = (th_xl, th_s, th_xs, th_xs)
         sc_t = Scales.S if sc.scaler == ScaleFNs.CoSin else sc
         if is_tan:
-            fp1, fp2, fp3, fpe = (int(fp * sf) for fp in (5.7, 10, 25, 45))
-            fpe += 1
-            r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[20]), ths_y, r.no_fonts, d1)
-            r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, d1)
-            r.pat(y_off, sc, al, fp3, fpe, sf, t_s(sf * 5, (5, 5, 1)), (th_xl, th_med, th_xs, th_xs), r.no_fonts, d1)
+            pats([int(fp * sf) for fp in (5.7, 10, 25, 45)],
+                 (t_s(sf, TF_BY_MIN[20]), t_s(sf, TF_BY_MIN[10]), t_s(sf * 5, (5, 5, 1))),
+                 (ths_y, ths_z, (th_xl, th, th_xs, th_xs)), [r.no_fonts] * 3, [d1] * 3)
         else:
-            fp1, fp2, fp3, fp4, fp5, fpe = (int(fp * sf) for fp in (5.7, 20, 30, 60, 80, DEG_RT))
-            fpe += 1
-            r.pat(y_off, sc_t, al, fp1, fp2, sf, t_s(sf, TF_BY_MIN[10]), ths_z, r.no_fonts, d1)
-            r.pat(y_off, sc_t, al, fp2, fp3, sf, t_s(sf * 5, (5, 5, 1)), ths_z, r.no_fonts, d1)
-            r.pat(y_off, sc_t, al, fp3, fp4, sf, t_s(sf * 10, TF_BY_MIN[20]), ths_y, r.no_fonts, d1)
-            r.pat(y_off, sc_t, al, fp4, fp5, sf, t_s(sf * 10, TF_BY_MIN[10]), ths_z, r.no_fonts, d1)
-            r.pat(y_off, sc_t, al, fp5, fpe, sf, t_s(sf * 10, TF_BY_MIN[2]), ths1, r.no_fonts, d1)
+            pats([int(fp * sf) for fp in (5.7, 20, 30, 60, 80, DEG_RT)],
+                 (t_s(sf, TF_BY_MIN[10]), t_s(sf * 5, (5, 5, 1)), t_s(sf * 10, TF_BY_MIN[20]),
+                  t_s(sf * 10, TF_BY_MIN[10]), t_s(sf * 10, TF_BY_MIN[2])),
+                 (ths_z, ths_z, ths_y, ths_z, ths1), [r.no_fonts] * 5, [d1] * 5)
 
         # Degree Labels
-        f = g.STH * 1.1 if is_tan else th_med
+        f = g.STH * 1.1 if is_tan else th
         range1, range2 = range(6, 16), range(16, 21)
         alt_col = s.fg_col(sc_alt.key, is_increasing=sc_alt.is_increasing)
         for x in chain(range1, range2, range(25, 41, 5), () if is_tan else range(50, 80, 10)):
             f_l = f_md2_i if x in range1 else f_mdn_i
             f_r = f_md2 if x in range1 else f_mdn
             x_coord = round(sc_t.pos_of(x, g) + 1.2 / 2 * s.sym_w(str(x), f_l))
-            r.draw_numeral(x, y_off, sym_col, scale_h, x_coord, f, f_r, al)
+            r.draw_numeral(x, y_off, sym_col, h, x_coord, f, f_r, al)
             if x not in range2:
                 xi = angle_opp(x)
                 x_coord_opp = round(sc_t.pos_of(x, g) - 1.4 / 2 * s.sym_w(str(xi), f_l))
-                r.draw_numeral(xi, y_off, alt_col, scale_h, x_coord_opp, f, f_l, al)
+                r.draw_numeral(xi, y_off, alt_col, h, x_coord_opp, f, f_l, al)
 
-        r.draw_numeral(45 if is_tan else DEG_RT, y_off, sym_col, scale_h, scale_w, f, f_lgn, al)
+        r.draw_numeral(45 if is_tan else DEG_RT, y_off, sym_col, h, scale_w, f, f_lgn, al)
 
     elif sc == Scales.T2:
-        fp1, fp2, fpe = (int(fp * sf) for fp in (45, 75, angle_opp(5.7)))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf * 5, (5, 2, 5)), ths4, fonts_xl, d0)
-        r.pat(y_off, sc, al, fp2, fpe, sf, t_s(sf * 5, (5, 2, 10)), ths4, fonts_xl, d0)
+        pats([int(fp * sf) for fp in (45, 75, angle_opp(5.7))],
+             (t_s(sf * 5, (5, 2, 5)), t_s(sf * 5, (5, 2, 10))),
+             [ths4] * 2, [fonts_xl] * 2, [d0] * 2)
 
     elif sc == Scales.ST:
-        fp1, fp2, fp3, fp4, fpe = (int(fp * sf) for fp in (0.57, 1, 2, 4, 5.8))
-        r.pat(y_off, sc, al, fp1, fp2, sf, t_s(sf, (20, 5, 2)), ths1, r.no_fonts, d1)
-        r.pat(y_off, sc, al, fp2, fp3, sf, t_s(sf, TF_BY_MIN[100]), ths5, r.no_fonts, d1)
-        r.pat(y_off, sc, al, fp3, fp4, sf, t_s(sf, TF_BY_MIN[50]), ths5, r.no_fonts, d1)
-        r.pat(y_off, sc, al, fp4, fpe + 1, sf, t_s(sf, TF_BY_MIN[20]), ths5, r.no_fonts, d1)
+        pats([int(fp * sf) for fp in (0.57, 1, 2, 4, 5.8)],
+             (t_s(sf, (20, 5, 2)), t_s(sf, TF_BY_MIN[100]), t_s(sf, TF_BY_MIN[50]), t_s(sf, TF_BY_MIN[20])),
+             (ths1, ths5, ths5, ths5), [r.no_fonts] * 4, [d1] * 4)
 
         # Degree Labels
-        r.draw_sym_al('1°', y_off, sym_col, scale_h, sc.pos_of(1, g), th_med, f_lbl, al)
+        r.draw_sym_al('1°', y_off, sym_col, h, sc.pos_of(1, g), th, f_lbl, al)
         for x in chain((x / 10 for x in range(6, 10)), (x + 0.5 for x in range(1, 4)), range(2, 6)):
-            r.draw_numeral_sc(sc, x, y_off, sym_col, scale_h, th_med, f_lbl, al)
+            r.draw_numeral_sc(sc, x, y_off, sym_col, h, th, f_lbl, al)
 
     elif sc == custom_scale_sets['Merchant']['P%']:
         if DEBUG:
             sc.grad_pat_default(r, y_off, al)
         for pct_value in (0, 5, 10, 15, 20, 35, 30, 40):
-            r.draw_numeral_sc(sc, pct_value, y_off, sym_col, scale_h, 0, f_lgn, Align.LOWER)
-            r.draw_numeral(pct_value, y_off, sym_col, scale_h, sc.pos_of(-pct_value, g), 0, f_lgn, Align.LOWER)
+            r.draw_numeral_sc(sc, pct_value, y_off, sym_col, h, 0, f_lgn, Align.LOWER)
+            r.draw_numeral(pct_value, y_off, sym_col, h, sc.pos_of(-pct_value, g), 0, f_lgn, Align.LOWER)
         for sym, val in (('-50%', -50), ('50%', 50), ('-33⅓', -100/3), ('33⅓', 100/3), ('+100%', 100)):
-            r.draw_sym_al(sym, y_off, sym_col, scale_h, sc.pos_of(val, g), 0, f_lgn, Align.LOWER)
+            r.draw_sym_al(sym, y_off, sym_col, h, sc.pos_of(val, g), 0, f_lgn, Align.LOWER)
 
     elif sc == custom_scale_sets['Merchant']['ZZ%']:
         if DEBUG:
             sc.grad_pat_default(r, y_off, al)
         for x in range(1, 12):
-            r.draw_numeral_sc(sc, x, y_off, sym_col, scale_h, 0, f_lgn, Align.LOWER)
+            r.draw_numeral_sc(sc, x, y_off, sym_col, h, 0, f_lgn, Align.LOWER)
         for x in (x / 10 for x in range(15, 110, 10)):
-            r.draw_numeral_sc(sc, x, y_off, sym_col, scale_h, 0, f_lgn, Align.LOWER)
+            r.draw_numeral_sc(sc, x, y_off, sym_col, h, 0, f_lgn, Align.LOWER)
 
     else:  # Fallback to our generic algorithm, then fill in marks and numerals as helpful
         sc.grad_pat_default(r, y_off, al)
@@ -1750,7 +1737,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
             r.draw_mark(mark, y_off, sc, f_mark, al, sym_col, side=side)
     if sc.numerals:
         for x in sc.numerals:
-            r.draw_numeral_sc(sc, x, y_off, sym_col, scale_h, th_med, f_smn, al)
+            r.draw_numeral_sc(sc, x, y_off, sym_col, h, th, f_smn, al)
 
 
 class Mode(Enum):
@@ -1900,7 +1887,7 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     o_a = 50  # overhang amount
     ext = 20  # extension amount
     g = m.geometry
-    has_braces = g.brace_w
+    has_braces = isinstance(g.brace_shape, BraceShape)
     side_w, side_h, slide_h, stator_h = int(g.side_w), int(g.side_h), int(g.slide_h), int(g.stator_h)
     scale_x_margin = max(0, (side_w - (g.SL if m == DemoModel else m.max_scale_w())) // 2 - g.brace_w) + 30
     scale_w = side_w - scale_x_margin * 2
