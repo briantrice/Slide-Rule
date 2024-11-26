@@ -14,7 +14,7 @@ def main():
                              choices=[m.value for m in Mode],
                              default=None,
                              help='Which mode to render (all by default)')
-    example_models = list(Model.example_names())
+    example_models = sorted(Model.example_names())
     args_parser.add_argument('--model',
                              choices=example_models,
                              default=None,
@@ -30,31 +30,34 @@ def main():
         print(f'Building example outputs for: {model_name}')
         model = Model.load(model_name)
 
-        start_time = time.process_time()
-        if Mode.DIAGNOSTIC in modes:
-            all_scales = cli_args.all_scales
-            diagnostic_img = render_diagnostic_mode(model, all_scales=all_scales)
-            suffix = 'allScales.png' if all_scales else 'png'
-            diagnostic_filename = os.path.join(base_dir, f'{model_name}.Diagnostic.{suffix}')
-            print(f' Render time: {round(time.process_time() - start_time, 3)}')
-            diagnostic_img.save(diagnostic_filename)
-            print(f' Diagnostic output for: {model_name} at: {diagnostic_filename}')
-        if Mode.RENDER in modes:
-            sliderule_img = render_sliderule_mode(model, borders=True, cutoffs=True)
-            sliderule_filename = os.path.join(base_dir, f'{model_name}.SlideRuleScales.png')
-            print(f' Render time: {round(time.process_time() - start_time, 3)}')
-            sliderule_img.save(sliderule_filename, 'PNG')
-            print(f' SlideRuleScales output for: {model_name} at: {sliderule_filename}')
-        if Mode.STICKERPRINT in modes:
-            sliderule_img = render_sliderule_mode(model, cutoffs=True)
-            sliderule_stickers_img = render_sliderule_mode(model, sliderule_img)
-            stickers_img = render_stickerprint_mode(model, sliderule_stickers_img)
-            stickers_filename = os.path.join(base_dir, f'{model_name}.StickerCut.png')
-            print(f' Render time: {round(time.process_time() - start_time, 3)}')
-            stickers_img.save(stickers_filename)
-            print(f' StickerCut output for: {model_name} at: {stickers_filename}')
-        print(f'Time elapsed: {round(time.process_time() - start_time, 3)}')
-
+        try:
+            start_time = time.process_time()
+            if Mode.DIAGNOSTIC in modes:
+                all_scales = cli_args.all_scales
+                diagnostic_img = render_diagnostic_mode(model, all_scales=all_scales)
+                suffix = 'allScales.png' if all_scales else 'png'
+                diagnostic_filename = os.path.join(base_dir, f'{model_name}.Diagnostic.{suffix}')
+                print(f' Render time: {round(time.process_time() - start_time, 3)}')
+                diagnostic_img.save(diagnostic_filename)
+                print(f' Diagnostic output for: {model_name} at: {diagnostic_filename}')
+            if Mode.RENDER in modes:
+                sliderule_img = render_sliderule_mode(model, borders=True, cutoffs=True)
+                sliderule_filename = os.path.join(base_dir, f'{model_name}.SlideRuleScales.png')
+                print(f' Render time: {round(time.process_time() - start_time, 3)}')
+                sliderule_img.save(sliderule_filename, 'PNG')
+                print(f' SlideRuleScales output for: {model_name} at: {sliderule_filename}')
+            if Mode.STICKERPRINT in modes:
+                sliderule_img = render_sliderule_mode(model, cutoffs=True)
+                sliderule_stickers_img = render_sliderule_mode(model, sliderule_img)
+                stickers_img = render_stickerprint_mode(model, sliderule_stickers_img)
+                stickers_filename = os.path.join(base_dir, f'{model_name}.StickerCut.png')
+                print(f' Render time: {round(time.process_time() - start_time, 3)}')
+                stickers_img.save(stickers_filename)
+                print(f' StickerCut output for: {model_name} at: {stickers_filename}')
+            print(f'Time elapsed: {round(time.process_time() - start_time, 3)}')
+        except ValueError:
+            print(f'Error processing {model_name}; Skipping')
+            pass
 
 if __name__ == '__main__':
     main()
