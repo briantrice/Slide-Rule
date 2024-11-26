@@ -30,6 +30,7 @@ from typing import Callable
 
 import toml
 from PIL import Image, ImageFont, ImageDraw
+import drawsvg as svg
 
 
 def keys_of(obj: object):
@@ -525,17 +526,22 @@ def t_s(s1: int, f: TickFactors):
 DEBUG = False
 
 
-@dataclass(frozen=True)
-class Renderer:
-    r: ImageDraw.ImageDraw = None
-    geometry: Geometry = None
-    style: Style = None
+class Out:
+    def __init__(self, r):
+        self.r = r
+    def draw_box(self, x0, y0, dx, dy, col, width=1): pass
+    def fill_rect(self, x0, y0, dx, dy, col): pass
+    def draw_circle(self, xc, yc, r, col): pass
+    def draw_line(self, x0, y0, x1, y1, col, width=1): pass
+    def draw_text(self, x_left, y_top, symbol: str, font, color):
+        pass
 
-    no_fonts = (None, None, None)
+class RasterOut(Out):
+    r: ImageDraw.ImageDraw = None
 
     @classmethod
-    def make(cls, i: Image.Image, g: Geometry, s: Style):
-        return cls(ImageDraw.Draw(i), g, s)
+    def for_image(cls, i: Image.Image):
+        return cls(ImageDraw.Draw(i))
 
     def draw_box(self, x0, y0, dx, dy, col, width=1):
         self.r.rectangle((x0, y0, x0 + dx, y0 + dy), outline=Color.to_pil(col), width=width)
@@ -546,13 +552,93 @@ class Renderer:
     def draw_circle(self, xc, yc, r, col):
         self.r.ellipse((xc - r, yc - r, xc + r, yc + r), outline=Color.to_pil(col))
 
+    def draw_line(self, x0, y0, x1, y1, col, width=1):
+        self.r.line((x0, y0, x1, y1), width=width, fill=col)
+
+    def draw_text(self, x_left, y_top, symbol: str, font, color):
+        self.r.text((x_left, y_top), symbol, font=font, fill=color)
+
+
+
+class SVGOut(Out):
+    r: svg.Drawing = None
+
+    families = {
+        'CMU Typewriter Text': 'math',
+        'CMU Sans Serif': 'monospace'
+    }
+
+    weights = {
+        'Bold': 'bold',
+        'BoldItalic': 'bold',
+        'BoldOblique': 'bold',
+    }
+
+    styles = {
+        'Italic': 'italic',
+        'BoldItalic': 'italic',
+        'Oblique': 'oblique',
+        'BoldOblique': 'oblique',
+    }
+
+    @classmethod
+    def for_drawing(cls, i: svg.Drawing):
+        return cls(i)
+
+    @classmethod
+    def color_str(cls, col):
+        if col == (0, 0, 0):
+            return None
+        elif col == (255, 0, 0):
+            return 'red'
+        return f'rgb({col[0]},{col[1]},{col[2]})' if isinstance(col, tuple) else cls.colors.get(col, col)
+
+    def draw_box(self, x0, y0, dx, dy, col, width=1):
+        self.r.append(svg.Rectangle(x0, y0, dx, dy, stroke=self.color_str(col), stroke_width=width))
+
+    def fill_rect(self, x0, y0, dx, dy, col):
+        self.r.append(svg.Rectangle(x0, y0, dx, dy, fill=self.color_str(col)))
+
+    def draw_circle(self, xc, yc, r, col):
+        self.r.append(svg.Circle(xc, yc, r, stroke=self.color_str(col)))
+
+    def draw_line(self, x0, y0, x1, y1, col, width=1):
+        self.r.append(svg.Line(x0, y0, x1, y1, width=width, fill=self.color_str(col)))
+
+    def draw_text(self, x_left, y_top, symbol: str, font: ImageFont, col):
+        w, h = Style.sym_dims(symbol, font)
+        family, style = font.getname()
+        self.r.append(svg.Text(symbol, h, x_left, y_top, text_anchor='start', dominant_baseline='hanging',
+                               font_family=self.families.get(family),
+                               font_weight=self.weights.get(style),
+                               font_style=self.styles.get(style),
+                               fill=self.color_str(col)))
+
+
+@dataclass(frozen=True)
+class Renderer:
+    r: Out = None
+    geometry: Geometry = None
+    style: Style = None
+
+    no_fonts = (None, None, None)
+
+    @classmethod
+    def to_image(cls, i, g: Geometry, s: Style):
+        out = None
+        if isinstance(i, Image.Image):
+            out = RasterOut.for_image(i)
+        elif isinstance(i, svg.Drawing):
+            out = SVGOut.for_drawing(i)
+        return cls(out, g, s)
+
     def draw_tick(self, y_off: int, x: int, h: int, col, scale_h: int, al: Align):
         """Places an individual tick, aligned to top or bottom of scale"""
         x0 = x + self.geometry.li - 2
         y0 = y_off
         if al == Align.LOWER:
             y0 += scale_h - h - 1
-        self.fill_rect(x0, y0, self.geometry.STT, h + 1, col)
+        self.r.fill_rect(x0, y0, self.geometry.STT, h + 1, col)
 
     def pat(self, y_off: int, sc, al: Align, i_start, i_end, i_sf, steps_i, steps_th, steps_font, digit1):
         """
@@ -654,8 +740,8 @@ class Renderer:
         symbol = symbol.translate(Sym.UNICODE_SUBS)
         if DEBUG:
             w, h = self.style.sym_dims(symbol, font)
-            self.draw_box(x_left, y_top, w, h, Color.DEBUG)
-        self.r.text((x_left, y_top), symbol, font=font, fill=color)
+            self.r.draw_box(x_left, y_top, w, h, Color.DEBUG)
+        self.r.draw_text(x_left, y_top, symbol, font, color)
         radicals = draw_radicals and re.search(r'[√∛∜]', symbol)
         if radicals:
             w, h = self.style.sym_dims(symbol, font)
@@ -664,7 +750,7 @@ class Renderer:
             (_, h_num) = self.style.sym_dims('1', font)
             line_w = h_rad // 14
             y_bar = y_top + max(10, round(h - h_num - line_w * 2))
-            self.r.line((x_left + w_ch * n_ch - w_ch // 10, y_bar, x_left + w, y_bar), width=line_w, fill=color)
+            self.r.draw_line(x_left + w_ch * n_ch - w_ch // 10, y_bar, x_left + w, y_bar, color, width=line_w)
 
     def draw_sym_al(self, symbol: str, y_off: int, color, al_h: int, x: int, y: int, font: ImageFont, al: Align):
         """
@@ -731,17 +817,17 @@ class Renderer:
         o_x = g.oX
         color = Color.to_pil(color)
         for i, part in enumerate(RulePart):
-            self.fill_rect(o_x, y0 + g.edge_h(part, True) - (i + 1) // 2, g.side_w, 1, color)
-        self.fill_rect(o_x, y0 + g.side_h - 2, g.side_w, 1, color)
+            self.r.fill_rect(o_x, y0 + g.edge_h(part, True) - (i + 1) // 2, g.side_w, 1, color)
+        self.r.fill_rect(o_x, y0 + g.side_h - 2, g.side_w, 1, color)
         for vertical_x in [o_x, total_w - o_x]:
-            self.fill_rect(vertical_x, y0, 1, g.side_h, color)
+            self.r.fill_rect(vertical_x, y0, 1, g.side_h, color)
         # Top Stator Cut-outs
         if g.brace_shape == BraceShape.L:
             stator_h = g.stator_h
             part = RulePart.STATOR_BOTTOM if side == Side.REAR else RulePart.STATOR_TOP
             stator_cutout_w = stator_h // 2
             for horizontal_x in [stator_cutout_w + o_x, (total_w - stator_cutout_w) - o_x]:
-                self.fill_rect(horizontal_x, y0 + g.edge_h(part, True), 1, stator_h, color)
+                self.r.fill_rect(horizontal_x, y0 + g.edge_h(part, True), 1, stator_h, color)
 
     def draw_brace_pieces(self, y_off: int, side: Side):
         """Draw the metal bracket locations for viewing"""
@@ -749,7 +835,7 @@ class Renderer:
         g = self.geometry
         verticals = [g.brace_w + g.oX, g.total_w - g.brace_w - g.oX]
         for i, start in enumerate(verticals):
-            self.fill_rect(start - 1, y_off, 2, i, Color.CUTOFF.value)
+            self.r.fill_rect(start - 1, y_off, 2, i, Color.CUTOFF.value)
 
         brace_fl = g.brace_outline(y_off)
         if brace_fl is None:
@@ -763,15 +849,15 @@ class Renderer:
             mid_y = 2 * y_off + g.side_h
             coords = g.mirror_vectors_v(coords, mid_y)
         for (x1, x2, y1, y2) in coords:
-            self.r.rectangle((x1 - 1, y1 - 1, x2 + 1, y2 + 1), fill=Color.CUTOFF2.value)
+            self.r.draw_line(x1 - 1, y1 - 1, x2 + 1, y2 + 1, Color.CUTOFF2.value, 2)
 
     # ---------------------- 5. Stickers -----------------------------
 
     def draw_corners(self, x0: float, y0: float, dx: float, dy: float, col, arm_w=20):
         """Draw cross arms at each corner of the rectangle defined."""
         for (cx, cy) in ((x0, y0), (x0, y0 + dy), (x0 + dx, y0), (x0 + dx, y0 + dy)):
-            self.r.line((cx - arm_w, cy, cx + arm_w, cy), col)  # horizontal cross arm
-            self.r.line((cx, cy - arm_w, cx, cy + arm_w), col)  # vertical cross arm
+            self.r.draw_line(cx - arm_w, cy, cx + arm_w, cy, col)  # horizontal cross arm
+            self.r.draw_line(cx, cy - arm_w, cx, cy + arm_w, col)  # vertical cross arm
 
 
 class Sym:
@@ -885,6 +971,8 @@ def extend(image: Image, total_w: int, y: int, direction: BleedDir, amplitude: i
     amplitude: number of pixels to extend
     """
     assert y < image.height
+    if isinstance(image, svg.Drawing):
+        return  # TODO implement extend/bleed for SVG?
     for x in range(0, int(total_w)):
         bleed_color = image.getpixel((x, y))
         for yi in range(y - amplitude, y) if direction == BleedDir.UP else range(y, y + amplitude):
@@ -1132,7 +1220,7 @@ class Scale:
         if end_value is None:
             end_value = self.value_at_end()
         start_pos = self.pos_of(start_value, g)
-        r.fill_rect(li + start_pos, y_off, self.pos_of(end_value, g) - start_pos, g.scale_h(self), color)
+        r.r.fill_rect(li + start_pos, y_off, self.pos_of(end_value, g) - start_pos, g.scale_h(self), color)
 
     def renamed(self, new_key: str, **kwargs):
         if 'left_sym' not in kwargs:
@@ -1427,7 +1515,7 @@ class Ruler:
         font1 = s.font_for(FontSize.N_LG)
         scale_h = g.scale_h(self)
         if DEBUG:
-            r.draw_box(self.pos_of(0), y_off, self.scale_w(g), scale_h, Color.DEBUG)
+            r.r.draw_box(self.pos_of(0), y_off, self.scale_w(g), scale_h, Color.DEBUG)
         sym_col = Color.to_pil(s.fg_col(self.key, is_increasing=self.is_increasing))
         i_sf = math.prod(self.tick_pattern)
         step1, step2, step3, _ = t_s(i_sf, self.tick_pattern)
@@ -1564,7 +1652,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
 
     scale_w = g.SL
     if DEBUG:
-        r.draw_box(g.li, y_off, scale_w, h, Color.DEBUG)
+        r.r.draw_box(g.li, y_off, scale_w, h, Color.DEBUG)
 
     sym_col = Color.to_pil(s.fg_col(sc.key, is_increasing=sc.is_increasing))
     bg_col = Color.to_pil(s.bg_col(sc.key))
@@ -1744,24 +1832,38 @@ class Mode(Enum):
     RENDER, DIAGNOSTIC, STICKERPRINT = 'render', 'diagnostic', 'stickerprint'
 
 
+class OutFormat(Enum):
+    PNG, SVG = 'png', 'svg'
+
+
 def transcribe(src_img: Image.Image, dst_img: Image.Image,
                src_x: int, src_y: int, size_x: int, size_y: int, target_x: int, target_y: int):
     """Transfer a pixel rectangle from a SOURCE (for rendering) to DESTINATION (for stickerprint)"""
+    if isinstance(src_img, svg.Drawing):
+        return  # TODO implement SVG transcription! copy the elements over?
     assert size_x > 0
     assert size_y > 0
     src_box = src_img.crop((src_x, src_y, src_x + size_x, src_y + size_y))
     dst_img.paste(src_box, (target_x, target_y))
 
 
-def image_for_rendering(model: Model, w=None, h=None):
+def image_for_rendering(model: Model, output_format: OutFormat, w=None, h=None):
     g = model.geometry
-    return Image.new('RGB', (int(w or g.total_w), int(h or g.print_h)), model.style.bg.value)
+    if output_format == OutFormat.PNG:
+        return Image.new('RGB', (int(w or g.total_w), int(h or g.print_h)), model.style.bg.value)
+    elif output_format == OutFormat.SVG:
+        return svg.Drawing(int(w or g.total_w), int(h or g.print_h))  # TODO: background color
 
 
-def save_png(img_to_save: Image, basename: str, output_suffix=None):
-    output_filename = f"{basename}{'.' + output_suffix if output_suffix else ''}.png"
+def save_image(img_to_save, basename: str, output_suffix=None):
+    output_filename = f"{basename}{'.' + output_suffix if output_suffix else ''}"
     output_full_path = os.path.abspath(output_filename)
-    img_to_save.save(output_full_path, 'PNG')
+    if isinstance(img_to_save, Image.Image):
+        output_full_path += '.png'
+        img_to_save.save(output_full_path, 'PNG')
+    elif isinstance(img_to_save, svg.Drawing):
+        output_full_path += '.svg'
+        img_to_save.save_svg(output_full_path)
     print(f'Result saved to: file://{output_full_path}')
 
 
@@ -1790,8 +1892,13 @@ def main():
     args_parser.add_argument('--debug',
                              action='store_true',
                              help='Render debug indications (corners and bounding boxes)')
+    args_parser.add_argument('--format',
+                             default=OutFormat.PNG.value,
+                             choices=[f.value for f in OutFormat],
+                             help='Output format')
     cli_args = args_parser.parse_args()
     mode: Mode = next(mode for mode in Mode if mode.value == cli_args.mode)
+    out_format: OutFormat = next(f for f in OutFormat if f.value == cli_args.format)
     model_name = cli_args.model
     model = Model.load(model_name)
     output_suffix = cli_args.suffix or ('test' if cli_args.test else None)
@@ -1804,31 +1911,31 @@ def main():
     sliderule_img = None
     if mode in {Mode.RENDER, Mode.STICKERPRINT}:
         mode_render = mode == Mode.RENDER
-        sliderule_img = render_sliderule_mode(model, sliderule_img,
+        sliderule_img = render_sliderule_mode(model, out_format, sliderule_img,
                                               borders=mode_render, cutoffs=render_cutoffs)
         print(f'Slide Rule render finished at: {round(time.process_time() - start_time, 3)} seconds')
         if mode_render:
-            save_png(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
+            save_image(sliderule_img, f'{model_name}.SlideRuleScales', output_suffix)
 
     if mode == Mode.DIAGNOSTIC:
-        diagnostic_img = render_diagnostic_mode(model, all_scales=model != DemoModel)
+        diagnostic_img = render_diagnostic_mode(model, out_format, all_scales=model != DemoModel)
         print(f'Diagnostic render finished at: {round(time.process_time() - start_time, 3)} seconds')
-        save_png(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
+        save_image(diagnostic_img, f'{model_name}.Diagnostic', output_suffix)
 
     if mode == Mode.STICKERPRINT:
-        stickerprint_img = render_stickerprint_mode(model, sliderule_img)
+        stickerprint_img = render_stickerprint_mode(model, out_format, sliderule_img)
         print(f'Stickerprint render finished at: {round(time.process_time() - start_time, 3)} seconds')
-        save_png(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
+        save_image(stickerprint_img, f'{model_name}.StickerCut', output_suffix)
 
     print(f'Program finished at: {round(time.process_time() - start_time, 3)} seconds')
 
 
-def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = False, cutoffs: bool = False):
+def render_sliderule_mode(model: Model, output_format: OutFormat, sliderule_img=None, borders: bool = False, cutoffs: bool = False):
     if sliderule_img is None:
-        sliderule_img = image_for_rendering(model)
+        sliderule_img = image_for_rendering(model, output_format)
     g, layout = model.geometry, model.layout
     y_front_start = g.oY
-    r = Renderer.make(sliderule_img, g, model.style)
+    r = Renderer.to_image(sliderule_img, g, model.style)
     y_rear_start = y_front_start + g.side_h + g.oY
     # Front Scale
     # Titling
@@ -1880,7 +1987,7 @@ def render_sliderule_mode(model: Model, sliderule_img=None, borders: bool = Fals
     return sliderule_img
 
 
-def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
+def render_stickerprint_mode(m: Model, output_format: OutFormat, sliderule_img: Image.Image):
     """Stickers break down by side, then part, then side cutoffs vs middle.
     18 total stickers: 2 sides x 3 parts x 3 bands."""
     o_x2, o_y2 = 50, 50  # margins
@@ -1894,8 +2001,8 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
     total_w = scale_w + 2 * o_x2
     sticker_row_h = max(slide_h, stator_h) + o_a
     total_h = o_y2 * 2 + (side_h + 2 * o_a) * 2 + o_a * 3 + (sticker_row_h * 2 if has_braces else 0) + 45
-    dst_img = image_for_rendering(m, w=total_w, h=total_h)
-    r = Renderer.make(dst_img, replace(g, side_w=scale_w, oX=0, oY=0), m.style)
+    dst_img = image_for_rendering(m, output_format, w=total_w, h=total_h)
+    r = Renderer.to_image(dst_img, replace(g, side_w=scale_w, oX=0, oY=0), m.style)
     y = o_y2
     # Middle band stickers:
     cut_col = Color.to_pil(Color.CUT)
@@ -1923,7 +2030,7 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
         for (x0, y0, dx, dy) in boxes:
             for x1 in (x0, 2 * box_x_mirror - x0 - dx):
                 for y1 in (y0, y0 + slide_h + o_a):
-                    r.draw_box(x1, y1, dx, dy, cut_col)
+                    r.r.draw_box(x1, y1, dx, dy, cut_col)
         scale_h = g.SH
         p1 = [
             (2 * o_a + 120,                                  y_b + o_a + scale_h),
@@ -1934,11 +2041,11 @@ def render_stickerprint_mode(m: Model, sliderule_img: Image.Image):
                        for (i, (cx, cy)) in enumerate(p1)]
         for (cx, cy) in points:
             for x in (cx, 2 * box_x_mirror - cx):
-                r.draw_circle(x, cy, g.brace_hole_r, cut_col)
+                r.r.draw_circle(x, cy, g.brace_hole_r, cut_col)
     return dst_img
 
 
-def render_diagnostic_mode(model: Model, all_scales=False):
+def render_diagnostic_mode(model: Model, output_format: OutFormat, all_scales=False):
     """
     Diagnostic mode, rendering scales independently.
     Works as a test of tick marks, labeling, and layout. Also, regressions.
@@ -1961,8 +2068,8 @@ def render_diagnostic_mode(model: Model, all_scales=False):
         (Geometry.SL, scale_h),
         slide_h=480
     )
-    diagnostic_img = image_for_rendering(model, w=geom_d.total_w, h=total_h)
-    r = Renderer.make(diagnostic_img, geom_d, style)
+    diagnostic_img = image_for_rendering(model, output_format, w=geom_d.total_w, h=total_h)
+    r = Renderer.to_image(diagnostic_img, geom_d, style)
     title_x = geom_d.midpoint_x - geom_d.li
     title = 'Diagnostic Test Print of Available Scales'
     r.draw_sym_al(title, 50, style.fg, 0, title_x, 0, style.font_for(FontSize.TITLE), upper)
@@ -1972,7 +2079,7 @@ def render_diagnostic_mode(model: Model, all_scales=False):
     if DEBUG:
         band_w = Scales.L.gen_fn(1) * geom_d.SL
         for i in range(-2, 12, 2):
-            r.fill_rect(geom_d.li + band_w * i, k, band_w, total_h, Color.RED_WHITE_1)
+            r.r.fill_rect(geom_d.li + band_w * i, k, band_w, total_h, Color.RED_WHITE_1)
     for n, sc_name in enumerate(scale_names):
         sc = layout.scale_named(sc_name)
         assert sc, f'Scale not found: {sc_name}'

@@ -355,9 +355,9 @@ class RendererTestCase(unittest.TestCase):
 
     def test_pat_auto(self):
         with patch.object(Renderer, 'pat', return_value=None) as mock_pat:
-            r = Renderer.make(self.tmp_image,
-                              DemoModel.geometry,
-                              Style(font_family=(None, None, None, None)))
+            r = Renderer.to_image(self.tmp_image,
+                                  DemoModel.geometry,
+                                  Style(font_family=(None, None, None, None)))
             Scales.LL3.grad_pat_default(r, 0, Align.LOWER)
             self.assertEquals(mock_pat.call_count, len(Scales.LL3.dividers) + 1)
             call_args_list = [(args[3:8]) for (args, _) in mock_pat.call_args_list]
