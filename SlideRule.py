@@ -531,8 +531,9 @@ class Out:
         self.r = r
     def draw_box(self, x0, y0, dx, dy, col, width=1): pass
     def fill_rect(self, x0, y0, dx, dy, col): pass
+    def tick_line(self, x0, y0, h, width, col): pass
     def draw_circle(self, xc, yc, r, col): pass
-    def draw_line(self, x0, y0, x1, y1, col, width=1): pass
+    def draw_line(self, x0, y0, x1, y1, col): pass
     def draw_text(self, x_left, y_top, symbol: str, font, color):
         pass
 
@@ -552,12 +553,15 @@ class RasterOut(Out):
     def draw_circle(self, xc, yc, r, col):
         self.r.ellipse((xc - r, yc - r, xc + r, yc + r), outline=Color.to_pil(col))
 
-    def draw_line(self, x0, y0, x1, y1, col, width=1):
-        self.r.line((x0, y0, x1, y1), width=width, fill=col)
+    def draw_line(self, x0, y0, x1, y1, col):
+        self.r.line((x0, y0, x1, y1), fill=col)
+
+    def tick_line(self, x0, y0, h, width, col):
+        x0 -= width // 2 + 1
+        self.r.rectangle((x0, y0, x0 + width, y0 + h), fill=col)
 
     def draw_text(self, x_left, y_top, symbol: str, font, color):
         self.r.text((x_left, y_top), symbol, font=font, fill=color)
-
 
 
 class SVGOut(Out):
@@ -585,13 +589,13 @@ class SVGOut(Out):
     def for_drawing(cls, i: svg.Drawing):
         return cls(i)
 
-    @classmethod
-    def color_str(cls, col):
+    @cache
+    def color_str(self, col):
         if col == (0, 0, 0):
             return None
         elif col == (255, 0, 0):
             return 'red'
-        return f'rgb({col[0]},{col[1]},{col[2]})' if isinstance(col, tuple) else cls.colors.get(col, col)
+        return f'rgb({col[0]},{col[1]},{col[2]})' if isinstance(col, tuple) else col
 
     def draw_box(self, x0, y0, dx, dy, col, width=1):
         self.r.append(svg.Rectangle(x0, y0, dx, dy, stroke=self.color_str(col), stroke_width=width))
@@ -602,8 +606,18 @@ class SVGOut(Out):
     def draw_circle(self, xc, yc, r, col):
         self.r.append(svg.Circle(xc, yc, r, stroke=self.color_str(col)))
 
-    def draw_line(self, x0, y0, x1, y1, col, width=1):
-        self.r.append(svg.Line(x0, y0, x1, y1, width=width, fill=self.color_str(col)))
+    def draw_line(self, x0, y0, x1, y1, col):
+        self.r.append(svg.Line(x0, y0, x1, y1, fill=self.color_str(col)))
+
+    @cache
+    def get_tick_ref(self, h, w, col, line_mode=False):
+        if line_mode:
+            return svg.Line(0, 0, h, 0, fill=self.color_str(col))
+        return svg.Rectangle(0, 0, w, h, fill=col)
+
+    def tick_line(self, x0, y0, h, width, col):
+        tick_line = self.get_tick_ref(h, width, col)
+        self.r.append(svg.Use(tick_line, x0, y0))
 
     def draw_text(self, x_left, y_top, symbol: str, font: ImageFont, col):
         w, h = Style.sym_dims(symbol, font)
@@ -634,11 +648,11 @@ class Renderer:
 
     def draw_tick(self, y_off: int, x: int, h: int, col, scale_h: int, al: Align):
         """Places an individual tick, aligned to top or bottom of scale"""
-        x0 = x + self.geometry.li - 2
+        x0 = x + self.geometry.li
         y0 = y_off
         if al == Align.LOWER:
             y0 += scale_h - h - 1
-        self.r.fill_rect(x0, y0, self.geometry.STT, h + 1, col)
+        self.r.tick_line(x0, y0, h, self.geometry.STT, col)
 
     def pat(self, y_off: int, sc, al: Align, i_start, i_end, i_sf, steps_i, steps_th, steps_font, digit1):
         """
@@ -750,7 +764,7 @@ class Renderer:
             (_, h_num) = self.style.sym_dims('1', font)
             line_w = h_rad // 14
             y_bar = y_top + max(10, round(h - h_num - line_w * 2))
-            self.r.draw_line(x_left + w_ch * n_ch - w_ch // 10, y_bar, x_left + w, y_bar, color, width=line_w)
+            self.r.fill_rect(x_left + w_ch * n_ch - w_ch // 10, y_bar + line_w, w, 0, color)
 
     def draw_sym_al(self, symbol: str, y_off: int, color, al_h: int, x: int, y: int, font: ImageFont, al: Align):
         """
@@ -849,7 +863,7 @@ class Renderer:
             mid_y = 2 * y_off + g.side_h
             coords = g.mirror_vectors_v(coords, mid_y)
         for (x1, x2, y1, y2) in coords:
-            self.r.draw_line(x1 - 1, y1 - 1, x2 + 1, y2 + 1, Color.CUTOFF2.value, 2)
+            self.r.fill_rect(x1 - 1, y1 - 1, x2 + 1, y2 + 1, Color.CUTOFF2.value)
 
     # ---------------------- 5. Stickers -----------------------------
 
@@ -1852,7 +1866,7 @@ def image_for_rendering(model: Model, output_format: OutFormat, w=None, h=None):
     if output_format == OutFormat.PNG:
         return Image.new('RGB', (int(w or g.total_w), int(h or g.print_h)), model.style.bg.value)
     elif output_format == OutFormat.SVG:
-        return svg.Drawing(int(w or g.total_w), int(h or g.print_h))  # TODO: background color
+        return svg.Drawing(int(w or g.total_w), int(h or g.print_h), id_prefix='def_')  # TODO: background color
 
 
 def save_image(img_to_save, basename: str, output_suffix=None):
