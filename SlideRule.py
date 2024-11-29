@@ -22,6 +22,7 @@ import os
 import re
 import time
 import unicodedata
+import xml.dom.minidom
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from functools import cache
@@ -94,31 +95,45 @@ class FontStyle(Enum):
     REG, ITALIC, BOLD, BOLD_ITALIC = 0, 1, 2, 3
 
 
+class OutFormat(Enum):
+    PNG, SVG = 'png', 'svg'
+
+
 class Font:
     """Fonts are families per https://cm-unicode.sourceforge.io/font_table.html"""
     Family = tuple[str, str, str, str]
-    CMUTypewriter: Family = ('cmuntt.ttf', 'cmunit.ttf', 'cmuntb.ttf', 'cmuntx.ttf')
+    CMUTypewriter: Family = ('cmuntt', 'cmunit', 'cmuntb', 'cmuntx')
     # = CMUTypewriter-Regular, CMUTypewriter-Italic, CMUTypewriter-Bold, CMUTypewriter-BoldItalic
-    CMUSansSerif: Family = ('cmunss.ttf', 'cmunsi.ttf', 'cmunsx.ttf', 'cmunso.ttf')
+    CMUSansSerif: Family = ('cmunss', 'cmunsi', 'cmunsx', 'cmunso')
     # = CMUSansSerif, CMUSansSerif-Oblique, CMUSansSerif-Bold, CMUSansSerif-BoldOblique
-    CMUConcrete: Family = ('cmunorm.ttf', 'cmunoti.ttf', 'cmunobx.ttf', 'cmunobi.ttf')
+    CMUConcrete: Family = ('cmunorm', 'cmunoti', 'cmunobx', 'cmunobi')
     # = CMUConcrete-Roman, CMUConcrete-Italic, CMUConcrete-Bold, CMUConcrete-BoldItalic
-    CMUBright: Family = ('cmunbsr.ttf', 'cmunbso.ttf', 'cmunbsr.ttf', 'cmunbso.ttf')
+    CMUBright: Family = ('cmunbsr', 'cmunbso', 'cmunbsr', 'cmunbso')
     # = CMUBright-SemiBold, CMUBright-SemiBoldOblique, CMUBright-SemiBold, CMUBright-SemiBoldOblique
-    # 'cmunbmr.ttf', 'cmunbmo.ttf',  # CMUBright-Roman, CMUBright-Oblique
+    # 'cmunbmr', 'cmunbmo',  # CMUBright-Roman, CMUBright-Oblique
 
     @classmethod
     @cache
-    def get_font(cls, font_family: Family, fs: int, font_style: int):
+    def get_truetype_font(cls, font_family: Family, fs: int, font_style: int):
         font_name = font_family[font_style]
+        if not font_name.endswith('.ttf'): font_name += '.ttf'
         return ImageFont.truetype(font_name, fs)
+
+    @classmethod
+    @cache
+    def get_svg_font_for(cls, font: ImageFont):
+        font_name = os.path.basename(font.path)
+        if font_name.endswith('.ttf'): font_name = font_name[:-4]
+        if not font_name.endswith('.svg'): font_name += '.svg'
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'fonts', font_name)) as font_file:
+            return xml.dom.minidom.parse(font_file)
 
     @classmethod
     def font_for(cls, font_family: Family, font_size, font_style=FontStyle.REG, h_ratio: float = None):
         fs: int = font_size.value if isinstance(font_size, FontSize) else font_size
         if h_ratio and h_ratio != 1:
             fs = round(fs * h_ratio)
-        return cls.get_font(font_family, fs, font_style.value)
+        return cls.get_truetype_font(font_family, fs, font_style.value)
 
 
 @dataclass(frozen=True)
@@ -585,6 +600,10 @@ class SVGOut(Out):
         'BoldOblique': 'oblique',
     }
 
+    def __init__(self, r):
+        super().__init__(r)
+        self.font_ids = set()
+
     @classmethod
     def for_drawing(cls, i: svg.Drawing):
         return cls(i)
@@ -596,6 +615,14 @@ class SVGOut(Out):
         elif col == (255, 0, 0):
             return 'red'
         return f'rgb({col[0]},{col[1]},{col[2]})' if isinstance(col, tuple) else col
+
+    def add_font(self, font: ImageFont):
+        svg_font = Font.get_svg_font_for(font)
+        for font_elem in svg_font.getElementsByTagName('font'):
+            font_id = font_elem.getAttribute('id')
+            if font_id not in self.font_ids:
+                self.r.append_def(svg.Raw(font_elem.toxml()))
+                self.font_ids.add(font_id)
 
     def draw_box(self, x0, y0, dx, dy, col, width=1):
         self.r.append(svg.Rectangle(x0, y0, dx, dy, stroke=self.color_str(col), stroke_width=width))
@@ -619,11 +646,13 @@ class SVGOut(Out):
         tick_line = self.get_tick_ref(h, width, col)
         self.r.append(svg.Use(tick_line, x0, y0))
 
-    def draw_text(self, x_left, y_top, symbol: str, font: ImageFont, col):
+    def draw_text(self, x_left, y_top, symbol: str, font: ImageFont, col, embed_fonts=False):
         w, h = Style.sym_dims(symbol, font)
         family, style = font.getname()
+        if embed_fonts:
+            self.add_font(font)
         self.r.append(svg.Text(symbol, h, x_left, y_top, text_anchor='start', dominant_baseline='hanging',
-                               font_family=self.families.get(family),
+                               font_family=family,
                                font_weight=self.weights.get(style),
                                font_style=self.styles.get(style),
                                fill=self.color_str(col)))
@@ -634,17 +663,21 @@ class Renderer:
     r: Out = None
     geometry: Geometry = None
     style: Style = None
+    out_format: OutFormat = None
 
     no_fonts = (None, None, None)
 
     @classmethod
     def to_image(cls, i, g: Geometry, s: Style):
         out = None
+        out_format = None
         if isinstance(i, Image.Image):
             out = RasterOut.for_image(i)
+            out_format = OutFormat.PNG
         elif isinstance(i, svg.Drawing):
             out = SVGOut.for_drawing(i)
-        return cls(out, g, s)
+            out_format = OutFormat.SVG
+        return cls(out, g, s, out_format)
 
     def draw_tick(self, y_off: int, x: int, h: int, col, scale_h: int, al: Align):
         """Places an individual tick, aligned to top or bottom of scale"""
@@ -1846,10 +1879,6 @@ class Mode(Enum):
     RENDER, DIAGNOSTIC, STICKERPRINT = 'render', 'diagnostic', 'stickerprint'
 
 
-class OutFormat(Enum):
-    PNG, SVG = 'png', 'svg'
-
-
 def transcribe(src_img: Image.Image, dst_img: Image.Image,
                src_x: int, src_y: int, size_x: int, size_y: int, target_x: int, target_y: int):
     """Transfer a pixel rectangle from a SOURCE (for rendering) to DESTINATION (for stickerprint)"""
@@ -1895,6 +1924,10 @@ def main():
                              choices=list(Model.example_names()),
                              default='Demo',
                              help='Which sliderule model')
+    args_parser.add_argument('--format',
+                             default=OutFormat.PNG.value,
+                             choices=[f.value for f in OutFormat],
+                             help='Output format (PNG for sticker printing, SVG for laser tooling')
     args_parser.add_argument('--suffix',
                              help='Output filename suffix for variations')
     args_parser.add_argument('--test',
@@ -1906,10 +1939,6 @@ def main():
     args_parser.add_argument('--debug',
                              action='store_true',
                              help='Render debug indications (corners and bounding boxes)')
-    args_parser.add_argument('--format',
-                             default=OutFormat.PNG.value,
-                             choices=[f.value for f in OutFormat],
-                             help='Output format')
     cli_args = args_parser.parse_args()
     mode: Mode = next(mode for mode in Mode if mode.value == cli_args.mode)
     out_format: OutFormat = next(f for f in OutFormat if f.value == cli_args.format)

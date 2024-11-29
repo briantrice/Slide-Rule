@@ -25,21 +25,26 @@ Or clone this git repository locally and install per the requirements file as:
 python3 -m pip install -r requirements.txt
 ```
 
-An installation of two fonts: `cmuntt.ttf` and `cmunit.ttf` (part of the infamous LaTeX fonts)
-  - These can be found at: https://www.freebestfonts.com/computer-modern-font
-  - Install all of them if you want different typesetting options.
+## Fonts
+This project uses as standard the Computer Modern fonts from LaTeX.
+- `cmuntt.ttf` and `cmunit.ttf` can be found at: https://www.freebestfonts.com/computer-modern-font
+- Install all of them if you want different typesetting options.
+
+If using the SVG output for laser etching and cutting, SVG embeddable path resource versions are available at https://www.checkmyworking.com/cm-web-fonts/.
+Place them in a `fonts/` subdirectory for the code to find.
 
 ```wp-cli
 usage: SlideRule.py [-h] [--mode {render,diagnostic,stickerprint}]
-                    [--model {Demo,MannheimOriginal,Ruler,MannheimWithRuler,Aristo868,Aristo965,PickettN515T,FaberCastell283,FaberCastell283N,Graphoplex621,Hemmi153,UltraLog}]
-                    [--suffix SUFFIX] [--test] [--cutoffs] [--debug]
+                    [--model {Aristo965,Hemmi279,PickettN515T,Hemmi149A,Graphoplex621,FaberCastell283N,MannheimWithRuler,Ruler,Dietzgen1771,FaberCastell283,Demo,UltraLog,Hemmi256,Aristo868,Hemmi153,MannheimOriginal}]
+                    [--format {png,svg}] [--suffix SUFFIX] [--test] [--cutoffs] [--debug]
 
 optional arguments:
   -h, --help            show this help message and exit
   --mode {render,diagnostic,stickerprint}
                         What to render
-  --model {Demo,MannheimOriginal,Ruler,MannheimWithRuler,Aristo868,Aristo965,PickettN515T,FaberCastell283,FaberCastell283N,Graphoplex621,Hemmi153,UltraLog}
+  --model {Aristo965,Hemmi279,PickettN515T,Hemmi149A,Graphoplex621,FaberCastell283N,MannheimWithRuler,Ruler,Dietzgen1771,FaberCastell283,Demo,UltraLog,Hemmi256,Aristo868,Hemmi153,MannheimOriginal}
                         Which sliderule model
+  --format {png,svg}    Output format (PNG for sticker printing, SVG for laser tooling
   --suffix SUFFIX       Output filename suffix for variations
   --test                Output filename for test comparisons
   --cutoffs             Render the metal cutoffs
