@@ -1890,11 +1890,11 @@ def transcribe(src_img: Image.Image, dst_img: Image.Image,
     dst_img.paste(src_box, (target_x, target_y))
 
 
-def image_for_rendering(model: Model, output_format: OutFormat, w=None, h=None):
+def image_for_rendering(model: Model, out_format: OutFormat, w=None, h=None):
     g = model.geometry
-    if output_format == OutFormat.PNG:
+    if out_format == OutFormat.PNG:
         return Image.new('RGB', (int(w or g.total_w), int(h or g.print_h)), model.style.bg.value)
-    elif output_format == OutFormat.SVG:
+    elif out_format == OutFormat.SVG:
         return svg.Drawing(int(w or g.total_w), int(h or g.print_h), id_prefix='def_')  # TODO: background color
 
 
@@ -1973,9 +1973,9 @@ def main():
     print(f'Program finished at: {round(time.process_time() - start_time, 3)} seconds')
 
 
-def render_sliderule_mode(model: Model, output_format: OutFormat, sliderule_img=None, borders: bool = False, cutoffs: bool = False):
+def render_sliderule_mode(model: Model, out_format: OutFormat, sliderule_img=None, borders: bool = False, cutoffs: bool = False):
     if sliderule_img is None:
-        sliderule_img = image_for_rendering(model, output_format)
+        sliderule_img = image_for_rendering(model, out_format)
     g, layout = model.geometry, model.layout
     y_front_start = g.oY
     r = Renderer.to_image(sliderule_img, g, model.style)
@@ -2030,7 +2030,7 @@ def render_sliderule_mode(model: Model, output_format: OutFormat, sliderule_img=
     return sliderule_img
 
 
-def render_stickerprint_mode(m: Model, output_format: OutFormat, sliderule_img: Image.Image):
+def render_stickerprint_mode(m: Model, out_format: OutFormat, sliderule_img: Image.Image):
     """Stickers break down by side, then part, then side cutoffs vs middle.
     18 total stickers: 2 sides x 3 parts x 3 bands."""
     o_x2, o_y2 = 50, 50  # margins
@@ -2044,7 +2044,7 @@ def render_stickerprint_mode(m: Model, output_format: OutFormat, sliderule_img: 
     total_w = scale_w + 2 * o_x2
     sticker_row_h = max(slide_h, stator_h) + o_a
     total_h = o_y2 * 2 + (side_h + 2 * o_a) * 2 + o_a * 3 + (sticker_row_h * 2 if has_braces else 0) + 45
-    dst_img = image_for_rendering(m, output_format, w=total_w, h=total_h)
+    dst_img = image_for_rendering(m, out_format, w=total_w, h=total_h)
     r = Renderer.to_image(dst_img, replace(g, side_w=scale_w, oX=0, oY=0), m.style)
     y = o_y2
     # Middle band stickers:
@@ -2089,6 +2089,7 @@ def render_stickerprint_mode(m: Model, output_format: OutFormat, sliderule_img: 
 
 
 def render_diagnostic_mode(model: Model, output_format: OutFormat, all_scales=False):
+def render_diagnostic_mode(model: Model, out_format: OutFormat, all_scales=False):
     """
     Diagnostic mode, rendering scales independently.
     Works as a test of tick marks, labeling, and layout. Also, regressions.
@@ -2111,7 +2112,7 @@ def render_diagnostic_mode(model: Model, output_format: OutFormat, all_scales=Fa
         (Geometry.SL, scale_h),
         slide_h=480
     )
-    diagnostic_img = image_for_rendering(model, output_format, w=geom_d.total_w, h=total_h)
+    diagnostic_img = image_for_rendering(model, out_format, w=geom_d.total_w, h=total_h)
     r = Renderer.to_image(diagnostic_img, geom_d, style)
     title_x = geom_d.midpoint_x - geom_d.li
     title = 'Diagnostic Test Print of Available Scales'
