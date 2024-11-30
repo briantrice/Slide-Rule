@@ -648,14 +648,12 @@ class SVGOut(Out):
 
     def draw_text(self, x_left, y_top, symbol: str, font: ImageFont, col, embed_fonts=False):
         w, h = Style.sym_dims(symbol, font)
-        family, style = font.getname()
+        font_family, font_style = font.getname()
+        weight, style = self.weights.get(font_style), self.styles.get(font_style)
         if embed_fonts:
             self.add_font(font)
         self.r.append(svg.Text(symbol, h, x_left, y_top, text_anchor='start', dominant_baseline='hanging',
-                               font_family=family,
-                               font_weight=self.weights.get(style),
-                               font_style=self.styles.get(style),
-                               fill=self.color_str(col)))
+                               font_family=font_family, font_weight=weight, font_style=style, fill=self.color_str(col)))
 
 
 @dataclass(frozen=True)
@@ -663,21 +661,17 @@ class Renderer:
     r: Out = None
     geometry: Geometry = None
     style: Style = None
-    out_format: OutFormat = None
 
     no_fonts = (None, None, None)
 
     @classmethod
     def to_image(cls, i, g: Geometry, s: Style):
         out = None
-        out_format = None
         if isinstance(i, Image.Image):
             out = RasterOut.for_image(i)
-            out_format = OutFormat.PNG
         elif isinstance(i, svg.Drawing):
             out = SVGOut.for_drawing(i)
-            out_format = OutFormat.SVG
-        return cls(out, g, s, out_format)
+        return cls(out, g, s)
 
     def draw_tick(self, y_off: int, x: int, h: int, col, scale_h: int, al: Align):
         """Places an individual tick, aligned to top or bottom of scale"""
