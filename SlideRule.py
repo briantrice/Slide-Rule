@@ -1889,7 +1889,9 @@ def image_for_rendering(model: Model, out_format: OutFormat, w=None, h=None):
     if out_format == OutFormat.PNG:
         return Image.new('RGB', (int(w or g.total_w), int(h or g.print_h)), model.style.bg.value)
     elif out_format == OutFormat.SVG:
-        return svg.Drawing(int(w or g.total_w), int(h or g.print_h), id_prefix='def_')  # TODO: background color
+        drawing = svg.Drawing(int(w or g.total_w), int(h or g.print_h), id_prefix='def_')
+        drawing.set_render_size(f'{drawing.width / Geometry.PixelsPerIN}in', f'{drawing.height / Geometry.PixelsPerIN}in')
+        return drawing
 
 
 def save_image(img_to_save, basename: str, output_suffix=None):
