@@ -46,13 +46,14 @@ DEG_FULL = 360
 DEG_SEMI = DEG_FULL // 2
 DEG_RT = DEG_SEMI // 2
 
-BYTE_MAX = 255
+FF = 255
 WH = tuple[int, int]
 
 
 class Color(Enum):
-    WHITE, BLACK = (BYTE_MAX, BYTE_MAX, BYTE_MAX), (0, 0, 0)
-    RED, GREEN, BLUE = (BYTE_MAX, 0, 0), (0, BYTE_MAX, 0), (0, 0, BYTE_MAX)
+    WHITE, BLACK = (FF, FF, FF), (0, 0, 0)
+    RED, GREEN, BLUE = (FF, 0, 0), (0, FF, 0), (0, 0, FF)
+    YELLOW, CYAN, MAGENTA = (FF, FF, 0), (0, FF, FF), (FF, 0, FF)
 
     CUT = BLUE  # color which indicates CUT
     CUTOFF = (230, 230, 230)
@@ -63,9 +64,9 @@ class Color(Enum):
     PICKETT_EYE_SAVER_YELLOW = (253, 253, 150)  # pastel yellow
     LIGHT_BLUE = 'lightblue'
 
-    RED_WHITE_1 = (BYTE_MAX, 224, 224)
-    RED_WHITE_2 = (BYTE_MAX, 192, 192)
-    RED_WHITE_3 = (BYTE_MAX, 160, 160)
+    RED_WHITE_1 = (FF, 224, 224)
+    RED_WHITE_2 = (FF, 192, 192)
+    RED_WHITE_3 = (FF, 160, 160)
 
     DEBUG = 'grey'
 
@@ -152,6 +153,7 @@ class Style:
     overrides: dict[str, dict[str, object]] = field(default_factory=dict)
     right_sym: bool = True
     """Whether to draw the right legend, usually formula, omitted for pocket slide rules."""
+    border_color: Color = Color.BLACK
 
     @classmethod
     def from_dict(cls, style_def: dict):
@@ -337,6 +339,14 @@ class Geometry:
         return int((self.side_h - self.slide_h) // 2)
 
     @property
+    def has_inset_stator(self):
+        return self.brace_shape == BraceShape.L
+
+    @property
+    def short_stator_inset_w(self):
+        return self.stator_h // 2
+
+    @property
     def brace_w(self):
         """Brace width default, to ensure a square anchor piece."""
         return 0 if self.brace_shape is None else self.stator_h
@@ -398,6 +408,14 @@ class Geometry:
             return int(self.SL * (sc.overhang_ratio() + (self.label_offset_frac(sc) if with_labels else 0)))
         elif isinstance(sc, Ruler):
             return int(sc.scale_w(self))
+
+    def part_bounds(self, part: RulePart, side: Side):
+        """Creates and returns the front part outline as a rectangle of: (x1,y1,dx,dy)"""
+        x0, x1 = self.oX, self.total_w - self.oX
+        if self.has_inset_stator and part == (RulePart.STATOR_TOP if side == Side.FRONT else RulePart.STATOR_BOTTOM):
+            x0 += self.short_stator_inset_w
+            x1 -= self.short_stator_inset_w
+        return x0, self.edge_h(part, True), x1 - x0, self.part_h(part)
 
     def brace_outline(self, y_off):
         """Creates and returns the left front brace piece outline in vectors as: (x1,x2,y1,y2)"""
@@ -546,11 +564,13 @@ class Out:
         self.r = r
     def draw_box(self, x0, y0, dx, dy, col, width=1): pass
     def fill_rect(self, x0, y0, dx, dy, col): pass
-    def tick_line(self, x0, y0, h, width, col): pass
+    def draw_cut(self, x0, y0, dx, dy, width, col):
+        self.fill_rect(x0, y0, max(dx, width), max(dy, width), col)
+    def draw_cut2(self, x0, y0, dx, dy, width, col): self.draw_cut(x0, y0, dx, dy, width, col)
+    def draw_tick(self, x0, y0, h, width, col): pass
     def draw_circle(self, xc, yc, r, col): pass
     def draw_line(self, x0, y0, x1, y1, col): pass
-    def draw_text(self, x_left, y_top, symbol: str, font, color):
-        pass
+    def draw_text(self, x_left, y_top, symbol: str, font, color): pass
 
 class RasterOut(Out):
     r: ImageDraw.ImageDraw = None
@@ -563,7 +583,7 @@ class RasterOut(Out):
         self.r.rectangle((x0, y0, x0 + dx, y0 + dy), outline=Color.to_pil(col), width=width)
 
     def fill_rect(self, x0, y0, dx, dy, col):
-        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), fill=col)
+        self.r.rectangle((x0, y0, x0 + dx, y0 + dy), fill=Color.to_pil(col))
 
     def draw_circle(self, xc, yc, r, col):
         self.r.ellipse((xc - r, yc - r, xc + r, yc + r), outline=Color.to_pil(col))
@@ -571,16 +591,23 @@ class RasterOut(Out):
     def draw_line(self, x0, y0, x1, y1, col):
         self.r.line((x0, y0, x1, y1), fill=col)
 
-    def tick_line(self, x0, y0, h, width, col):
+    def draw_tick(self, x0, y0, h, width, col):
         x0 -= width // 2 + 1
-        self.r.rectangle((x0, y0, x0 + width, y0 + h), fill=col)
+        self.r.rectangle((x0, y0, x0 + width, y0 + h), fill=Color.to_pil(col))
 
     def draw_text(self, x_left, y_top, symbol: str, font, color):
-        self.r.text((x_left, y_top), symbol, font=font, fill=color)
+        self.r.text((x_left, y_top), symbol, font=font, fill=Color.to_pil(color))
 
 
 class SVGOut(Out):
     r: svg.Drawing = None
+    embed_fonts: bool = True
+
+    cut_color = 'red'
+    cut_color_2 = 'cyan'
+    etch_color = 'blue'
+    etch_color_2 = 'green'
+    raster_color = 'black'
 
     families = {
         'CMU Typewriter Text': 'math',
@@ -630,6 +657,14 @@ class SVGOut(Out):
     def fill_rect(self, x0, y0, dx, dy, col):
         self.r.append(svg.Rectangle(x0, y0, dx, dy, fill=self.color_str(col)))
 
+    def draw_cut(self, x0, y0, dx, dy, width, col):
+        super().draw_cut(x0, y0, dx, dy, width, self.cut_color)
+        # self.r.elements[-1].args['class'] = 'cut'
+
+    def draw_cut2(self, x0, y0, dx, dy, width, col):
+        super().draw_cut(x0, y0, dx, dy, width, self.cut_color_2)
+        # self.r.elements[-1].args['class'] = 'cut2'
+
     def draw_circle(self, xc, yc, r, col):
         self.r.append(svg.Circle(xc, yc, r, stroke=self.color_str(col)))
 
@@ -638,22 +673,34 @@ class SVGOut(Out):
 
     @cache
     def get_tick_ref(self, h, w, col, line_mode=False):
-        if line_mode:
-            return svg.Line(0, 0, h, 0, fill=self.color_str(col))
-        return svg.Rectangle(0, 0, w, h, fill=col)
+        color_str = self.color_str(col)
+        svg_tick = svg.Line(0, 0, h, 0, fill=color_str)\
+            if line_mode else svg.Rectangle(0, 0, w, h, fill=color_str)
+        svg_tick.args['id'] = f'tick_{w}_{h}'
+        # svg_tick.args['class'] = 'etch tick'
+        return svg_tick
 
-    def tick_line(self, x0, y0, h, width, col):
-        tick_line = self.get_tick_ref(h, width, col)
-        self.r.append(svg.Use(tick_line, x0, y0))
+    def draw_tick(self, x0, y0, h, width, col):
+        self.r.append(svg.Use(self.get_tick_ref(h, width, self.etch_color), x0, y0))
 
-    def draw_text(self, x_left, y_top, symbol: str, font: ImageFont, col, embed_fonts=False):
-        w, h = Style.sym_dims(symbol, font)
+    def draw_text(self, x_left, y_top, symbol: str, font: ImageFont, col):
         font_family, font_style = font.getname()
         weight, style = self.weights.get(font_style), self.styles.get(font_style)
-        if embed_fonts:
+        if self.embed_fonts:
             self.add_font(font)
-        self.r.append(svg.Text(symbol, h, x_left, y_top, text_anchor='start', dominant_baseline='hanging',
-                               font_family=font_family, font_weight=weight, font_style=style, fill=self.color_str(col)))
+        color = self.etch_color if col == Color.BLACK else self.etch_color_2
+        def draw_text_inner(sym, x_l, **kwargs):
+            self.r.append(svg.Text(sym, font.size, x_l, y_top,
+                                   font_family=font_family, font_weight=weight, font_style=style, fill=color,
+                                   text_anchor='start', dominant_baseline='hanging', word_spacing=-10, **kwargs))
+        rad_match = self.draw_radicals and re.match('^(.*[√∛∜])([^√∛∜]*)$', symbol)
+        if rad_match:
+            pre_part, overline_part = rad_match.group(1), rad_match.group(2)
+            pre_w, _ = Style.sym_dims(pre_part, font)
+            draw_text_inner(pre_part, x_left)
+            draw_text_inner(overline_part, x_left + pre_w, text_decoration='overline')
+        else:
+            draw_text_inner(symbol, x_left)
 
 
 @dataclass(frozen=True)
@@ -663,6 +710,7 @@ class Renderer:
     style: Style = None
 
     no_fonts = (None, None, None)
+    draw_radicals = False
 
     @classmethod
     def to_image(cls, i, g: Geometry, s: Style):
@@ -679,7 +727,7 @@ class Renderer:
         y0 = y_off
         if al == Align.LOWER:
             y0 += scale_h - h - 1
-        self.r.tick_line(x0, y0, h, self.geometry.STT, col)
+        self.r.draw_tick(x0, y0, h, self.geometry.STT, col)
 
     def pat(self, y_off: int, sc, al: Align, i_start, i_end, i_sf, steps_i, steps_th, steps_font, digit1):
         """
@@ -701,8 +749,8 @@ class Renderer:
         f1, f2, f3 = steps_font
         d1, d2, d3 = digit1
         scale_w, scale_h = self.geometry.SL, self.geometry.scale_h(sc)
-        col = Color.to_pil(self.style.fg_col(sc.key, is_increasing=sc.is_increasing))
-        tenth_col = Color.to_pil(self.style.decimal_color if sc.is_increasing else col)
+        col = self.style.fg_col(sc.key, is_increasing=sc.is_increasing)
+        tenth_col = self.style.decimal_color if sc.is_increasing else col
         for i in range(i_start, i_end, step4):
             n = i / i_sf
             x = sc.scale_to(n, scale_w)
@@ -776,14 +824,13 @@ class Renderer:
                   s.font_for(FontSize.N_XS, h_ratio) if sub_num and step3 == step_num // 10 else None),
                  (max_num_chars < 3, max_num_chars < 16, max_num_chars < 128))
 
-    def draw_symbol(self, symbol: str, color, x_left: float, y_top: float, font: ImageFont, draw_radicals=True):
-        color = Color.to_pil(color)
+    def draw_symbol(self, symbol: str, color, x_left: float, y_top: float, font: ImageFont):
         symbol = symbol.translate(Sym.UNICODE_SUBS)
         if DEBUG:
             w, h = self.style.sym_dims(symbol, font)
             self.r.draw_box(x_left, y_top, w, h, Color.DEBUG)
         self.r.draw_text(x_left, y_top, symbol, font, color)
-        radicals = draw_radicals and re.search(r'[√∛∜]', symbol)
+        radicals = self.draw_radicals and re.search(r'[√∛∜]', symbol)
         if radicals:
             w, h = self.style.sym_dims(symbol, font)
             n_ch = radicals.start() + 1
@@ -850,25 +897,18 @@ class Renderer:
 
     # ----------------------4. Line Drawing Functions----------------------------
 
-    def draw_borders(self, y0: int, side: Side, color=Color.BLACK):
-        """Place initial borders around scales"""
-        # Main Frame
-        g = self.geometry
-        total_w = g.total_w
-        o_x = g.oX
-        color = Color.to_pil(color)
-        for i, part in enumerate(RulePart):
-            self.r.fill_rect(o_x, y0 + g.edge_h(part, True) - (i + 1) // 2, g.side_w, 1, color)
-        self.r.fill_rect(o_x, y0 + g.side_h - 2, g.side_w, 1, color)
-        for vertical_x in [o_x, total_w - o_x]:
-            self.r.fill_rect(vertical_x, y0, 1, g.side_h, color)
-        # Top Stator Cut-outs
-        if g.brace_shape == BraceShape.L:
-            stator_h = g.stator_h
-            part = RulePart.STATOR_BOTTOM if side == Side.REAR else RulePart.STATOR_TOP
-            stator_cutout_w = stator_h // 2
-            for horizontal_x in [stator_cutout_w + o_x, (total_w - stator_cutout_w) - o_x]:
-                self.r.fill_rect(horizontal_x, y0 + g.edge_h(part, True), 1, stator_h, color)
+    def draw_borders(self, y_off: int, side: Side):
+        """Place borders around the parts"""
+        color = self.style.border_color
+        for i, part in enumerate(RulePart):  # per-part cuts
+            (x0, y0, w, h) = self.geometry.part_bounds(part, side)
+            y0 += y_off
+            self.r.draw_cut(x0, y0, 0, h, 1, color) # left
+            self.r.draw_cut(x0 + w, y0, 0, h, 1, color) # right
+            if side == Side.FRONT or part == RulePart.STATOR_TOP:
+                self.r.draw_cut(x0, y0 - (i + 1) // 2, w, 0, 1, color) # top
+            if side == Side.REAR or part == RulePart.STATOR_BOTTOM:
+                self.r.draw_cut(x0, y0 + h, w, 0, 1, color) # bottom
 
     def draw_brace_pieces(self, y_off: int, side: Side):
         """Draw the metal bracket locations for viewing"""
@@ -879,8 +919,7 @@ class Renderer:
             self.r.fill_rect(start - 1, y_off, 2, i, Color.CUTOFF.value)
 
         brace_fl = g.brace_outline(y_off)
-        if brace_fl is None:
-            return
+        if brace_fl is None: return
 
         # Symmetrically create the right piece
         coords = brace_fl + g.mirror_vectors_h(brace_fl)
@@ -1005,19 +1044,20 @@ class BleedDir(Enum):
     UP, DOWN = 'up', 'down'
 
 
-def extend(image: Image, total_w: int, y: int, direction: BleedDir, amplitude: int):
+def extend(i, total_w: int, y: int, direction: BleedDir, amplitude: int):
     """
     Used to create bleed for sticker cutouts
     y: pixel row to duplicate
     amplitude: number of pixels to extend
     """
-    assert y < image.height
-    if isinstance(image, svg.Drawing):
+    assert y < i.height
+    if isinstance(i, Image.Image):
+        for x in range(0, int(total_w)):
+            bleed_color = i.getpixel((x, y))
+            for yi in range(y - amplitude, y) if direction == BleedDir.UP else range(y, y + amplitude):
+                i.putpixel((x, yi), bleed_color)
+    else:
         return  # TODO implement extend/bleed for SVG?
-    for x in range(0, int(total_w)):
-        bleed_color = image.getpixel((x, y))
-        for yi in range(y - amplitude, y) if direction == BleedDir.UP else range(y, y + amplitude):
-            image.putpixel((x, yi), bleed_color)
 
 
 # ----------------------3. Scale Generating Function----------------------------
@@ -1330,7 +1370,7 @@ class Scales:
     # SRT = Scale('SRT', '∡tan 0.01x', ScaleFNs.SinTanRadians)
     ST = Scale('ST', '∡tan 0.01x°', ScaleFNs.SinTan)
     T = Scale('T', '∡tan x°', ScaleFNs.Tan, mirror_key='CoT')
-    CoT = Scale('CoT', '∡cot x°', ScaleFNs.CoTan, key='CoT', is_increasing=True, mirror_key='T', shift=-1)
+    CoT = Scale('CoT', '∡cot x°', ScaleFNs.CoTan, key='CoT', is_increasing=False, mirror_key='T', shift=-1)
     T1 = T.renamed('T1', left_sym='T₁')
     T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1, mirror_key='CoT2')
     W1 = Scale('W₁', '√x', ScaleFNs.SquareRoot, key='W1', opp_key="W1'", dividers=[1, 2],
@@ -1557,7 +1597,7 @@ class Ruler:
         scale_h = g.scale_h(self)
         if DEBUG:
             r.r.draw_box(self.pos_of(0), y_off, self.scale_w(g), scale_h, Color.DEBUG)
-        sym_col = Color.to_pil(s.fg_col(self.key, is_increasing=self.is_increasing))
+        sym_col = s.fg_col(self.key, is_increasing=self.is_increasing)
         i_sf = math.prod(self.tick_pattern)
         step1, step2, step3, _ = t_s(i_sf, self.tick_pattern)
         for i in range(0, self.num_units_in(g) * i_sf + 1):
@@ -1695,8 +1735,8 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
     if DEBUG:
         r.r.draw_box(g.li, y_off, scale_w, h, Color.DEBUG)
 
-    sym_col = Color.to_pil(s.fg_col(sc.key, is_increasing=sc.is_increasing))
-    bg_col = Color.to_pil(s.bg_col(sc.key))
+    sym_col = s.fg_col(sc.key, is_increasing=sc.is_increasing)
+    bg_col = s.bg_col(sc.key)
     if bg_col:
         sc.band_bg(r, y_off, bg_col)
 
@@ -1873,15 +1913,16 @@ class Mode(Enum):
     RENDER, DIAGNOSTIC, STICKERPRINT = 'render', 'diagnostic', 'stickerprint'
 
 
-def transcribe(src_img: Image.Image, dst_img: Image.Image,
-               src_x: int, src_y: int, size_x: int, size_y: int, target_x: int, target_y: int):
+def transcribe(src_img, dst_img, src_x: int, src_y: int, size_x: int, size_y: int, dst_x: int, dst_y: int):
     """Transfer a pixel rectangle from a SOURCE (for rendering) to DESTINATION (for stickerprint)"""
-    if isinstance(src_img, svg.Drawing):
-        return  # TODO implement SVG transcription! copy the elements over?
     assert size_x > 0
     assert size_y > 0
-    src_box = src_img.crop((src_x, src_y, src_x + size_x, src_y + size_y))
-    dst_img.paste(src_box, (target_x, target_y))
+    if isinstance(src_img, svg.Drawing):
+        for elem in src_img.elements:  # TODO: filter by the rectangle (as a viewport?)
+            dst_img.append(elem)
+    elif isinstance(src_img, Image.Image):
+        src_box = src_img.crop((src_x, src_y, src_x + size_x, src_y + size_y))
+        dst_img.paste(src_box, (dst_x, dst_y))
 
 
 def image_for_rendering(model: Model, out_format: OutFormat, w=None, h=None):
