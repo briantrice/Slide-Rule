@@ -1,3 +1,5 @@
-Pillow==10.3.0
+Pillow==10.4.0
 toml==0.10.2
-drawsvg~=2.0
+drawsvg~=2.4
+ziamath~=0.11
+cairosvg~=2.7
