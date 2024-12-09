@@ -17,6 +17,7 @@ Table of Contents
 
 # ----------------------1. Setup----------------------------
 
+import io
 import math
 import os
 import re
@@ -617,7 +618,8 @@ class RasterOut(Out):
     def draw_latex(self, x_left, y_top, latex: zm.Latex, font, color):
         import cairosvg
         png_bytes = cairosvg.svg2png(latex.svg())
-        self.r.bitmap((x_left, y_top), png_bytes)
+        img = Image.open(io.BytesIO(png_bytes), formats=('PNG',))
+        self.r.bitmap((x_left, y_top), img, fill=Color.to_pil(color))
 
 
 class SVGOut(Out):
