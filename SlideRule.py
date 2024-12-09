@@ -70,7 +70,7 @@ class Color(Enum):
     RED_WHITE_2 = (FF, 192, 192)
     RED_WHITE_3 = (FF, 160, 160)
 
-    DEBUG = 'grey'
+    GREY = (127, 127, 127)
 
     @staticmethod
     @cache
@@ -489,6 +489,9 @@ class Align(Enum):
     UPPER, LOWER = 'upper', 'lower'
 
 
+class HAlign(Enum): L, C, R = 'left', 'center', 'right'
+
+
 TEN = 10
 HUNDRED = TEN * TEN
 
@@ -599,7 +602,7 @@ class RasterOut(Out):
         self.r.rectangle((x0, y0, x0 + dx, y0 + dy), fill=Color.to_pil(col))
 
     def draw_circle(self, xc, yc, r, col):
-        self.r.circle((xc - r, yc - r, xc + r, yc + r), outline=Color.to_pil(col))
+        self.r.circle((xc, yc), r, outline=Color.to_pil(col))
 
     def draw_line(self, x0, y0, x1, y1, col):
         self.r.line((x0, y0, x1, y1), fill=col)
@@ -645,13 +648,15 @@ class SVGOut(Out):
         'BoldOblique': 'oblique',
     }
 
-    @staticmethod
-    def init(debug=True):
+    math_font = None
+
+    @classmethod
+    def init(cls, debug=False):
         for op in ['\\log', '\\ln', '\\asin', '\\acos', '\\atan', '\\acot']:
             zm.declareoperator(op)
-        if debug:
-            zm.config.debug.on()
-        # zm.config.math.mathfont = 'fonts/cm-unicode-0.7.0/cmuntt.otf'
+        if debug: zm.config.debug.on()
+        if cls.math_font: zm.config.math.mathfont = cls.math_font
+        zm.config.math.variant = 'typewriter'
 
     def __init__(self, r):
         super().__init__(r)
@@ -663,8 +668,7 @@ class SVGOut(Out):
 
     @cache
     def color_str(self, col):
-        if col == Color.BLACK or col == Color.BLACK.value:
-            return None
+        if col == Color.BLACK or col == Color.BLACK.value: return None
         return Color.to_str(col) or col
 
     def add_font(self, font: ImageFont):
@@ -676,7 +680,7 @@ class SVGOut(Out):
                 self.font_ids.add(font_id)
 
     def draw_box(self, x0, y0, dx, dy, col, width=1):
-        self.r.append(svg.Rectangle(x0, y0, dx, dy, stroke=self.color_str(col), stroke_width=width))
+        self.r.append(svg.Rectangle(x0, y0, dx, dy, fill_opacity=0, stroke=self.color_str(col), stroke_width=width))
 
     def fill_rect(self, x0, y0, dx, dy, col):
         self.r.append(svg.Rectangle(x0, y0, dx, dy, fill=self.color_str(col)))
@@ -715,7 +719,7 @@ class SVGOut(Out):
         color = self.etch_color if col == Color.BLACK else self.etch_color_2
         self.r.append(svg.Text(symbol, font.size, x_left, y_top,
                                font_family=font_family, font_weight=weight, font_style=style, fill=color,
-                               text_anchor='start', dominant_baseline='hanging', word_spacing=-10, **kwargs))
+                               text_anchor='start', dominant_baseline='hanging', word_spacing=-10))
 
     def draw_latex(self, x_left, y_top, latex: zm.Latex, font, color):
         latex_svg = latex.svgxml()
@@ -728,6 +732,7 @@ class SVGOut(Out):
         latex_svg.append(desc)
         latex_svg_str = ElementTree.tostring(latex_svg, encoding='unicode')
         self.r.append(svg.Raw(latex_svg_str))
+
 
 @dataclass(frozen=True)
 class Renderer:
@@ -853,18 +858,20 @@ class Renderer:
         symbol = symbol.translate(Sym.UNICODE_SUBS)
         if DEBUG:
             w, h = self.style.sym_dims(symbol, font)
-            self.r.draw_box(x_left, y_top, w, h, Color.DEBUG)
+            self.r.draw_box(x_left, y_top, w, h, Color.GREY)
         self.r.draw_text(x_left, y_top, symbol, font, color)
 
-    def draw_expression(self, symbol: str, y_off: int, color, al_h: int, x: int, y: int, font: ImageFont, al: Align):
-        latex_result = zm.Latex(symbol, font.size, 'mathvariant', None, Color.to_pil(color), inline=True)
+    def draw_expression(self, symbol: str, y_off: int, color, al_h: int, x: int, y: int, font: ImageFont, al: Align, h_al=HAlign.R):
+        latex_result = zm.Latex(symbol, font.size, 'mathvariant', color=Color.to_pil(color), inline=True)
         w, h = latex_result.getsize()
         y_top = y_off
         if al == Align.UPPER:
             y_top += y
         elif al == Align.LOWER:
             y_top += al_h - 1 - y - h * 1.2
-        x_left = x + self.geometry.li - w / 2 + self.geometry.STT / 2
+        x_left = x + self.geometry.li
+        if h_al == HAlign.C: x_left -= w / 2
+        elif h_al == HAlign.L: x_left -= w
         self.r.draw_latex(round(x_left), y_top, latex_result, font, color)
 
     def draw_sym_al(self, symbol: str, y_off: int, color, al_h: int, x: int, y: int, font: ImageFont, al: Align):
@@ -903,7 +910,7 @@ class Renderer:
         tick_h = g.tick_h(HMod.XL if al == Align.LOWER else HMod.MED, h_ratio=g.scale_h_ratio(sc, side=side))
         self.draw_tick(y_off, x, tick_h, col, scale_h, al)
         if '\\' in mark.sym:
-            self.draw_expression(mark.sym, y_off, col, scale_h, x, tick_h, font, al)
+            self.draw_expression(mark.sym, y_off, col, scale_h, x, tick_h, font, al, h_al=HAlign.C)
         else:
             self.draw_sym_al(mark.sym, y_off, col, scale_h, x, tick_h, font, al)
 
@@ -1210,8 +1217,6 @@ class Scale:
     def __post_init__(self):
         self.gen_fn = self.scaler.fn
         self.pos_fn = self.scaler.inverse
-        if ' ' in self.right_sym:
-            self.right_sym = self.right_sym.replace(' ', ' ')
         if self.is_increasing is None:
             self.is_increasing = self.scaler.is_increasing
         if self.key is None:
@@ -1344,26 +1349,26 @@ class Scales:
     KI = Scale('KI', '1/x^3', ScaleFNs.InverseCube)
     L = Scale('L', '\\log x', ScaleFN(lambda x: x / TEN, lambda p: p * TEN, min_x=E0))
     # TODO implement "folded-log" L scale with 1/2 log x with the rest of the range across backwards
-    L_FOLDED = Scale('L', '\\tfrac {1}{2} \log x', ScaleFN(lambda x: x / TEN / 2, lambda p: p * TEN * 2, min_x=E0))
+    L_FOLDED = Scale('L', '\\tfrac {1}{2} \\log x', ScaleFN(lambda x: x / TEN / 2, lambda p: p * TEN * 2, min_x=E0))
     Ln = Scale('Ln', '\\ln x', ScaleFN(lambda x: x / LN_TEN, lambda p: p * LN_TEN, min_x=E0))
-    LL0 = Scale('LL₀', 'e^{.001x}', ScaleFNs.LogLog, shift=3, key='LL0',
+    LL0 = Scale('LL_0', 'e^{.001x}', ScaleFNs.LogLog, shift=3, key='LL0',
                 dividers=[1.002, 1.004, 1.010], ex_start_value=1.00095, ex_end_value=1.0105)
-    LL1 = Scale('LL₁', 'e^{.01x}', ScaleFNs.LogLog, shift=2, key='LL1',
+    LL1 = Scale('LL_1', 'e^{.01x}', ScaleFNs.LogLog, shift=2, key='LL1',
                 dividers=[1.02, 1.05, 1.10], ex_start_value=1.0095, ex_end_value=1.11)
-    LL2 = Scale('LL₂', 'e^{.1x}', ScaleFNs.LogLog, shift=1, key='LL2',
+    LL2 = Scale('LL_2', 'e^{.1x}', ScaleFNs.LogLog, shift=1, key='LL2',
                 dividers=[1.2, 2], ex_start_value=1.1, ex_end_value=3, marks=[Marks.e])
-    LL3 = Scale('LL₃', 'e^x', ScaleFNs.LogLog, key='LL3',
+    LL3 = Scale('LL_3', 'e^x', ScaleFNs.LogLog, key='LL3',
                 dividers=[3, 6, 10, 50, 100, 1000, 10000], ex_start_value=2.5, ex_end_value=1e5, marks=[Marks.e])
     LG = L.renamed('LG')
     M = L.renamed('M', comment='M="mantissa"')
     E = LL3.renamed('E', comment='E="exponent"')
-    LL00 = Scale('LL₀₀', 'e^{-.001x}', ScaleFNs.LogLogNeg, shift=3, key='LL00',
+    LL00 = Scale('LL_00', 'e^{-.001x}', ScaleFNs.LogLogNeg, shift=3, key='LL00',
                  dividers=[0.998], ex_start_value=0.989, ex_end_value=0.9991)
-    LL01 = Scale('LL₀₁', 'e^{-.01x}', ScaleFNs.LogLogNeg, shift=2, key='LL01',
+    LL01 = Scale('LL_01', 'e^{-.01x}', ScaleFNs.LogLogNeg, shift=2, key='LL01',
                  dividers=[0.95, 0.98], ex_start_value=0.9, ex_end_value=0.9906)
-    LL02 = Scale('LL₀₂', 'e^{-.1x}', ScaleFNs.LogLogNeg, shift=1, key='LL02',
+    LL02 = Scale('LL_02', 'e^{-.1x}', ScaleFNs.LogLogNeg, shift=1, key='LL02',
                  dividers=[0.8, 0.9], ex_start_value=0.35, ex_end_value=0.91, marks=[Marks.inv_e])
-    LL03 = Scale('LL₀₃', 'e^{-x}', ScaleFNs.LogLogNeg, key='LL03',
+    LL03 = Scale('LL_03', 'e^{-x}', ScaleFNs.LogLogNeg, key='LL03',
                  dividers=[5e-4, 1e-3, 1e-2, 0.1], ex_start_value=1e-4, ex_end_value=0.39, marks=[Marks.inv_e])
     LL_0, LL_1, LL_2, LL_3 = LL00.renamed('LL/0'), LL01.renamed('LL/1'), LL02.renamed('LL/2'), LL03.renamed('LL/3')
     P = Scale('P', '\\sqrt{1-(.1x)^2}', ScaleFNs.Pythagorean, key='P',
@@ -1371,11 +1376,11 @@ class Scales:
     P1 = P.renamed('P_1')
     P2 = replace(P, left_sym='P_2', key='P_2', right_sym='\sqrt{1-(.01x)^2}', shift=1,
                  dividers=[0.999, 0.9998], ex_start_value=P1.ex_end_value, ex_end_value=0.99995, numerals=[0.99995])
-    Q1 = Scale('Q₁', '\\sqrt[3]x', ScaleFNs.CubeRoot, marks=[Marks.cube_root_ten], key='Q1')
-    Q2 = Scale('Q₂', '\\sqrt[3]{10x}', ScaleFNs.CubeRoot, shift=-1, marks=[Marks.cube_root_ten], key='Q2')
-    Q3 = Scale('Q₃', '\\sqrt[3]{100x}', ScaleFNs.CubeRoot, shift=-2, marks=[Marks.cube_root_ten], key='Q3')
-    R1 = Scale('R₁', '\\sqrt{x}', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
-    R2 = Scale('R₂', '\\sqrt{10x}', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
+    Q1 = Scale('Q_1', '\\sqrt[3]x', ScaleFNs.CubeRoot, marks=[Marks.cube_root_ten], key='Q1')
+    Q2 = Scale('Q_2', '\\sqrt[3]{10x}', ScaleFNs.CubeRoot, shift=-1, marks=[Marks.cube_root_ten], key='Q2')
+    Q3 = Scale('Q_3', '\\sqrt[3]{100x}', ScaleFNs.CubeRoot, shift=-2, marks=[Marks.cube_root_ten], key='Q3')
+    R1 = Scale('R_1', '\\sqrt{x}', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
+    R2 = Scale('R_2', '\\sqrt{10x}', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
     Sq1, Sq2 = R1.renamed('Sq1'), R2.renamed('Sq2')
     S = Scale('S', '\\asin x°', ScaleFNs.Sin, mirror_key='CoS')
     CoS = Scale('C', '\\acos x°', ScaleFNs.CoSin, key='CoS', mirror_key='S')
@@ -1385,17 +1390,17 @@ class Scales:
     CoT = Scale('CoT', '\\acot x°', ScaleFNs.CoTan, key='CoT', is_increasing=False, mirror_key='T', shift=-1)
     T1 = T.renamed('T1', left_sym='T₁')
     T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1, mirror_key='CoT2')
-    W1 = Scale('W₁', '\\sqrt x', ScaleFNs.SquareRoot, key='W1', opp_key="W1'", dividers=[1, 2],
+    W1 = Scale('W_1', '\\sqrt x', ScaleFNs.SquareRoot, key='W1', opp_key="W1'", dividers=[1, 2],
                ex_start_value=0.95, ex_end_value=3.38, marks=[Marks.sqrt_ten])
     W1Prime = W1.renamed("W1'", left_sym="W'₁", opp_key='W1')
-    W2 = Scale('W₂', '\\sqrt{10x}', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key="W2'", dividers=[5],
+    W2 = Scale('W_2', '\\sqrt{10x}', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key="W2'", dividers=[5],
                ex_start_value=3, ex_end_value=10.66, marks=W1.marks)
     W2Prime = W2.renamed("W2'", left_sym="W'₂", opp_key='W2')
 
-    H1 = Scale('H₁', '\\sqrt{1+(.1x)^2}', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1], numerals=[1.005])
-    H2 = Scale('H₂', '\\sqrt{1+x^2}', ScaleFNs.Hyperbolic, key='H2', dividers=[4])
-    SH1 = Scale('Sh₁', '\\sinh x', ScaleFNs.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
-    SH2 = Scale('Sh₂', '\\sinh x', ScaleFNs.SinH, key='Sh2')
+    H1 = Scale('H_1', '\\sqrt{1+(.1x)^2}', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1], numerals=[1.005])
+    H2 = Scale('H_2', '\\sqrt{1+x^2}', ScaleFNs.Hyperbolic, key='H2', dividers=[4])
+    SH1 = Scale('Sh_1', '\\sinh x', ScaleFNs.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
+    SH2 = Scale('Sh_2', '\\sinh x', ScaleFNs.SinH, key='Sh2')
     CH1 = Scale('Ch', '\\cosh x', ScaleFNs.CosH, dividers=[1, 2], ex_start_value=0.01)
     TH = Scale('Th', '\\tanh x', ScaleFNs.TanH, shift=1, dividers=[0.2, 0.4, 1, 2], ex_end_value=3)
 
@@ -1608,7 +1613,7 @@ class Ruler:
         font1 = s.font_for(FontSize.N_LG)
         scale_h = g.scale_h(self)
         if DEBUG:
-            r.r.draw_box(self.pos_of(0), y_off, self.scale_w(g), scale_h, Color.DEBUG)
+            r.r.draw_box(self.pos_of(0), y_off, self.scale_w(g), scale_h, Color.GREY)
         sym_col = s.fg_col(self.key, is_increasing=self.is_increasing)
         i_sf = math.prod(self.tick_pattern)
         step1, step2, step3, _ = t_s(i_sf, self.tick_pattern)
@@ -1734,7 +1739,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
 
     # Place Index Symbols (Left and Right)
     f_lbl = s.font_for(FontSize.SC_LBL if h > FontSize.SC_LBL.value * 1.5 else h // 2)
-    f_lbl_s = s.font_for(FontSize.N_XL if h > FontSize.N_XL.value * 2 else h // 2)
+    f_lbl_s = s.font_for(FontSize.N_LG if h > FontSize.N_LG.value * 2 else h // 2)
     f_xln = s.font_for(FontSize.N_XL, h_ratio)
     f_lgn = s.font_for(FontSize.N_LG, h_ratio)
     f_mdn = s.font_for(FontSize.N_MD, h_ratio)
@@ -1745,7 +1750,7 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
 
     scale_w = g.SL
     if DEBUG:
-        r.r.draw_box(g.li, y_off, scale_w, h, Color.DEBUG)
+        r.r.draw_box(g.li, y_off, scale_w, h, Color.GREY)
 
     sym_col = s.fg_col(sc.key, is_increasing=sc.is_increasing)
     bg_col = s.bg_col(sc.key)
@@ -1759,27 +1764,24 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
     alt_col = s.fg_col(sc_alt.key, is_increasing=not sc_alt.is_increasing) if sc_alt else None
 
     # Right
-    (right_sym, expon, _) = Sym.parts_of(sc.right_sym)
-    f_lbl_r = f_lbl_s if len(sc.right_sym) > 6 or expon and len(expon) > 1 else f_lbl
-    w2, h2 = s.sym_dims(right_sym, f_lbl_r)
+    f_lbl_r = f_lbl_s if len(sc.right_sym) > 6 else f_lbl
+    _, h2 = s.sym_dims(sc.right_sym, f_lbl_r)
     y2 = (g.SH - h2) // 2  # Ignore custom height/spacing for legend symbols
     if s.right_sym:
-        x_right = round((1 + label_offset_frac) * scale_w + w2 / 2)
-        r.draw_expression(sc.right_sym, y_off, sym_col, h, x_right, y2, f_lbl_r, al)
+        x_right = round((1 + label_offset_frac) * scale_w)
+        r.draw_expression(sc.right_sym, y_off, sym_col, h, x_right, y2, f_lbl_r, al, h_al=HAlign.R)
         if sc_alt or sc == Scales.ST:
             right_sym = sc_alt.right_sym if sc_alt else '\\asin 0.01x°'
-            r.draw_expression(right_sym, y_off, alt_col or sym_col, h, x_right, round(y2 - h2 * 0.8), f_lbl_r, al)
+            r.draw_expression(right_sym, y_off, alt_col or sym_col, h, x_right, round(y2 - h2 * 0.8), f_lbl_r, al, h_al=HAlign.R)
 
     # Left
     (left_sym, _, subscript) = Sym.parts_of(sc.left_sym)
-    w1, h1 = s.sym_dims(left_sym, f_lbl)
-    if subscript:
-        w1 += s.sym_dims(subscript, f_lgn)[0]
+    _, h1 = s.sym_dims(left_sym, f_lbl)
     y1 = (g.SH - h1) // 2  # Ignore custom height/spacing for legend symbols
-    x_left = round((0 - label_offset_frac) * scale_w - w1 / 2)
-    r.draw_sym_al(sc.left_sym, y_off, sym_col, h, x_left, y1, f_lbl, al)
+    x_left = round((0 - label_offset_frac) * scale_w)
+    r.draw_expression(sc.left_sym, y_off, sym_col, h, x_left, y1, f_lbl, al, h_al=HAlign.L)
     if alt_col:
-        r.draw_sym_al(sc_alt.left_sym, y_off, alt_col, h, x_left - s.sym_w('__', f_lbl), y2, f_lbl, al)
+        r.draw_expression(sc_alt.left_sym, y_off, alt_col, h, x_left - s.sym_w('__', f_lbl), y2, f_lbl, al, h_al=HAlign.L)
 
     th_xl, th_l, th, th_s, th_xs, th_dot = [
         g.tick_h(x, h_ratio) for x in (HMod.XL, HMod.LG, HMod.MED, HMod.SM, HMod.XS, HMod.DOT)]
