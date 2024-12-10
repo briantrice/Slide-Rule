@@ -650,15 +650,17 @@ class SVGOut(Out):
         'BoldOblique': 'oblique',
     }
 
+    text_font = None
     math_font = None
 
     @classmethod
     def init(cls, debug=False):
-        for op in ['\\log', '\\ln', '\\asin', '\\acos', '\\atan', '\\acot']:
+        for op in ['\\sin', '\\cos', '\\tan', '\\cot']:
             zm.declareoperator(op)
         if debug: zm.config.debug.on()
         if cls.math_font: zm.config.math.mathfont = cls.math_font
-        zm.config.math.variant = 'typewriter'
+        if cls.text_font: zm.config.text.textfont = cls.text_font
+        zm.config.math.variant = 'monospace'
 
     def __init__(self, r):
         super().__init__(r)
@@ -864,13 +866,15 @@ class Renderer:
         self.r.draw_text(x_left, y_top, symbol, font, color)
 
     def draw_expression(self, symbol: str, y_off: int, color, al_h: int, x: int, y: int, font: ImageFont, al: Align, h_al=HAlign.R):
-        latex_result = zm.Latex(symbol, font.size, 'mathvariant', color=Color.to_pil(color), inline=True)
+        try:
+            latex_result = zm.Latex(symbol, font.size, color=Color.to_str(color), inline=True)
+        except:
+            self.draw_sym_al(symbol, y_off, color, al_h, x, y, font, al)
+            return
         w, h = latex_result.getsize()
         y_top = y_off
-        if al == Align.UPPER:
-            y_top += y
-        elif al == Align.LOWER:
-            y_top += al_h - 1 - y - h * 1.2
+        if al == Align.UPPER: y_top += y
+        elif al == Align.LOWER: y_top += al_h - 1 - y - h * 1.2
         x_left = x + self.geometry.li
         if h_al == HAlign.C: x_left -= w / 2
         elif h_al == HAlign.L: x_left -= w
@@ -1364,47 +1368,47 @@ class Scales:
     LG = L.renamed('LG')
     M = L.renamed('M', comment='M="mantissa"')
     E = LL3.renamed('E', comment='E="exponent"')
-    LL00 = Scale('LL_00', 'e^{-.001x}', ScaleFNs.LogLogNeg, shift=3, key='LL00',
+    LL00 = Scale('LL_{00}', 'e^{-.001x}', ScaleFNs.LogLogNeg, shift=3, key='LL00',
                  dividers=[0.998], ex_start_value=0.989, ex_end_value=0.9991)
-    LL01 = Scale('LL_01', 'e^{-.01x}', ScaleFNs.LogLogNeg, shift=2, key='LL01',
+    LL01 = Scale('LL_{01}', 'e^{-.01x}', ScaleFNs.LogLogNeg, shift=2, key='LL01',
                  dividers=[0.95, 0.98], ex_start_value=0.9, ex_end_value=0.9906)
-    LL02 = Scale('LL_02', 'e^{-.1x}', ScaleFNs.LogLogNeg, shift=1, key='LL02',
+    LL02 = Scale('LL_{02}', 'e^{-.1x}', ScaleFNs.LogLogNeg, shift=1, key='LL02',
                  dividers=[0.8, 0.9], ex_start_value=0.35, ex_end_value=0.91, marks=[Marks.inv_e])
-    LL03 = Scale('LL_03', 'e^{-x}', ScaleFNs.LogLogNeg, key='LL03',
+    LL03 = Scale('LL_{03}', 'e^{-x}', ScaleFNs.LogLogNeg, key='LL03',
                  dividers=[5e-4, 1e-3, 1e-2, 0.1], ex_start_value=1e-4, ex_end_value=0.39, marks=[Marks.inv_e])
     LL_0, LL_1, LL_2, LL_3 = LL00.renamed('LL/0'), LL01.renamed('LL/1'), LL02.renamed('LL/2'), LL03.renamed('LL/3')
-    P = Scale('P', '\\sqrt{1-(.1x)^2}', ScaleFNs.Pythagorean, key='P',
+    P = Scale('P', '\\sqrt{1-.1x^2}', ScaleFNs.Pythagorean, key='P',
               dividers=[0.3, 0.6, 0.8, 0.9, 0.98, 0.99], ex_start_value=0.1, ex_end_value=.995)
     P1 = P.renamed('P_1')
-    P2 = replace(P, left_sym='P_2', key='P_2', right_sym='\sqrt{1-(.01x)^2}', shift=1,
+    P2 = replace(P, left_sym='P_2', key='P_2', right_sym='\\sqrt{1-.01x^2}', shift=1,
                  dividers=[0.999, 0.9998], ex_start_value=P1.ex_end_value, ex_end_value=0.99995, numerals=[0.99995])
-    Q1 = Scale('Q_1', '\\sqrt[3]x', ScaleFNs.CubeRoot, marks=[Marks.cube_root_ten], key='Q1')
+    Q1 = Scale('Q_1', '\\sqrt[3]{x}', ScaleFNs.CubeRoot, marks=[Marks.cube_root_ten], key='Q1')
     Q2 = Scale('Q_2', '\\sqrt[3]{10x}', ScaleFNs.CubeRoot, shift=-1, marks=[Marks.cube_root_ten], key='Q2')
     Q3 = Scale('Q_3', '\\sqrt[3]{100x}', ScaleFNs.CubeRoot, shift=-2, marks=[Marks.cube_root_ten], key='Q3')
     R1 = Scale('R_1', '\\sqrt{x}', ScaleFNs.SquareRoot, key='R1', marks=[Marks.sqrt_ten])
     R2 = Scale('R_2', '\\sqrt{10x}', ScaleFNs.SquareRoot, key='R2', shift=-1, marks=R1.marks)
     Sq1, Sq2 = R1.renamed('Sq1'), R2.renamed('Sq2')
-    S = Scale('S', '\\asin x°', ScaleFNs.Sin, mirror_key='CoS')
-    CoS = Scale('C', '\\acos x°', ScaleFNs.CoSin, key='CoS', mirror_key='S')
-    # SRT = Scale('SRT', '∡tan 0.01x', ScaleFNs.SinTanRadians)
-    ST = Scale('ST', '\\atan 0.01x°', ScaleFNs.SinTan)
-    T = Scale('T', '\\atan x°', ScaleFNs.Tan, mirror_key='CoT')
-    CoT = Scale('CoT', '\\acot x°', ScaleFNs.CoTan, key='CoT', is_increasing=False, mirror_key='T', shift=-1)
-    T1 = T.renamed('T1', left_sym='T₁')
-    T2 = replace(T, left_sym='T₂', right_sym='∡tan 0.1x°', key='T2', shift=-1, mirror_key='CoT2')
-    W1 = Scale('W_1', '\\sqrt x', ScaleFNs.SquareRoot, key='W1', opp_key="W1'", dividers=[1, 2],
+    S = Scale('S', '\\sin{x^{\\circ}}', ScaleFNs.Sin, mirror_key='CoS')
+    CoS = Scale('C', '\\cos{x^{\\circ}}', ScaleFNs.CoSin, key='CoS', mirror_key='S')
+    # SRT = Scale('SRT', '\\tan{.01x}', ScaleFNs.SinTanRadians)
+    ST = Scale('ST', '\\tan{.01x^{\\circ}}', ScaleFNs.SinTan)
+    T = Scale('T', '\\tan{x^{\\circ}}', ScaleFNs.Tan, mirror_key='CoT')
+    CoT = Scale('CoT', '\\cot{x^{\\circ}}', ScaleFNs.CoTan, key='CoT', is_increasing=False, mirror_key='T', shift=-1)
+    T1 = T.renamed('T1', left_sym='T_1')
+    T2 = replace(T, left_sym='T_2', right_sym='\\tan{.1x^{\\circ}}', key='T2', shift=-1, mirror_key='CoT2')
+    W1 = Scale('W_1', '\\sqrt{x}', ScaleFNs.SquareRoot, key='W1', opp_key="W1'", dividers=[1, 2],
                ex_start_value=0.95, ex_end_value=3.38, marks=[Marks.sqrt_ten])
-    W1Prime = W1.renamed("W1'", left_sym="W'₁", opp_key='W1')
+    W1Prime = W1.renamed("W1'", left_sym="W^{\prime}_1", opp_key='W1')
     W2 = Scale('W_2', '\\sqrt{10x}', ScaleFNs.SquareRoot, key='W2', shift=-1, opp_key="W2'", dividers=[5],
                ex_start_value=3, ex_end_value=10.66, marks=W1.marks)
-    W2Prime = W2.renamed("W2'", left_sym="W'₂", opp_key='W2')
+    W2Prime = W2.renamed("W2'", left_sym="W^{\prime}_2", opp_key='W2')
 
-    H1 = Scale('H_1', '\\sqrt{1+(.1x)^2}', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1], numerals=[1.005])
+    H1 = Scale('H_1', '\\sqrt{1+.1x^2}', ScaleFNs.Hyperbolic, key='H1', shift=1, dividers=[1.03, 1.1], numerals=[1.005])
     H2 = Scale('H_2', '\\sqrt{1+x^2}', ScaleFNs.Hyperbolic, key='H2', dividers=[4])
-    SH1 = Scale('Sh_1', '\\sinh x', ScaleFNs.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
-    SH2 = Scale('Sh_2', '\\sinh x', ScaleFNs.SinH, key='Sh2')
-    CH1 = Scale('Ch', '\\cosh x', ScaleFNs.CosH, dividers=[1, 2], ex_start_value=0.01)
-    TH = Scale('Th', '\\tanh x', ScaleFNs.TanH, shift=1, dividers=[0.2, 0.4, 1, 2], ex_end_value=3)
+    SH1 = Scale('Sh_1', '\\sinh{x}', ScaleFNs.SinH, key='Sh1', shift=1, dividers=[0.2, 0.4])
+    SH2 = Scale('Sh_2', '\\sinh{x}', ScaleFNs.SinH, key='Sh2')
+    CH1 = Scale('Ch', '\\cosh{x}', ScaleFNs.CosH, dividers=[1, 2], ex_start_value=0.01)
+    TH = Scale('Th', '\\tanh{x}', ScaleFNs.TanH, shift=1, dividers=[0.2, 0.4, 1, 2], ex_end_value=3)
 
     Const = Scale('Const', '', ScaleFNs.Base,
                   marks=[Marks.e, Marks.pi, Marks.tau, Marks.deg_per_rad, Marks.rad_per_deg, Marks.c])
@@ -1766,15 +1770,15 @@ def gen_scale(r: Renderer, y_off: int, sc: Scale, al=None, side: Side = None):
     alt_col = s.fg_col(sc_alt.key, is_increasing=not sc_alt.is_increasing) if sc_alt else None
 
     # Right
-    f_lbl_r = f_lbl_s if len(sc.right_sym) > 6 else f_lbl
+    f_lbl_r = f_lbl_s if re.match(r'\\(?!pi)', sc.right_sym) else f_lbl
     _, h2 = s.sym_dims(sc.right_sym, f_lbl_r)
     y2 = (g.SH - h2) // 2  # Ignore custom height/spacing for legend symbols
     if s.right_sym:
         x_right = round((1 + label_offset_frac) * scale_w)
-        r.draw_expression(sc.right_sym, y_off, sym_col, h, x_right, y2, f_lbl_r, al, h_al=HAlign.R)
+        r.draw_expression(sc.right_sym, y_off, sym_col, h, x_right, y2, f_lbl_r, al)
         if sc_alt or sc == Scales.ST:
-            right_sym = sc_alt.right_sym if sc_alt else '\\asin 0.01x°'
-            r.draw_expression(right_sym, y_off, alt_col or sym_col, h, x_right, round(y2 - h2 * 0.8), f_lbl_r, al, h_al=HAlign.R)
+            right_sym = sc_alt.right_sym if sc_alt else '\\sin{.01x^{\\circ}}'
+            r.draw_expression(right_sym, y_off, alt_col or sym_col, h, x_right, round(y2 - h2 * 0.8), f_lbl_r, al)
 
     # Left
     (left_sym, _, subscript) = Sym.parts_of(sc.left_sym)
